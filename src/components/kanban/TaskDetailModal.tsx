@@ -1,4 +1,4 @@
-import { type KanbanTask, type Priority, type Status } from '@/hooks/useKanbanData';
+import type { TaskWithAssignees, TaskPriority, TaskStatus } from '@/hooks/useProjectData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,14 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Calendar, User, Flag, Tag, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 
-const priorityOptions: { value: Priority; label: string }[] = [
+const priorityOptions: { value: TaskPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
   { value: 'medium', label: 'Média' },
   { value: 'high', label: 'Alta' },
   { value: 'critical', label: 'Crítica' },
 ];
 
-const statusOptions: { value: Status; label: string }[] = [
+const statusOptions: { value: TaskStatus; label: string }[] = [
   { value: 'backlog', label: 'Backlog' },
   { value: 'todo', label: 'A Fazer' },
   { value: 'in_progress', label: 'Em Progresso' },
@@ -25,16 +25,18 @@ const statusOptions: { value: Status; label: string }[] = [
 ];
 
 interface Props {
-  task: KanbanTask;
+  task: TaskWithAssignees;
   open: boolean;
   onClose: () => void;
-  onUpdate: (updates: Partial<KanbanTask>) => void;
+  onUpdate: (updates: Record<string, unknown>) => void;
 }
 
 export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [comment, setComment] = useState('');
+
+  const assigneeName = task.task_assignees?.[0]?.profiles?.full_name || 'Não atribuído';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -44,7 +46,6 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Title */}
           <Input
             value={title}
             onChange={e => setTitle(e.target.value)}
@@ -52,13 +53,12 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
             className="text-lg font-semibold border-0 px-0 focus-visible:ring-0 bg-transparent"
           />
 
-          {/* Meta row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <Flag className="h-3 w-3" /> Prioridade
               </Label>
-              <Select value={task.priority} onValueChange={(v: Priority) => onUpdate({ priority: v })}>
+              <Select value={task.priority} onValueChange={(v) => onUpdate({ priority: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {priorityOptions.map(o => (
@@ -72,7 +72,7 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <Tag className="h-3 w-3" /> Status
               </Label>
-              <Select value={task.status} onValueChange={(v: Status) => onUpdate({ status: v })}>
+              <Select value={task.status} onValueChange={(v) => onUpdate({ status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {statusOptions.map(o => (
@@ -86,7 +86,7 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <User className="h-3 w-3" /> Responsável
               </Label>
-              <p className="text-sm">{task.assignee || 'Não atribuído'}</p>
+              <p className="text-sm">{assigneeName}</p>
             </div>
 
             <div className="space-y-2">
@@ -95,22 +95,22 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
               </Label>
               <Input
                 type="date"
-                value={task.dueDate || ''}
-                onChange={e => onUpdate({ dueDate: e.target.value })}
+                value={task.due_date || ''}
+                onChange={e => onUpdate({ due_date: e.target.value || null })}
               />
             </div>
           </div>
 
-          {/* Labels */}
-          {task.labels.length > 0 && (
+          {task.task_label_assignments?.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {task.labels.map(l => (
-                <Badge key={l} variant="secondary" className="text-xs">{l}</Badge>
+              {task.task_label_assignments.map(la => (
+                <Badge key={la.label_id} variant="secondary" className="text-xs">
+                  {la.task_labels?.name}
+                </Badge>
               ))}
             </div>
           )}
 
-          {/* Description */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Descrição</Label>
             <Textarea
@@ -122,7 +122,6 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
             />
           </div>
 
-          {/* Comments placeholder */}
           <div className="space-y-3 border-t pt-4">
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
               <MessageSquare className="h-3 w-3" /> Comentários

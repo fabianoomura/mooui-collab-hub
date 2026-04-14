@@ -1,12 +1,12 @@
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { useKanbanData, type KanbanColumn, type KanbanTask, type Status } from '@/hooks/useKanbanData';
+import { useProjectTasks, type KanbanColumn, type TaskWithAssignees, type TaskStatus } from '@/hooks/useProjectData';
 import { KanbanCard } from './KanbanCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Plus, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-const statusColors: Record<Status, string> = {
+const statusColors: Record<TaskStatus, string> = {
   backlog: 'bg-muted-foreground/20',
   todo: 'bg-info/20',
   in_progress: 'bg-warning/20',
@@ -14,7 +14,7 @@ const statusColors: Record<Status, string> = {
   done: 'bg-success/20',
 };
 
-const statusDotColors: Record<Status, string> = {
+const statusDotColors: Record<TaskStatus, string> = {
   backlog: 'bg-muted-foreground',
   todo: 'bg-info',
   in_progress: 'bg-warning',
@@ -22,32 +22,51 @@ const statusDotColors: Record<Status, string> = {
   done: 'bg-success',
 };
 
-export function KanbanBoard() {
-  const { columns, moveTask, addTask, updateTask } = useKanbanData();
-  const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
+interface Props {
+  projectId: string | undefined;
+}
+
+export function KanbanBoard({ projectId }: Props) {
+  const { columns, isLoading, moveTask, addTask, updateTask } = useProjectTasks(projectId);
+  const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-    const taskId = result.draggableId;
-    const newStatus = result.destination.droppableId as Status;
-    const newIndex = result.destination.index;
-    moveTask(taskId, newStatus, newIndex);
+    moveTask.mutate({
+      taskId: result.draggableId,
+      newStatus: result.destination.droppableId as TaskStatus,
+      newPosition: result.destination.index,
+    });
   };
 
-  const handleQuickAdd = (status: Status) => {
+  const handleQuickAdd = (status: TaskStatus) => {
     const title = prompt('Título da tarefa:');
     if (title?.trim()) {
-      addTask({ title: title.trim(), status, priority: 'medium', labels: [] });
+      addTask.mutate(
+        { title: title.trim(), status, priority: 'medium' },
+        { onSuccess: () => toast.success('Tarefa criada!') }
+      );
     }
   };
 
+  if (!projectId) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        <p>Selecione um projeto para ver o quadro Kanban</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Quadro Kanban</h1>
-        <p className="text-muted-foreground text-sm mt-1">Operações MOOUI</p>
-      </div>
-
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map((column) => (
@@ -69,8 +88,7 @@ export function KanbanBoard() {
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
           onUpdate={(updates) => {
-            updateTask(selectedTask.id, updates);
-            setSelectedTask(prev => prev ? { ...prev, ...updates } : null);
+            updateTask.mutate({ taskId: selectedTask.id, updates });
           }}
         />
       )}
@@ -79,16 +97,12 @@ export function KanbanBoard() {
 }
 
 function KanbanColumnView({
-  column,
-  statusColor,
-  dotColor,
-  onCardClick,
-  onQuickAdd,
+  column, statusColor, dotColor, onCardClick, onQuickAdd,
 }: {
   column: KanbanColumn;
   statusColor: string;
   dotColor: string;
-  onCardClick: (task: KanbanTask) => void;
+  onCardClick: (task: TaskWithAssignees) => void;
   onQuickAdd: () => void;
 }) {
   return (

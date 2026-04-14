@@ -1,19 +1,22 @@
-import { type KanbanTask, type Priority } from '@/hooks/useKanbanData';
+import type { TaskWithAssignees, TaskPriority } from '@/hooks/useProjectData';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from 'lucide-react';
 
-const priorityConfig: Record<Priority, { label: string; className: string }> = {
+const priorityConfig: Record<TaskPriority, { label: string; className: string }> = {
   critical: { label: 'Crítica', className: 'bg-priority-critical text-destructive-foreground' },
   high: { label: 'Alta', className: 'bg-priority-high text-warning-foreground' },
   medium: { label: 'Média', className: 'bg-priority-medium text-warning-foreground' },
   low: { label: 'Baixa', className: 'bg-priority-low text-success-foreground' },
 };
 
-export function KanbanCard({ task, isDragging }: { task: KanbanTask; isDragging: boolean }) {
+export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDragging: boolean }) {
   const priority = priorityConfig[task.priority];
-
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+  const assignee = task.task_assignees?.[0];
+  const initials = assignee?.profiles?.full_name
+    ?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '';
+  const labels = task.task_label_assignments || [];
 
   return (
     <div className={`kanban-card p-3 cursor-pointer ${isDragging ? 'shadow-lg ring-2 ring-primary/30 rotate-2' : ''}`}>
@@ -24,11 +27,15 @@ export function KanbanCard({ task, isDragging }: { task: KanbanTask; isDragging:
         </Badge>
       </div>
 
-      {task.labels.length > 0 && (
+      {labels.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {task.labels.map(label => (
-            <span key={label} className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
-              {label}
+          {labels.map(la => (
+            <span
+              key={la.label_id}
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: la.task_labels?.color + '20', color: la.task_labels?.color }}
+            >
+              {la.task_labels?.name}
             </span>
           ))}
         </div>
@@ -36,17 +43,17 @@ export function KanbanCard({ task, isDragging }: { task: KanbanTask; isDragging:
 
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-1.5">
-          {task.dueDate && (
+          {task.due_date && (
             <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
               <Calendar className="h-3 w-3" />
-              {new Date(task.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+              {new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
             </span>
           )}
         </div>
-        {task.assigneeInitials && (
+        {initials && (
           <Avatar className="h-6 w-6">
             <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-              {task.assigneeInitials}
+              {initials}
             </AvatarFallback>
           </Avatar>
         )}
