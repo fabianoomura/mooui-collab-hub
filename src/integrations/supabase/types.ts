@@ -403,6 +403,7 @@ export type Database = {
           project_id: string
           sprint_id: string | null
           status: Database["public"]["Enums"]["task_status"]
+          ticket_number: string | null
           title: string
           updated_at: string
         }
@@ -417,6 +418,7 @@ export type Database = {
           project_id: string
           sprint_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          ticket_number?: string | null
           title: string
           updated_at?: string
         }
@@ -431,6 +433,7 @@ export type Database = {
           project_id?: string
           sprint_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          ticket_number?: string | null
           title?: string
           updated_at?: string
         }
