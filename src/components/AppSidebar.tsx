@@ -1,4 +1,4 @@
-import { LayoutDashboard, Columns3, FolderKanban, Users, Timer, LogOut } from 'lucide-react';
+import { LayoutDashboard, Columns3, FolderKanban, Users, Timer, LogOut, Table2 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const mainNav = [
   { title: 'Painel', url: '/', icon: LayoutDashboard },
+  { title: 'Quadro Principal', url: '/tabela', icon: Table2 },
   { title: 'Quadro Kanban', url: '/kanban', icon: Columns3 },
   { title: 'Sprints', url: '/sprints', icon: Timer },
   { title: 'Projetos', url: '/projetos', icon: FolderKanban },

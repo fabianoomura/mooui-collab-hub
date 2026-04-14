@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import KanbanPage from "./pages/KanbanPage";
+import TableViewPage from "./pages/TableViewPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -56,6 +57,7 @@ const App = () => (
 
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/tabela" element={<TableViewPage />} />
               <Route path="/kanban" element={<KanbanPage />} />
             </Route>
 
