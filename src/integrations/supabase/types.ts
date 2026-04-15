@@ -74,6 +74,47 @@ export type Database = {
         }
         Relationships: []
       }
+      project_columns: {
+        Row: {
+          column_type: string
+          config: Json | null
+          created_at: string
+          id: string
+          name: string
+          position: number
+          project_id: string
+          width: number | null
+        }
+        Insert: {
+          column_type?: string
+          config?: Json | null
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          project_id: string
+          width?: number | null
+        }
+        Update: {
+          column_type?: string
+          config?: Json | null
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           created_at: string
@@ -319,6 +360,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_custom_values: {
+        Row: {
+          column_id: string
+          created_at: string
+          id: string
+          task_id: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          column_id: string
+          created_at?: string
+          id?: string
+          task_id: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          column_id?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_custom_values_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "project_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_custom_values_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
