@@ -597,6 +597,8 @@ export default function TableViewPage() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
   const [searchParams, setSearchParams] = useSearchParams();
+  const projectFromUrl = searchParams.get('projeto');
+
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [sidePanelTask, setSidePanelTask] = useState<{ task: TaskWithAssignees; parent?: TaskWithAssignees } | null>(null);
@@ -610,7 +612,6 @@ export default function TableViewPage() {
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
   const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
 
-  // Custom label configs stored in localStorage per project (could be moved to DB)
   const [statusLabelsConfig, setStatusLabelsConfig] = useState<LabelOption[]>(() => {
     const saved = localStorage.getItem(`mooui_status_labels_${projectFromUrl}`);
     if (saved) return JSON.parse(saved);
@@ -636,17 +637,16 @@ export default function TableViewPage() {
 
   const handleSaveStatusLabels = (labels: LabelOption[]) => {
     setStatusLabelsConfig(labels);
-    localStorage.setItem(`mooui_status_labels_${activeProjectId}`, JSON.stringify(labels));
+    localStorage.setItem(`mooui_status_labels_${projectFromUrl}`, JSON.stringify(labels));
     toast.success('Etiquetas de status atualizadas!');
   };
 
   const handleSavePriorityLabels = (labels: LabelOption[]) => {
     setPriorityLabelsConfig(labels);
-    localStorage.setItem(`mooui_priority_labels_${activeProjectId}`, JSON.stringify(labels));
+    localStorage.setItem(`mooui_priority_labels_${projectFromUrl}`, JSON.stringify(labels));
     toast.success('Etiquetas de prioridade atualizadas!');
   };
 
-  const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
   const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
