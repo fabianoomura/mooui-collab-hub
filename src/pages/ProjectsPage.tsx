@@ -1,4 +1,5 @@
-import { useProjects, useCreateProject } from '@/hooks/useProjectData';
+import { useProjectsByOrg, useCreateProject } from '@/hooks/useProjectData';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +7,8 @@ import { Plus, FolderKanban, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ProjectsPage() {
-  const { data: projects, isLoading } = useProjects();
+  const { currentOrg } = useOrganization();
+  const { data: projects, isLoading } = useProjectsByOrg(currentOrg?.id);
   const createProject = useCreateProject();
 
   const handleCreateProject = () => {
@@ -14,7 +16,7 @@ export default function ProjectsPage() {
     if (name?.trim()) {
       const description = prompt('Descrição (opcional):') || '';
       createProject.mutate(
-        { name: name.trim(), description: description || undefined },
+        { name: name.trim(), description: description || undefined, organizationId: currentOrg?.id },
         { onSuccess: () => toast.success('Projeto criado!') }
       );
     }
