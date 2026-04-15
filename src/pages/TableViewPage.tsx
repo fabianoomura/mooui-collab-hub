@@ -872,6 +872,9 @@ export default function TableViewPage() {
                         onAddSubtask={(parentId) => handleQuickAdd('todo', parentId)}
                         dynamicColumns={dynamicColumns} customValues={customValues}
                         onSetCustomValue={handleSetCustomValue}
+                        statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
+                        onEditStatusLabels={() => setEditingLabelType('status')}
+                        onEditPriorityLabels={() => setEditingLabelType('priority')}
                       />
                     ))}
 
