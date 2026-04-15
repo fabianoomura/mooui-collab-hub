@@ -6,8 +6,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, User } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, User, X } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TaskDetailModal } from '@/components/kanban/TaskDetailModal';
@@ -55,6 +56,13 @@ const monthNames = [
   'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
   'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
 ];
+
+type SortField = 'title' | 'priority' | 'status' | 'due_date' | 'created_at';
+type SortDir = 'asc' | 'desc';
+type GroupBy = 'month' | 'status' | 'priority' | 'none';
+
+const priorityOrder: Record<TaskPriority, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const statusOrder: Record<TaskStatus, number> = { backlog: 0, todo: 1, in_progress: 2, in_review: 3, done: 4 };
 
 function getInitials(name: string | null): string {
   if (!name) return '?';
@@ -174,6 +182,188 @@ function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: str
   );
 }
 
+// Filter popover for status/priority
+function FilterPopover({
+  filterStatus, setFilterStatus,
+  filterPriority, setFilterPriority,
+}: {
+  filterStatus: Set<TaskStatus>; setFilterStatus: (s: Set<TaskStatus>) => void;
+  filterPriority: Set<TaskPriority>; setFilterPriority: (s: Set<TaskPriority>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const activeCount = filterStatus.size + filterPriority.size;
+
+  const toggleStatus = (s: TaskStatus) => {
+    const next = new Set(filterStatus);
+    next.has(s) ? next.delete(s) : next.add(s);
+    setFilterStatus(next);
+  };
+  const togglePriority = (p: TaskPriority) => {
+    const next = new Set(filterPriority);
+    next.has(p) ? next.delete(p) : next.add(p);
+    setFilterPriority(next);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs relative">
+          <SlidersHorizontal className="h-3.5 w-3.5" /> Filtro
+          {activeCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center">
+              {activeCount}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3" align="start">
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Status</p>
+            {(['backlog', 'todo', 'in_progress', 'in_review', 'done'] as TaskStatus[]).map(s => (
+              <label key={s} className="flex items-center gap-2 py-1 cursor-pointer">
+                <Checkbox checked={filterStatus.has(s)} onCheckedChange={() => toggleStatus(s)} />
+                <span className={`text-xs px-2 py-0.5 rounded-sm ${statusCellColors[s]}`}>{statusLabels[s]}</span>
+              </label>
+            ))}
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Prioridade</p>
+            {(['critical', 'high', 'medium', 'low'] as TaskPriority[]).map(p => (
+              <label key={p} className="flex items-center gap-2 py-1 cursor-pointer">
+                <Checkbox checked={filterPriority.has(p)} onCheckedChange={() => togglePriority(p)} />
+                <span className={`text-xs px-2 py-0.5 rounded-sm ${priorityCellColors[p]}`}>{priorityLabels[p]}</span>
+              </label>
+            ))}
+          </div>
+          {activeCount > 0 && (
+            <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => { setFilterStatus(new Set()); setFilterPriority(new Set()); }}>
+              <X className="h-3 w-3 mr-1" /> Limpar filtros
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Sort popover
+function SortPopover({ sortField, sortDir, onSort }: {
+  sortField: SortField | null; sortDir: SortDir;
+  onSort: (field: SortField | null, dir: SortDir) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const fields: { value: SortField; label: string }[] = [
+    { value: 'title', label: 'Nome' },
+    { value: 'priority', label: 'Prioridade' },
+    { value: 'status', label: 'Status' },
+    { value: 'due_date', label: 'Data Ação' },
+    { value: 'created_at', label: 'Abertura' },
+  ];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className={`gap-1.5 text-xs ${sortField ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+          <ArrowUpDown className="h-3.5 w-3.5" /> Ordenar
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-2" align="start">
+        {fields.map(f => (
+          <button
+            key={f.value}
+            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent ${sortField === f.value ? 'bg-accent font-medium' : ''}`}
+            onClick={() => {
+              if (sortField === f.value) {
+                onSort(f.value, sortDir === 'asc' ? 'desc' : 'asc');
+              } else {
+                onSort(f.value, 'asc');
+              }
+              setOpen(false);
+            }}
+          >
+            {f.label} {sortField === f.value && (sortDir === 'asc' ? '↑' : '↓')}
+          </button>
+        ))}
+        {sortField && (
+          <button
+            className="w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent text-destructive mt-1"
+            onClick={() => { onSort(null, 'asc'); setOpen(false); }}
+          >
+            <X className="h-3 w-3 inline mr-1" /> Remover ordenação
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Group by popover
+function GroupByPopover({ groupBy, onGroupBy }: { groupBy: GroupBy; onGroupBy: (g: GroupBy) => void }) {
+  const [open, setOpen] = useState(false);
+  const options: { value: GroupBy; label: string }[] = [
+    { value: 'month', label: 'Mês' },
+    { value: 'status', label: 'Status' },
+    { value: 'priority', label: 'Prioridade' },
+    { value: 'none', label: 'Sem agrupamento' },
+  ];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
+          <LayoutGrid className="h-3.5 w-3.5" /> Agrupar por
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-44 p-2" align="start">
+        {options.map(o => (
+          <button
+            key={o.value}
+            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent ${groupBy === o.value ? 'bg-accent font-medium' : ''}`}
+            onClick={() => { onGroupBy(o.value); setOpen(false); }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Column visibility
+const ALL_COLUMNS = ['due_date', 'priority', 'status', 'assignee', 'created_at', 'ticket'] as const;
+type ColumnKey = typeof ALL_COLUMNS[number];
+const columnLabels: Record<ColumnKey, string> = {
+  due_date: 'Data Ação',
+  priority: 'Prioridade',
+  status: 'Status',
+  assignee: 'Responsável',
+  created_at: 'Abertura',
+  ticket: 'Nº Ticket',
+};
+
+function HideColumnsPopover({ visible, onToggle }: { visible: Set<ColumnKey>; onToggle: (col: ColumnKey) => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
+          <Eye className="h-3.5 w-3.5" /> Ocultar
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-2" align="start">
+        {ALL_COLUMNS.map(col => (
+          <label key={col} className="flex items-center gap-2 py-1 cursor-pointer px-2">
+            <Checkbox checked={visible.has(col)} onCheckedChange={() => onToggle(col)} />
+            <span className="text-xs">{columnLabels[col]}</span>
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function TableViewPage() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
@@ -182,12 +372,17 @@ export default function TableViewPage() {
   const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<Set<TaskStatus>>(new Set());
+  const [filterPriority, setFilterPriority] = useState<Set<TaskPriority>>(new Set());
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [groupBy, setGroupBy] = useState<GroupBy>('month');
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(ALL_COLUMNS));
 
   const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
   const { columns, tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
 
-  // Collect all unique assignee user_ids for profile lookup
   const allAssigneeIds = useMemo(() => {
     const ids = new Set<string>();
     tasks.forEach(t => t.task_assignees.forEach(a => ids.add(a.user_id)));
@@ -196,30 +391,72 @@ export default function TableViewPage() {
 
   const { data: profilesMap } = useAssigneeProfiles(allAssigneeIds);
 
-  // Filter by search text
+  // Apply filters
   const filteredTasks = useMemo(() => {
-    if (!searchText.trim()) return tasks;
-    const lower = searchText.toLowerCase();
-    return tasks.filter(t => t.title.toLowerCase().includes(lower));
-  }, [tasks, searchText]);
+    let result = tasks;
+    if (searchText.trim()) {
+      const lower = searchText.toLowerCase();
+      result = result.filter(t => t.title.toLowerCase().includes(lower));
+    }
+    if (filterStatus.size > 0) {
+      result = result.filter(t => filterStatus.has(t.status));
+    }
+    if (filterPriority.size > 0) {
+      result = result.filter(t => filterPriority.has(t.priority));
+    }
+    return result;
+  }, [tasks, searchText, filterStatus, filterPriority]);
 
-  // Group by month (using due_date, fallback to created_at)
-  const monthGroups = useMemo(() => {
+  // Apply sorting
+  const sortedTasks = useMemo(() => {
+    if (!sortField) return filteredTasks;
+    const sorted = [...filteredTasks].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'title': cmp = a.title.localeCompare(b.title, 'pt-BR'); break;
+        case 'priority': cmp = priorityOrder[a.priority] - priorityOrder[b.priority]; break;
+        case 'status': cmp = statusOrder[a.status] - statusOrder[b.status]; break;
+        case 'due_date': cmp = (a.due_date || '').localeCompare(b.due_date || ''); break;
+        case 'created_at': cmp = a.created_at.localeCompare(b.created_at); break;
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+    return sorted;
+  }, [filteredTasks, sortField, sortDir]);
+
+  // Apply grouping
+  const groups = useMemo(() => {
     const grouped = new Map<string, TaskWithAssignees[]>();
-    filteredTasks.forEach(task => {
-      const key = getMonthYearKey(task.due_date || task.created_at);
+
+    sortedTasks.forEach(task => {
+      let key: string;
+      switch (groupBy) {
+        case 'month': key = getMonthYearKey(task.due_date || task.created_at); break;
+        case 'status': key = task.status; break;
+        case 'priority': key = task.priority; break;
+        case 'none': key = 'all'; break;
+      }
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(task);
     });
-    // Sort groups by date key
-    const sorted = Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
-    return sorted.map(([key, tasks], i) => ({
-      key,
-      label: getMonthYearLabel(key),
-      tasks,
-      color: groupColors[i % groupColors.length],
-    }));
-  }, [filteredTasks]);
+
+    const entries = Array.from(grouped.entries()).sort(([a], [b]) => {
+      if (groupBy === 'status') return statusOrder[a as TaskStatus] - statusOrder[b as TaskStatus];
+      if (groupBy === 'priority') return priorityOrder[a as TaskPriority] - priorityOrder[b as TaskPriority];
+      return a.localeCompare(b);
+    });
+
+    return entries.map(([key, tasks], i) => {
+      let label: string;
+      switch (groupBy) {
+        case 'month': label = getMonthYearLabel(key); break;
+        case 'status': label = statusLabels[key as TaskStatus] || key; break;
+        case 'priority': label = priorityLabels[key as TaskPriority] || key; break;
+        case 'none': label = 'Todos os elementos'; break;
+      }
+      return { key, label, tasks, color: groupColors[i % groupColors.length] };
+    });
+  }, [sortedTasks, groupBy]);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
@@ -229,9 +466,15 @@ export default function TableViewPage() {
     });
   };
 
-  const setSelectedProject = (id: string) => {
-    setSearchParams({ projeto: id });
-  };
+  const toggleColumn = useCallback((col: ColumnKey) => {
+    setVisibleColumns(prev => {
+      const next = new Set(prev);
+      next.has(col) ? next.delete(col) : next.add(col);
+      return next;
+    });
+  }, []);
+
+  const setSelectedProject = (id: string) => setSearchParams({ projeto: id });
 
   const handleCreateProject = () => {
     const name = prompt('Nome do projeto:');
@@ -259,79 +502,87 @@ export default function TableViewPage() {
 
   const activeProject = projects?.find(p => p.id === activeProjectId);
 
+  // Build grid template based on visible columns
+  const gridCols = useMemo(() => {
+    const cols = ['3px', '1fr'];
+    if (visibleColumns.has('due_date')) cols.push('110px');
+    if (visibleColumns.has('priority')) cols.push('100px');
+    if (visibleColumns.has('status')) cols.push('120px');
+    if (visibleColumns.has('assignee')) cols.push('100px');
+    if (visibleColumns.has('created_at')) cols.push('100px');
+    if (visibleColumns.has('ticket')) cols.push('100px');
+    return cols.join(' ');
+  }, [visibleColumns]);
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {projects && projects.length > 0 && (
-            <Select value={activeProjectId} onValueChange={setSelectedProject}>
-              <SelectTrigger className="w-56 border-0 bg-transparent text-xl font-bold text-foreground h-auto py-0">
-                <SelectValue placeholder="Selecione um projeto" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <span className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                      {p.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {!projects?.length && <h1 className="text-xl font-bold text-foreground">Quadro Principal</h1>}
-        </div>
+    <div className="space-y-3">
+      {/* Header - project name like Monday */}
+      <div className="flex items-center gap-3">
+        {projects && projects.length > 0 ? (
+          <Select value={activeProjectId} onValueChange={setSelectedProject}>
+            <SelectTrigger className="w-auto border-0 bg-transparent text-xl font-bold text-foreground h-auto py-0 gap-2">
+              <SelectValue placeholder="Selecione um projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              {[...projects].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true })).map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                    {p.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <h1 className="text-xl font-bold text-foreground">Quadro Principal</h1>
+        )}
       </div>
 
-      {/* Monday.com-style Toolbar */}
+      {/* Monday.com Toolbar */}
       {activeProjectId && (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap bg-card/50 rounded-lg px-2 py-1.5 border border-border">
           <Button
             onClick={() => handleQuickAdd('todo')}
             size="sm"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium text-xs h-8"
           >
-            <Plus className="h-4 w-4 mr-1" /> Criar elemento
+            <Plus className="h-3.5 w-3.5 mr-1" /> Criar elemento
           </Button>
 
-          <div className="h-6 w-px bg-border mx-1" />
+          <div className="h-5 w-px bg-border mx-1" />
 
           <Button
             variant="ghost"
             size="sm"
-            className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
-            onClick={() => setSearchOpen(!searchOpen)}
+            className={`gap-1.5 text-xs h-8 ${searchOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchText(''); }}
           >
             <Search className="h-3.5 w-3.5" /> Pesquisar
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
-            <User className="h-3.5 w-3.5" /> Pessoa
-          </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Filtro
-          </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
-            <ArrowUpDown className="h-3.5 w-3.5" /> Ordenar
-          </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
-            <Eye className="h-3.5 w-3.5" /> Ocultar
-          </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
-            <LayoutGrid className="h-3.5 w-3.5" /> Agrupar por
-          </Button>
 
-          <div className="flex-1" />
-          <Button onClick={handleCreateProject} variant="outline" size="sm" className="text-xs">
-            <Plus className="h-3.5 w-3.5 mr-1" /> Novo Projeto
-          </Button>
+          <FilterPopover
+            filterStatus={filterStatus}
+            setFilterStatus={setFilterStatus}
+            filterPriority={filterPriority}
+            setFilterPriority={setFilterPriority}
+          />
+
+          <SortPopover
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={(f, d) => { setSortField(f); setSortDir(d); }}
+          />
+
+          <HideColumnsPopover visible={visibleColumns} onToggle={toggleColumn} />
+
+          <GroupByPopover groupBy={groupBy} onGroupBy={setGroupBy} />
         </div>
       )}
 
       {/* Search bar */}
       {searchOpen && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-1">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar elementos..."
@@ -340,6 +591,11 @@ export default function TableViewPage() {
             className="max-w-sm h-8 text-sm"
             autoFocus
           />
+          {searchText && (
+            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setSearchText('')}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       )}
 
@@ -361,8 +617,8 @@ export default function TableViewPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-6">
-          {monthGroups.map((group) => {
+        <div className="space-y-5">
+          {groups.map((group) => {
             const isCollapsed = collapsedGroups.has(group.key);
             return (
               <div key={group.key}>
@@ -387,18 +643,16 @@ export default function TableViewPage() {
                     {/* Column headers */}
                     <div
                       className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border"
-                      style={{
-                        gridTemplateColumns: '3px 1fr 110px 100px 120px 100px 100px 100px',
-                      }}
+                      style={{ gridTemplateColumns: gridCols }}
                     >
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-2">Elemento</span>
-                      <span className="px-2 py-2 text-center">Data Ação</span>
-                      <span className="px-2 py-2 text-center">Prioridade</span>
-                      <span className="px-2 py-2 text-center">Status</span>
-                      <span className="px-2 py-2 text-center">Responsável</span>
-                      <span className="px-2 py-2 text-center">Abertura</span>
-                      <span className="px-2 py-2 text-center">Nº Ticket</span>
+                      {visibleColumns.has('due_date') && <span className="px-2 py-2 text-center">Data Ação</span>}
+                      {visibleColumns.has('priority') && <span className="px-2 py-2 text-center">Prioridade</span>}
+                      {visibleColumns.has('status') && <span className="px-2 py-2 text-center">Status</span>}
+                      {visibleColumns.has('assignee') && <span className="px-2 py-2 text-center">Responsável</span>}
+                      {visibleColumns.has('created_at') && <span className="px-2 py-2 text-center">Abertura</span>}
+                      {visibleColumns.has('ticket') && <span className="px-2 py-2 text-center">Nº Ticket</span>}
                     </div>
 
                     {/* Task rows */}
@@ -406,89 +660,87 @@ export default function TableViewPage() {
                       <div
                         key={task.id}
                         className="grid items-center border-b border-border last:border-b-0 hover:bg-accent/30 cursor-pointer transition-colors text-sm"
-                        style={{
-                          gridTemplateColumns: '3px 1fr 110px 100px 120px 100px 100px 100px',
-                        }}
+                        style={{ gridTemplateColumns: gridCols }}
                         onClick={() => setSelectedTask(task)}
                       >
                         <div style={{ backgroundColor: group.color }} className="h-full" />
                         <span className="px-3 py-2 font-medium text-foreground truncate">{task.title}</span>
-                        <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-                          {formatDateShort(task.due_date)}
-                        </span>
-                        <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
-                          <PriorityCell
-                            value={task.priority}
-                            onChange={(v) => handleInlineUpdate(task.id, { priority: v })}
-                          />
-                        </div>
-                        <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
-                          <StatusCell
-                            value={task.status}
-                            onChange={(v) => handleInlineUpdate(task.id, { status: v })}
-                          />
-                        </div>
-                        <div className="px-1 py-1">
-                          <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap || new Map()} />
-                        </div>
-                        <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-                          {formatDateShort(task.created_at)}
-                        </span>
-                        <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-                          {task.ticket_number || '—'}
-                        </span>
+                        {visibleColumns.has('due_date') && (
+                          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+                            {formatDateShort(task.due_date)}
+                          </span>
+                        )}
+                        {visibleColumns.has('priority') && (
+                          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+                            <PriorityCell
+                              value={task.priority}
+                              onChange={(v) => handleInlineUpdate(task.id, { priority: v })}
+                            />
+                          </div>
+                        )}
+                        {visibleColumns.has('status') && (
+                          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+                            <StatusCell
+                              value={task.status}
+                              onChange={(v) => handleInlineUpdate(task.id, { status: v })}
+                            />
+                          </div>
+                        )}
+                        {visibleColumns.has('assignee') && (
+                          <div className="px-1 py-1">
+                            <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap || new Map()} />
+                          </div>
+                        )}
+                        {visibleColumns.has('created_at') && (
+                          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+                            {formatDateShort(task.created_at)}
+                          </span>
+                        )}
+                        {visibleColumns.has('ticket') && (
+                          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+                            {task.ticket_number || '—'}
+                          </span>
+                        )}
                       </div>
                     ))}
 
                     {/* Add element row */}
                     <button
                       onClick={() => handleQuickAdd('todo')}
-                      className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5"
+                      className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5 border-b border-border"
                     >
                       <Plus className="h-3.5 w-3.5" /> Adicionar elemento
                     </button>
 
-                    {/* Summary row with color indicators */}
+                    {/* Summary row with color bars */}
                     <div
-                      className="grid items-center border-t border-border bg-muted/20"
-                      style={{
-                        gridTemplateColumns: '3px 1fr 110px 100px 120px 100px 100px 100px',
-                      }}
+                      className="grid items-center bg-muted/20"
+                      style={{ gridTemplateColumns: gridCols }}
                     >
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-1.5" />
-                      <span className="px-2 py-1.5" />
-                      <div className="px-1 py-1.5 flex gap-0.5">
-                        {(['high', 'critical', 'medium', 'low'] as TaskPriority[]).map(p => {
-                          const count = group.tasks.filter(t => t.priority === p).length;
-                          if (count === 0) return null;
-                          return (
-                            <div
-                              key={p}
-                              className={`h-5 rounded-sm ${priorityCellColors[p]}`}
-                              style={{ flex: count }}
-                              title={`${priorityLabels[p]}: ${count}`}
-                            />
-                          );
-                        })}
-                      </div>
-                      <div className="px-1 py-1.5 flex gap-0.5">
-                        {(['done', 'in_progress', 'in_review', 'todo', 'backlog'] as TaskStatus[]).map(s => {
-                          const count = group.tasks.filter(t => t.status === s).length;
-                          if (count === 0) return null;
-                          return (
-                            <div
-                              key={s}
-                              className={`h-5 rounded-sm ${statusCellColors[s]}`}
-                              style={{ flex: count }}
-                              title={`${statusLabels[s]}: ${count}`}
-                            />
-                          );
-                        })}
-                      </div>
-                      <span className="px-2 py-1.5" />
-                      <span className="px-2 py-1.5" />
-                      <span className="px-2 py-1.5" />
+                      {visibleColumns.has('due_date') && <span className="px-2 py-1.5" />}
+                      {visibleColumns.has('priority') && (
+                        <div className="px-1 py-1.5 flex gap-0.5">
+                          {(['critical', 'high', 'medium', 'low'] as TaskPriority[]).map(p => {
+                            const count = group.tasks.filter(t => t.priority === p).length;
+                            if (count === 0) return null;
+                            return <div key={p} className={`h-5 rounded-sm ${priorityCellColors[p]}`} style={{ flex: count }} title={`${priorityLabels[p]}: ${count}`} />;
+                          })}
+                        </div>
+                      )}
+                      {visibleColumns.has('status') && (
+                        <div className="px-1 py-1.5 flex gap-0.5">
+                          {(['done', 'in_progress', 'in_review', 'todo', 'backlog'] as TaskStatus[]).map(s => {
+                            const count = group.tasks.filter(t => t.status === s).length;
+                            if (count === 0) return null;
+                            return <div key={s} className={`h-5 rounded-sm ${statusCellColors[s]}`} style={{ flex: count }} title={`${statusLabels[s]}: ${count}`} />;
+                          })}
+                        </div>
+                      )}
+                      {visibleColumns.has('assignee') && <span className="px-2 py-1.5" />}
+                      {visibleColumns.has('created_at') && <span className="px-2 py-1.5" />}
+                      {visibleColumns.has('ticket') && <span className="px-2 py-1.5" />}
                     </div>
                   </div>
                 )}
@@ -496,11 +748,12 @@ export default function TableViewPage() {
             );
           })}
 
-          {/* Empty when no tasks */}
-          {filteredTasks.length === 0 && !loadingTasks && activeProjectId && (
+          {sortedTasks.length === 0 && !loadingTasks && activeProjectId && (
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="text-center py-12 text-muted-foreground text-sm">
-                {searchText ? 'Nenhum resultado encontrado.' : 'Nenhuma tarefa ainda. Clique em "Criar elemento" para começar.'}
+                {searchText || filterStatus.size || filterPriority.size
+                  ? 'Nenhum resultado encontrado com os filtros aplicados.'
+                  : 'Nenhuma tarefa ainda. Clique em "Criar elemento" para começar.'}
               </div>
             </div>
           )}
