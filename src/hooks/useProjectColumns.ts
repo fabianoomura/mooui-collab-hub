@@ -88,7 +88,7 @@ export function useProjectColumns(projectId: string | undefined) {
   });
 
   const updateColumn = useMutation({
-    mutationFn: async ({ columnId, updates }: { columnId: string; updates: Partial<ProjectColumn> }) => {
+    mutationFn: async ({ columnId, updates }: { columnId: string; updates: { name?: string; position?: number; width?: number; column_type?: string } }) => {
       const { error } = await supabase
         .from('project_columns')
         .update(updates)
