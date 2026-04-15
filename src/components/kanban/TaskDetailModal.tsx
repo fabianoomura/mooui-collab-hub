@@ -1,4 +1,5 @@
 import type { TaskWithAssignees, TaskPriority, TaskStatus } from '@/hooks/useProjectData';
+import { useProjectMembers } from '@/hooks/useProjectMembers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Calendar, User, Flag, Tag, MessageSquare } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Calendar, User, Flag, Tag, MessageSquare, X, UserPlus, Hash } from 'lucide-react';
 import { useState } from 'react';
 
 const priorityOptions: { value: TaskPriority; label: string }[] = [
@@ -18,25 +20,34 @@ const priorityOptions: { value: TaskPriority; label: string }[] = [
 
 const statusOptions: { value: TaskStatus; label: string }[] = [
   { value: 'backlog', label: 'Backlog' },
-  { value: 'todo', label: 'A Fazer' },
-  { value: 'in_progress', label: 'Em Progresso' },
+  { value: 'todo', label: 'Não Iniciado' },
+  { value: 'in_progress', label: 'Em Andamento' },
   { value: 'in_review', label: 'Em Revisão' },
-  { value: 'done', label: 'Concluído' },
+  { value: 'done', label: 'Feito' },
 ];
+
+function getInitials(name: string | null): string {
+  if (!name) return '?';
+  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+}
 
 interface Props {
   task: TaskWithAssignees;
+  projectId: string;
   open: boolean;
   onClose: () => void;
   onUpdate: (updates: Record<string, unknown>) => void;
 }
 
-export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
+export function TaskDetailModal({ task, projectId, open, onClose, onUpdate }: Props) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
+  const [ticketNumber, setTicketNumber] = useState(task.ticket_number || '');
   const [comment, setComment] = useState('');
+  const { members, addAssignee, removeAssignee } = useProjectMembers(projectId);
 
-  const assigneeName = task.task_assignees?.length > 0 ? 'Atribuído' : 'Não atribuído';
+  const assignedUserIds = new Set(task.task_assignees?.map(a => a.user_id) || []);
+  const unassignedMembers = members.filter(m => !assignedUserIds.has(m.user_id));
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -84,13 +95,6 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
 
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <User className="h-3 w-3" /> Responsável
-              </Label>
-              <p className="text-sm">{assigneeName}</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3" /> Data de entrega
               </Label>
               <Input
@@ -99,6 +103,74 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
                 onChange={e => onUpdate({ due_date: e.target.value || null })}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <Hash className="h-3 w-3" /> Nº Ticket
+              </Label>
+              <Input
+                value={ticketNumber}
+                onChange={e => setTicketNumber(e.target.value)}
+                onBlur={() => ticketNumber !== (task.ticket_number || '') && onUpdate({ ticket_number: ticketNumber || null })}
+                placeholder="Ex: MOOUI-001"
+              />
+            </div>
+          </div>
+
+          {/* Assignees section */}
+          <div className="space-y-3">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <User className="h-3 w-3" /> Responsáveis
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {task.task_assignees?.map(a => {
+                const member = members.find(m => m.user_id === a.user_id);
+                const name = member?.profile?.full_name || 'Usuário';
+                return (
+                  <Badge key={a.user_id} variant="secondary" className="flex items-center gap-1.5 py-1 px-2">
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">
+                        {getInitials(name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs">{name}</span>
+                    <button
+                      onClick={() => removeAssignee.mutate({ taskId: task.id, userId: a.user_id })}
+                      className="ml-0.5 hover:text-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+              {assignedUserIds.size === 0 && (
+                <span className="text-sm text-muted-foreground">Nenhum responsável</span>
+              )}
+            </div>
+
+            {unassignedMembers.length > 0 && (
+              <Select onValueChange={(userId) => addAssignee.mutate({ taskId: task.id, userId })}>
+                <SelectTrigger className="w-full">
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <UserPlus className="h-3.5 w-3.5" /> Adicionar responsável
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  {unassignedMembers.map(m => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      <span className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">
+                            {getInitials(m.profile?.full_name || null)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {m.profile?.full_name || 'Usuário'}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {task.task_label_assignments?.length > 0 && (
