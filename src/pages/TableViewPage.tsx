@@ -1,5 +1,6 @@
 import { useProjects, useCreateProject, useProjectTasks, type TaskWithAssignees, type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
 import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
+import { useProjectColumns, type ColumnType, type ProjectColumn } from '@/hooks/useProjectColumns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -7,7 +8,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3 } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -57,6 +59,26 @@ const monthNames = [
   'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
 ];
 
+const columnTypeLabels: Record<ColumnType, string> = {
+  status: 'Status',
+  texto: 'Texto',
+  pessoas: 'Pessoas',
+  cronograma: 'Cronograma',
+  data: 'Data',
+  tags: 'Tags',
+  numeros: 'Números',
+};
+
+const columnTypeIcons: Record<ColumnType, typeof Type> = {
+  status: BarChart3,
+  texto: Type,
+  pessoas: Users,
+  cronograma: Calendar,
+  data: Calendar,
+  tags: Tag,
+  numeros: Hash,
+};
+
 type SortField = 'title' | 'priority' | 'status' | 'due_date' | 'created_at';
 type SortDir = 'asc' | 'desc';
 type GroupBy = 'month' | 'status' | 'priority' | 'none';
@@ -88,28 +110,20 @@ function getMonthYearLabel(key: string): string {
   return `${monthNames[month]} - ${year}`;
 }
 
-// Inline editable status cell
+// Inline editable cells
 function StatusCell({ value, onChange }: { value: TaskStatus; onChange: (v: TaskStatus) => void }) {
   const [open, setOpen] = useState(false);
   const statuses: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${statusCellColors[value]}`}
-          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-        >
+        <button className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${statusCellColors[value]}`} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
           {statusLabels[value]}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-40 p-1" onClick={(e) => e.stopPropagation()}>
         {statuses.map((s) => (
-          <button
-            key={s}
-            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${statusCellColors[s]} hover:opacity-90`}
-            onClick={(e) => { e.stopPropagation(); onChange(s); setOpen(false); }}
-          >
+          <button key={s} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${statusCellColors[s]} hover:opacity-90`} onClick={(e) => { e.stopPropagation(); onChange(s); setOpen(false); }}>
             {statusLabels[s]}
           </button>
         ))}
@@ -121,24 +135,16 @@ function StatusCell({ value, onChange }: { value: TaskStatus; onChange: (v: Task
 function PriorityCell({ value, onChange }: { value: TaskPriority; onChange: (v: TaskPriority) => void }) {
   const [open, setOpen] = useState(false);
   const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical'];
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${priorityCellColors[value]}`}
-          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-        >
+        <button className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${priorityCellColors[value]}`} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
           {priorityLabels[value]}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-36 p-1" onClick={(e) => e.stopPropagation()}>
         {priorities.map((p) => (
-          <button
-            key={p}
-            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${priorityCellColors[p]} hover:opacity-90`}
-            onClick={(e) => { e.stopPropagation(); onChange(p); setOpen(false); }}
-          >
+          <button key={p} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${priorityCellColors[p]} hover:opacity-90`} onClick={(e) => { e.stopPropagation(); onChange(p); setOpen(false); }}>
             {priorityLabels[p]}
           </button>
         ))}
@@ -149,7 +155,6 @@ function PriorityCell({ value, onChange }: { value: TaskPriority; onChange: (v: 
 
 function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: string }[]; profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }> }) {
   if (assignees.length === 0) return <span className="text-muted-foreground text-xs flex items-center justify-center h-full">—</span>;
-
   return (
     <TooltipProvider>
       <div className="flex -space-x-1 justify-center">
@@ -160,9 +165,7 @@ function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: str
             <Tooltip key={a.user_id}>
               <TooltipTrigger asChild>
                 <Avatar className="h-7 w-7 border-2 border-background cursor-default">
-                  <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
-                    {getInitials(name)}
-                  </AvatarFallback>
+                  <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">{getInitials(name)}</AvatarFallback>
                 </Avatar>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-xs">{name}</TooltipContent>
@@ -171,9 +174,7 @@ function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: str
         })}
         {assignees.length > 3 && (
           <Avatar className="h-7 w-7 border-2 border-background">
-            <AvatarFallback className="text-[10px] bg-muted text-muted-foreground">
-              +{assignees.length - 3}
-            </AvatarFallback>
+            <AvatarFallback className="text-[10px] bg-muted text-muted-foreground">+{assignees.length - 3}</AvatarFallback>
           </Avatar>
         )}
       </div>
@@ -181,37 +182,113 @@ function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: str
   );
 }
 
-function FilterPopover({
-  filterStatus, setFilterStatus,
-  filterPriority, setFilterPriority,
-}: {
+// Editable custom value cell
+function CustomValueCell({ value, columnType, onChange }: { value: string; columnType: ColumnType; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [tempVal, setTempVal] = useState(value);
+
+  if (editing) {
+    return (
+      <Input
+        value={tempVal}
+        onChange={e => setTempVal(e.target.value)}
+        onBlur={() => { onChange(tempVal); setEditing(false); }}
+        onKeyDown={e => { if (e.key === 'Enter') { onChange(tempVal); setEditing(false); } if (e.key === 'Escape') { setTempVal(value); setEditing(false); } }}
+        className="h-7 text-xs px-2 border-primary"
+        autoFocus
+        onClick={e => e.stopPropagation()}
+        type={columnType === 'numeros' ? 'number' : columnType === 'data' ? 'date' : 'text'}
+      />
+    );
+  }
+
+  return (
+    <button
+      className="w-full h-full px-2 py-1.5 text-[11px] text-foreground text-left truncate hover:bg-accent/40 rounded-sm min-h-[30px]"
+      onClick={(e) => { e.stopPropagation(); setTempVal(value); setEditing(true); }}
+    >
+      {value || <span className="text-muted-foreground">—</span>}
+    </button>
+  );
+}
+
+// Column header with context menu
+function ColumnHeaderMenu({ column, onRename, onDelete }: { column: ProjectColumn; onRename: () => void; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-accent rounded" onClick={e => e.stopPropagation()}>
+          <MoreHorizontal className="h-3 w-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        <DropdownMenuItem onClick={onRename}>
+          <Pencil className="h-3.5 w-3.5 mr-2" /> Renomear
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onDelete} className="text-destructive">
+          <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir coluna
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// Add column button with type picker
+function AddColumnButton({ onAdd }: { onAdd: (name: string, type: ColumnType) => void }) {
+  const [open, setOpen] = useState(false);
+  const types: ColumnType[] = ['status', 'texto', 'pessoas', 'cronograma', 'data', 'tags', 'numeros'];
+
+  const handleSelect = (type: ColumnType) => {
+    const name = prompt(`Nome da coluna (${columnTypeLabels[type]}):`);
+    if (name?.trim()) {
+      onAdd(name.trim(), type);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors flex items-center justify-center" title="Adicionar Coluna">
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-2" align="start">
+        <p className="text-xs font-semibold text-muted-foreground mb-2 px-2">Adicionar Coluna</p>
+        {types.map(type => {
+          const Icon = columnTypeIcons[type];
+          return (
+            <button
+              key={type}
+              className="w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent flex items-center gap-2"
+              onClick={() => handleSelect(type)}
+            >
+              <Icon className="h-3.5 w-3.5" /> {columnTypeLabels[type]}
+            </button>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Filter / Sort / Group / Hide popovers (same as before)
+function FilterPopover({ filterStatus, setFilterStatus, filterPriority, setFilterPriority }: {
   filterStatus: Set<TaskStatus>; setFilterStatus: (s: Set<TaskStatus>) => void;
   filterPriority: Set<TaskPriority>; setFilterPriority: (s: Set<TaskPriority>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const activeCount = filterStatus.size + filterPriority.size;
-
-  const toggleStatus = (s: TaskStatus) => {
-    const next = new Set(filterStatus);
-    if (next.has(s)) { next.delete(s); } else { next.add(s); }
-    setFilterStatus(next);
-  };
-  const togglePriority = (p: TaskPriority) => {
-    const next = new Set(filterPriority);
-    if (next.has(p)) { next.delete(p); } else { next.add(p); }
-    setFilterPriority(next);
-  };
+  const toggleStatus = (s: TaskStatus) => { const next = new Set(filterStatus); if (next.has(s)) next.delete(s); else next.add(s); setFilterStatus(next); };
+  const togglePriority = (p: TaskPriority) => { const next = new Set(filterPriority); if (next.has(p)) next.delete(p); else next.add(p); setFilterPriority(next); };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs relative">
           <SlidersHorizontal className="h-3.5 w-3.5" /> Filtro
-          {activeCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center">
-              {activeCount}
-            </span>
-          )}
+          {activeCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center">{activeCount}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-3" align="start">
@@ -245,10 +322,7 @@ function FilterPopover({
   );
 }
 
-function SortPopover({ sortField, sortDir, onSort }: {
-  sortField: SortField | null; sortDir: SortDir;
-  onSort: (field: SortField | null, dir: SortDir) => void;
-}) {
+function SortPopover({ sortField, sortDir, onSort }: { sortField: SortField | null; sortDir: SortDir; onSort: (field: SortField | null, dir: SortDir) => void }) {
   const [open, setOpen] = useState(false);
   const fields: { value: SortField; label: string }[] = [
     { value: 'title', label: 'Nome' },
@@ -257,7 +331,6 @@ function SortPopover({ sortField, sortDir, onSort }: {
     { value: 'due_date', label: 'Data Ação' },
     { value: 'created_at', label: 'Abertura' },
   ];
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -267,26 +340,13 @@ function SortPopover({ sortField, sortDir, onSort }: {
       </PopoverTrigger>
       <PopoverContent className="w-48 p-2" align="start">
         {fields.map(f => (
-          <button
-            key={f.value}
-            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent ${sortField === f.value ? 'bg-accent font-medium' : ''}`}
-            onClick={() => {
-              if (sortField === f.value) {
-                onSort(f.value, sortDir === 'asc' ? 'desc' : 'asc');
-              } else {
-                onSort(f.value, 'asc');
-              }
-              setOpen(false);
-            }}
-          >
+          <button key={f.value} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent ${sortField === f.value ? 'bg-accent font-medium' : ''}`}
+            onClick={() => { if (sortField === f.value) onSort(f.value, sortDir === 'asc' ? 'desc' : 'asc'); else onSort(f.value, 'asc'); setOpen(false); }}>
             {f.label} {sortField === f.value && (sortDir === 'asc' ? '↑' : '↓')}
           </button>
         ))}
         {sortField && (
-          <button
-            className="w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent text-destructive mt-1"
-            onClick={() => { onSort(null, 'asc'); setOpen(false); }}
-          >
+          <button className="w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent text-destructive mt-1" onClick={() => { onSort(null, 'asc'); setOpen(false); }}>
             <X className="h-3 w-3 inline mr-1" /> Remover ordenação
           </button>
         )}
@@ -303,7 +363,6 @@ function GroupByPopover({ groupBy, onGroupBy }: { groupBy: GroupBy; onGroupBy: (
     { value: 'priority', label: 'Prioridade' },
     { value: 'none', label: 'Sem agrupamento' },
   ];
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -313,11 +372,8 @@ function GroupByPopover({ groupBy, onGroupBy }: { groupBy: GroupBy; onGroupBy: (
       </PopoverTrigger>
       <PopoverContent className="w-44 p-2" align="start">
         {options.map(o => (
-          <button
-            key={o.value}
-            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent ${groupBy === o.value ? 'bg-accent font-medium' : ''}`}
-            onClick={() => { onGroupBy(o.value); setOpen(false); }}
-          >
+          <button key={o.value} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent ${groupBy === o.value ? 'bg-accent font-medium' : ''}`}
+            onClick={() => { onGroupBy(o.value); setOpen(false); }}>
             {o.label}
           </button>
         ))}
@@ -326,9 +382,9 @@ function GroupByPopover({ groupBy, onGroupBy }: { groupBy: GroupBy; onGroupBy: (
   );
 }
 
-const ALL_COLUMNS = ['due_date', 'priority', 'status', 'assignee', 'created_at', 'ticket'] as const;
-type ColumnKey = typeof ALL_COLUMNS[number];
-const columnLabels: Record<ColumnKey, string> = {
+const FIXED_COLUMNS = ['due_date', 'priority', 'status', 'assignee', 'created_at', 'ticket'] as const;
+type FixedColumnKey = typeof FIXED_COLUMNS[number];
+const fixedColumnLabels: Record<FixedColumnKey, string> = {
   due_date: 'Data Ação',
   priority: 'Prioridade',
   status: 'Status',
@@ -337,9 +393,8 @@ const columnLabels: Record<ColumnKey, string> = {
   ticket: 'Nº Ticket',
 };
 
-function HideColumnsPopover({ visible, onToggle }: { visible: Set<ColumnKey>; onToggle: (col: ColumnKey) => void }) {
+function HideColumnsPopover({ visible, onToggle }: { visible: Set<FixedColumnKey>; onToggle: (col: FixedColumnKey) => void }) {
   const [open, setOpen] = useState(false);
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -348,10 +403,10 @@ function HideColumnsPopover({ visible, onToggle }: { visible: Set<ColumnKey>; on
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-48 p-2" align="start">
-        {ALL_COLUMNS.map(col => (
+        {FIXED_COLUMNS.map(col => (
           <label key={col} className="flex items-center gap-2 py-1 cursor-pointer px-2">
             <Checkbox checked={visible.has(col)} onCheckedChange={() => onToggle(col)} />
-            <span className="text-xs">{columnLabels[col]}</span>
+            <span className="text-xs">{fixedColumnLabels[col]}</span>
           </label>
         ))}
       </PopoverContent>
@@ -359,26 +414,17 @@ function HideColumnsPopover({ visible, onToggle }: { visible: Set<ColumnKey>; on
   );
 }
 
-// Task row component with expandable subtasks
+// Task row component
 function TaskRow({
-  task,
-  parentTask,
-  groupColor,
-  gridCols,
-  visibleColumns,
-  profilesMap,
-  isSubtask,
-  expandedTasks,
-  onToggleExpand,
-  onClickTask,
-  onInlineUpdate,
-  onAddSubtask,
+  task, parentTask, groupColor, gridCols, visibleColumns, profilesMap, isSubtask,
+  expandedTasks, onToggleExpand, onClickTask, onInlineUpdate, onAddSubtask,
+  dynamicColumns, customValues, onSetCustomValue,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
   groupColor: string;
   gridCols: string;
-  visibleColumns: Set<ColumnKey>;
+  visibleColumns: Set<FixedColumnKey>;
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
   isSubtask?: boolean;
   expandedTasks: Set<string>;
@@ -386,10 +432,15 @@ function TaskRow({
   onClickTask: (task: TaskWithAssignees, parent?: TaskWithAssignees) => void;
   onInlineUpdate: (taskId: string, updates: Record<string, unknown>) => void;
   onAddSubtask: (parentId: string) => void;
+  dynamicColumns: ProjectColumn[];
+  customValues: Map<string, Map<string, string>>;
+  onSetCustomValue: (taskId: string, columnId: string, value: string) => void;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
   const hasSubtasks = subtaskCount > 0;
+
+  const taskValues = customValues.get(task.id) || new Map<string, string>();
 
   return (
     <>
@@ -401,68 +452,40 @@ function TaskRow({
         <div style={{ backgroundColor: isSubtask ? 'transparent' : groupColor }} className="h-full" />
         <div className="px-3 py-2 flex items-center gap-1.5">
           {!isSubtask && (
-            <button
-              className="text-muted-foreground hover:text-foreground p-0.5 shrink-0"
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }}
-            >
-              {hasSubtasks ? (
-                isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
-              ) : (
-                <span className="w-3.5" />
-              )}
+            <button className="text-muted-foreground hover:text-foreground p-0.5 shrink-0" onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }}>
+              {hasSubtasks ? (isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />) : <span className="w-3.5" />}
             </button>
           )}
           {isSubtask && <span className="w-6 shrink-0" />}
-          <span className={`font-medium text-foreground truncate ${isSubtask ? 'text-xs' : ''}`}>
-            {task.title}
-          </span>
+          <span className={`font-medium text-foreground truncate ${isSubtask ? 'text-xs' : ''}`}>{task.title}</span>
           {!isSubtask && subtaskCount > 0 && (
-            <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
-              {subtaskCount}
-            </span>
+            <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">{subtaskCount}</span>
           )}
         </div>
-        {visibleColumns.has('due_date') && (
-          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-            {formatDateShort(task.due_date)}
-          </span>
-        )}
-        {visibleColumns.has('priority') && (
-          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
-            <PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} />
+        {visibleColumns.has('due_date') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.due_date)}</span>}
+        {visibleColumns.has('priority') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} /></div>}
+        {visibleColumns.has('status') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} /></div>}
+        {visibleColumns.has('assignee') && <div className="px-1 py-1"><AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} /></div>}
+        {visibleColumns.has('created_at') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.created_at)}</span>}
+        {visibleColumns.has('ticket') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{task.ticket_number || '—'}</span>}
+        {/* Dynamic columns */}
+        {dynamicColumns.map(col => (
+          <div key={col.id} className="px-1 py-1" onClick={e => e.stopPropagation()}>
+            <CustomValueCell
+              value={taskValues.get(col.id) || ''}
+              columnType={col.column_type as ColumnType}
+              onChange={(v) => onSetCustomValue(task.id, col.id, v)}
+            />
           </div>
-        )}
-        {visibleColumns.has('status') && (
-          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
-            <StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} />
-          </div>
-        )}
-        {visibleColumns.has('assignee') && (
-          <div className="px-1 py-1">
-            <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} />
-          </div>
-        )}
-        {visibleColumns.has('created_at') && (
-          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-            {formatDateShort(task.created_at)}
-          </span>
-        )}
-        {visibleColumns.has('ticket') && (
-          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-            {task.ticket_number || '—'}
-          </span>
-        )}
+        ))}
+        {/* Spacer for add-column button */}
+        <div />
       </div>
 
-      {/* Expanded subtasks */}
       {!isSubtask && isExpanded && (
         <>
-          {/* Subtask header */}
           {hasSubtasks && (
-            <div
-              className="grid items-center bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border"
-              style={{ gridTemplateColumns: gridCols }}
-            >
+            <div className="grid items-center bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
               <div />
               <span className="px-3 py-1.5 pl-10">Subelemento</span>
               {visibleColumns.has('due_date') && <span className="px-2 py-1.5 text-center">Data</span>}
@@ -471,30 +494,20 @@ function TaskRow({
               {visibleColumns.has('assignee') && <span className="px-2 py-1.5 text-center">Responsável</span>}
               {visibleColumns.has('created_at') && <span className="px-2 py-1.5 text-center">Abertura</span>}
               {visibleColumns.has('ticket') && <span className="px-2 py-1.5 text-center">Ticket</span>}
+              {dynamicColumns.map(col => <span key={col.id} className="px-2 py-1.5 text-center">{col.name}</span>)}
+              <div />
             </div>
           )}
           {task.subtasks?.map(sub => (
             <TaskRow
-              key={sub.id}
-              task={sub}
-              parentTask={task}
-              groupColor={groupColor}
-              gridCols={gridCols}
-              visibleColumns={visibleColumns}
-              profilesMap={profilesMap}
-              isSubtask
-              expandedTasks={expandedTasks}
-              onToggleExpand={onToggleExpand}
-              onClickTask={onClickTask}
-              onInlineUpdate={onInlineUpdate}
-              onAddSubtask={onAddSubtask}
+              key={sub.id} task={sub} parentTask={task} groupColor={groupColor} gridCols={gridCols}
+              visibleColumns={visibleColumns} profilesMap={profilesMap} isSubtask expandedTasks={expandedTasks}
+              onToggleExpand={onToggleExpand} onClickTask={onClickTask} onInlineUpdate={onInlineUpdate}
+              onAddSubtask={onAddSubtask} dynamicColumns={dynamicColumns} customValues={customValues}
+              onSetCustomValue={onSetCustomValue}
             />
           ))}
-          {/* Add subelement button */}
-          <button
-            onClick={() => onAddSubtask(task.id)}
-            className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border"
-          >
+          <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">
             <Plus className="h-3 w-3" /> Adicionar subelemento
           </button>
         </>
@@ -517,11 +530,12 @@ export default function TableViewPage() {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
-  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(ALL_COLUMNS));
+  const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
 
   const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
   const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
+  const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
 
   const allAssigneeIds = useMemo(() => {
     const ids = new Set<string>();
@@ -534,23 +548,17 @@ export default function TableViewPage() {
 
   const { data: profilesMap } = useAssigneeProfiles(allAssigneeIds);
 
-  // Apply filters (on parent tasks only, subtasks follow parent)
   const filteredTasks = useMemo(() => {
     let result = tasks;
     if (searchText.trim()) {
       const lower = searchText.toLowerCase();
       result = result.filter(t => t.title.toLowerCase().includes(lower) || t.subtasks?.some(s => s.title.toLowerCase().includes(lower)));
     }
-    if (filterStatus.size > 0) {
-      result = result.filter(t => filterStatus.has(t.status));
-    }
-    if (filterPriority.size > 0) {
-      result = result.filter(t => filterPriority.has(t.priority));
-    }
+    if (filterStatus.size > 0) result = result.filter(t => filterStatus.has(t.status));
+    if (filterPriority.size > 0) result = result.filter(t => filterPriority.has(t.priority));
     return result;
   }, [tasks, searchText, filterStatus, filterPriority]);
 
-  // Apply sorting
   const sortedTasks = useMemo(() => {
     if (!sortField) return filteredTasks;
     return [...filteredTasks].sort((a, b) => {
@@ -566,10 +574,8 @@ export default function TableViewPage() {
     });
   }, [filteredTasks, sortField, sortDir]);
 
-  // Apply grouping
   const groups = useMemo(() => {
     const grouped = new Map<string, TaskWithAssignees[]>();
-
     sortedTasks.forEach(task => {
       let key: string;
       switch (groupBy) {
@@ -581,13 +587,11 @@ export default function TableViewPage() {
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(task);
     });
-
     const entries = Array.from(grouped.entries()).sort(([a], [b]) => {
       if (groupBy === 'status') return statusOrder[a as TaskStatus] - statusOrder[b as TaskStatus];
       if (groupBy === 'priority') return priorityOrder[a as TaskPriority] - priorityOrder[b as TaskPriority];
       return a.localeCompare(b);
     });
-
     return entries.map(([key, tsks], i) => {
       let label: string;
       switch (groupBy) {
@@ -600,61 +604,46 @@ export default function TableViewPage() {
     });
   }, [sortedTasks, groupBy]);
 
-  const toggleGroup = (key: string) => {
-    setCollapsedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) { next.delete(key); } else { next.add(key); }
-      return next;
-    });
-  };
-
-  const toggleExpand = useCallback((taskId: string) => {
-    setExpandedTasks(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) { next.delete(taskId); } else { next.add(taskId); }
-      return next;
-    });
-  }, []);
-
-  const toggleColumn = useCallback((col: ColumnKey) => {
-    setVisibleColumns(prev => {
-      const next = new Set(prev);
-      if (next.has(col)) { next.delete(col); } else { next.add(col); }
-      return next;
-    });
-  }, []);
-
+  const toggleGroup = (key: string) => { setCollapsedGroups(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; }); };
+  const toggleExpand = useCallback((taskId: string) => { setExpandedTasks(prev => { const next = new Set(prev); if (next.has(taskId)) next.delete(taskId); else next.add(taskId); return next; }); }, []);
+  const toggleColumn = useCallback((col: FixedColumnKey) => { setVisibleColumns(prev => { const next = new Set(prev); if (next.has(col)) next.delete(col); else next.add(col); return next; }); }, []);
   const setSelectedProject = (id: string) => setSearchParams({ projeto: id });
 
   const handleCreateProject = () => {
     const name = prompt('Nome do projeto:');
-    if (name?.trim()) {
-      createProject.mutate(
-        { name: name.trim() },
-        { onSuccess: (project) => { setSelectedProject(project.id); toast.success('Projeto criado!'); } }
-      );
-    }
+    if (name?.trim()) createProject.mutate({ name: name.trim() }, { onSuccess: (project) => { setSelectedProject(project.id); toast.success('Projeto criado!'); } });
   };
 
   const handleQuickAdd = (status: TaskStatus = 'todo', parentId?: string) => {
     const title = prompt(parentId ? 'Título do subelemento:' : 'Título da tarefa:');
-    if (title?.trim()) {
-      addTask.mutate(
-        { title: title.trim(), status, priority: 'medium', parent_task_id: parentId },
-        { onSuccess: () => toast.success(parentId ? 'Subelemento criado!' : 'Tarefa criada!') }
-      );
+    if (title?.trim()) addTask.mutate({ title: title.trim(), status, priority: 'medium', parent_task_id: parentId }, { onSuccess: () => toast.success(parentId ? 'Subelemento criado!' : 'Tarefa criada!') });
+  };
+
+  const handleInlineUpdate = (taskId: string, updates: Record<string, unknown>) => { updateTask.mutate({ taskId, updates }); };
+  const handleClickTask = (task: TaskWithAssignees, parent?: TaskWithAssignees) => { setSidePanelTask({ task, parent }); };
+
+  const handleAddColumn = (name: string, type: ColumnType) => {
+    addColumn.mutate({ name, columnType: type }, { onSuccess: () => toast.success('Coluna adicionada!') });
+  };
+
+  const handleRenameColumn = (col: ProjectColumn) => {
+    const newName = prompt('Novo nome:', col.name);
+    if (newName?.trim() && newName.trim() !== col.name) {
+      updateColumn.mutate({ columnId: col.id, updates: { name: newName.trim() } });
     }
   };
 
-  const handleInlineUpdate = (taskId: string, updates: Record<string, unknown>) => {
-    updateTask.mutate({ taskId, updates });
+  const handleDeleteColumn = (col: ProjectColumn) => {
+    if (confirm(`Excluir coluna "${col.name}"?`)) {
+      deleteColumn.mutate(col.id, { onSuccess: () => toast.success('Coluna excluída!') });
+    }
   };
 
-  const handleClickTask = (task: TaskWithAssignees, parent?: TaskWithAssignees) => {
-    setSidePanelTask({ task, parent });
+  const handleSetCustomValue = (taskId: string, columnId: string, value: string) => {
+    setCustomValue.mutate({ taskId, columnId, value });
   };
 
-  // Build grid template based on visible columns
+  // Grid template: color bar + title + fixed columns + dynamic columns + add-column spacer
   const gridCols = useMemo(() => {
     const cols = ['3px', '1fr'];
     if (visibleColumns.has('due_date')) cols.push('110px');
@@ -663,12 +652,13 @@ export default function TableViewPage() {
     if (visibleColumns.has('assignee')) cols.push('100px');
     if (visibleColumns.has('created_at')) cols.push('100px');
     if (visibleColumns.has('ticket')) cols.push('100px');
+    dynamicColumns.forEach(col => cols.push(`${col.width || 150}px`));
+    cols.push('40px'); // add-column button
     return cols.join(' ');
-  }, [visibleColumns]);
+  }, [visibleColumns, dynamicColumns]);
 
   return (
     <div className="space-y-3">
-      {/* Header */}
       <div className="flex items-center gap-3">
         {projects && projects.length > 0 ? (
           <Select value={activeProjectId} onValueChange={setSelectedProject}>
@@ -691,7 +681,6 @@ export default function TableViewPage() {
         )}
       </div>
 
-      {/* Toolbar */}
       {activeProjectId && (
         <div className="flex items-center gap-1 flex-wrap bg-card/50 rounded-lg px-2 py-1.5 border border-border">
           <Button onClick={() => handleQuickAdd('todo')} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium text-xs h-8">
@@ -712,18 +701,12 @@ export default function TableViewPage() {
         <div className="flex items-center gap-2 px-1">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar elementos..." value={searchText} onChange={e => setSearchText(e.target.value)} className="max-w-sm h-8 text-sm" autoFocus />
-          {searchText && (
-            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setSearchText('')}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          )}
+          {searchText && <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setSearchText('')}><X className="h-3.5 w-3.5" /></Button>}
         </div>
       )}
 
       {(loadingProjects || loadingTasks) && (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       )}
 
       {!loadingProjects && (!projects || projects.length === 0) ? (
@@ -734,21 +717,19 @@ export default function TableViewPage() {
           <Button onClick={handleCreateProject}><Plus className="h-4 w-4 mr-1" /> Criar Projeto</Button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-5 overflow-x-auto">
           {groups.map((group) => {
             const isCollapsed = collapsedGroups.has(group.key);
             return (
               <div key={group.key}>
                 <button onClick={() => toggleGroup(group.key)} className="flex items-center gap-2 mb-1">
-                  {isCollapsed
-                    ? <ChevronRight className="h-4 w-4" style={{ color: group.color }} />
-                    : <ChevronDown className="h-4 w-4" style={{ color: group.color }} />}
+                  {isCollapsed ? <ChevronRight className="h-4 w-4" style={{ color: group.color }} /> : <ChevronDown className="h-4 w-4" style={{ color: group.color }} />}
                   <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>{group.label}</span>
                   <span className="text-xs text-muted-foreground ml-1">{group.tasks.length} elementos</span>
                 </button>
 
                 {!isCollapsed && (
-                  <div className="rounded-lg overflow-hidden border border-border">
+                  <div className="rounded-lg overflow-hidden border border-border min-w-fit">
                     {/* Column headers */}
                     <div className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
@@ -759,30 +740,28 @@ export default function TableViewPage() {
                       {visibleColumns.has('assignee') && <span className="px-2 py-2 text-center">Responsável</span>}
                       {visibleColumns.has('created_at') && <span className="px-2 py-2 text-center">Abertura</span>}
                       {visibleColumns.has('ticket') && <span className="px-2 py-2 text-center">Nº Ticket</span>}
+                      {dynamicColumns.map(col => (
+                        <span key={col.id} className="px-2 py-2 text-center flex items-center justify-center gap-1 group">
+                          {col.name}
+                          <ColumnHeaderMenu column={col} onRename={() => handleRenameColumn(col)} onDelete={() => handleDeleteColumn(col)} />
+                        </span>
+                      ))}
+                      <AddColumnButton onAdd={handleAddColumn} />
                     </div>
 
-                    {/* Task rows with expandable subtasks */}
                     {group.tasks.map((task) => (
                       <TaskRow
-                        key={task.id}
-                        task={task}
-                        groupColor={group.color}
-                        gridCols={gridCols}
-                        visibleColumns={visibleColumns}
-                        profilesMap={profilesMap || new Map()}
-                        expandedTasks={expandedTasks}
-                        onToggleExpand={toggleExpand}
-                        onClickTask={handleClickTask}
-                        onInlineUpdate={handleInlineUpdate}
+                        key={task.id} task={task} groupColor={group.color} gridCols={gridCols}
+                        visibleColumns={visibleColumns} profilesMap={profilesMap || new Map()}
+                        expandedTasks={expandedTasks} onToggleExpand={toggleExpand}
+                        onClickTask={handleClickTask} onInlineUpdate={handleInlineUpdate}
                         onAddSubtask={(parentId) => handleQuickAdd('todo', parentId)}
+                        dynamicColumns={dynamicColumns} customValues={customValues}
+                        onSetCustomValue={handleSetCustomValue}
                       />
                     ))}
 
-                    {/* Add element */}
-                    <button
-                      onClick={() => handleQuickAdd('todo')}
-                      className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5 border-b border-border"
-                    >
+                    <button onClick={() => handleQuickAdd('todo')} className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5 border-b border-border">
                       <Plus className="h-3.5 w-3.5" /> Adicionar elemento
                     </button>
 
@@ -812,6 +791,8 @@ export default function TableViewPage() {
                       {visibleColumns.has('assignee') && <span className="px-2 py-1.5" />}
                       {visibleColumns.has('created_at') && <span className="px-2 py-1.5" />}
                       {visibleColumns.has('ticket') && <span className="px-2 py-1.5" />}
+                      {dynamicColumns.map(col => <span key={col.id} className="px-2 py-1.5" />)}
+                      <span />
                     </div>
                   </div>
                 )}
@@ -831,19 +812,13 @@ export default function TableViewPage() {
         </div>
       )}
 
-      {/* Side panel instead of modal */}
       {sidePanelTask && activeProjectId && (
         <>
           <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setSidePanelTask(null)} />
           <TaskSidePanel
-            task={sidePanelTask.task}
-            parentTask={sidePanelTask.parent}
-            projectId={activeProjectId}
-            open={!!sidePanelTask}
-            onClose={() => setSidePanelTask(null)}
-            onUpdate={(updates) => {
-              updateTask.mutate({ taskId: sidePanelTask.task.id, updates });
-            }}
+            task={sidePanelTask.task} parentTask={sidePanelTask.parent} projectId={activeProjectId}
+            open={!!sidePanelTask} onClose={() => setSidePanelTask(null)}
+            onUpdate={(updates) => { updateTask.mutate({ taskId: sidePanelTask.task.id, updates }); }}
           />
         </>
       )}
