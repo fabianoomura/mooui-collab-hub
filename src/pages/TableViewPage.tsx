@@ -7,11 +7,11 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, User, X } from 'lucide-react';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { TaskDetailModal } from '@/components/kanban/TaskDetailModal';
+import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
@@ -118,7 +118,6 @@ function StatusCell({ value, onChange }: { value: TaskStatus; onChange: (v: Task
   );
 }
 
-// Inline editable priority cell
 function PriorityCell({ value, onChange }: { value: TaskPriority; onChange: (v: TaskPriority) => void }) {
   const [open, setOpen] = useState(false);
   const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical'];
@@ -182,7 +181,6 @@ function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: str
   );
 }
 
-// Filter popover for status/priority
 function FilterPopover({
   filterStatus, setFilterStatus,
   filterPriority, setFilterPriority,
@@ -195,12 +193,12 @@ function FilterPopover({
 
   const toggleStatus = (s: TaskStatus) => {
     const next = new Set(filterStatus);
-    next.has(s) ? next.delete(s) : next.add(s);
+    if (next.has(s)) { next.delete(s); } else { next.add(s); }
     setFilterStatus(next);
   };
   const togglePriority = (p: TaskPriority) => {
     const next = new Set(filterPriority);
-    next.has(p) ? next.delete(p) : next.add(p);
+    if (next.has(p)) { next.delete(p); } else { next.add(p); }
     setFilterPriority(next);
   };
 
@@ -247,7 +245,6 @@ function FilterPopover({
   );
 }
 
-// Sort popover
 function SortPopover({ sortField, sortDir, onSort }: {
   sortField: SortField | null; sortDir: SortDir;
   onSort: (field: SortField | null, dir: SortDir) => void;
@@ -298,7 +295,6 @@ function SortPopover({ sortField, sortDir, onSort }: {
   );
 }
 
-// Group by popover
 function GroupByPopover({ groupBy, onGroupBy }: { groupBy: GroupBy; onGroupBy: (g: GroupBy) => void }) {
   const [open, setOpen] = useState(false);
   const options: { value: GroupBy; label: string }[] = [
@@ -330,7 +326,6 @@ function GroupByPopover({ groupBy, onGroupBy }: { groupBy: GroupBy; onGroupBy: (
   );
 }
 
-// Column visibility
 const ALL_COLUMNS = ['due_date', 'priority', 'status', 'assignee', 'created_at', 'ticket'] as const;
 type ColumnKey = typeof ALL_COLUMNS[number];
 const columnLabels: Record<ColumnKey, string> = {
@@ -364,12 +359,157 @@ function HideColumnsPopover({ visible, onToggle }: { visible: Set<ColumnKey>; on
   );
 }
 
+// Task row component with expandable subtasks
+function TaskRow({
+  task,
+  parentTask,
+  groupColor,
+  gridCols,
+  visibleColumns,
+  profilesMap,
+  isSubtask,
+  expandedTasks,
+  onToggleExpand,
+  onClickTask,
+  onInlineUpdate,
+  onAddSubtask,
+}: {
+  task: TaskWithAssignees;
+  parentTask?: TaskWithAssignees;
+  groupColor: string;
+  gridCols: string;
+  visibleColumns: Set<ColumnKey>;
+  profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  isSubtask?: boolean;
+  expandedTasks: Set<string>;
+  onToggleExpand: (id: string) => void;
+  onClickTask: (task: TaskWithAssignees, parent?: TaskWithAssignees) => void;
+  onInlineUpdate: (taskId: string, updates: Record<string, unknown>) => void;
+  onAddSubtask: (parentId: string) => void;
+}) {
+  const isExpanded = expandedTasks.has(task.id);
+  const subtaskCount = task.subtasks?.length || 0;
+  const hasSubtasks = subtaskCount > 0;
+
+  return (
+    <>
+      <div
+        className={`grid items-center border-b border-border hover:bg-accent/30 cursor-pointer transition-colors text-sm ${isSubtask ? 'bg-muted/20' : ''}`}
+        style={{ gridTemplateColumns: gridCols }}
+        onClick={() => onClickTask(task, parentTask)}
+      >
+        <div style={{ backgroundColor: isSubtask ? 'transparent' : groupColor }} className="h-full" />
+        <div className="px-3 py-2 flex items-center gap-1.5">
+          {!isSubtask && (
+            <button
+              className="text-muted-foreground hover:text-foreground p-0.5 shrink-0"
+              onClick={(e) => { e.stopPropagation(); onToggleExpand(task.id); }}
+            >
+              {hasSubtasks ? (
+                isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
+              ) : (
+                <span className="w-3.5" />
+              )}
+            </button>
+          )}
+          {isSubtask && <span className="w-6 shrink-0" />}
+          <span className={`font-medium text-foreground truncate ${isSubtask ? 'text-xs' : ''}`}>
+            {task.title}
+          </span>
+          {!isSubtask && subtaskCount > 0 && (
+            <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
+              {subtaskCount}
+            </span>
+          )}
+        </div>
+        {visibleColumns.has('due_date') && (
+          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+            {formatDateShort(task.due_date)}
+          </span>
+        )}
+        {visibleColumns.has('priority') && (
+          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+            <PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} />
+          </div>
+        )}
+        {visibleColumns.has('status') && (
+          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+            <StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} />
+          </div>
+        )}
+        {visibleColumns.has('assignee') && (
+          <div className="px-1 py-1">
+            <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} />
+          </div>
+        )}
+        {visibleColumns.has('created_at') && (
+          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+            {formatDateShort(task.created_at)}
+          </span>
+        )}
+        {visibleColumns.has('ticket') && (
+          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+            {task.ticket_number || '—'}
+          </span>
+        )}
+      </div>
+
+      {/* Expanded subtasks */}
+      {!isSubtask && isExpanded && (
+        <>
+          {/* Subtask header */}
+          {hasSubtasks && (
+            <div
+              className="grid items-center bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border"
+              style={{ gridTemplateColumns: gridCols }}
+            >
+              <div />
+              <span className="px-3 py-1.5 pl-10">Subelemento</span>
+              {visibleColumns.has('due_date') && <span className="px-2 py-1.5 text-center">Data</span>}
+              {visibleColumns.has('priority') && <span className="px-2 py-1.5 text-center">Prioridade</span>}
+              {visibleColumns.has('status') && <span className="px-2 py-1.5 text-center">Status</span>}
+              {visibleColumns.has('assignee') && <span className="px-2 py-1.5 text-center">Responsável</span>}
+              {visibleColumns.has('created_at') && <span className="px-2 py-1.5 text-center">Abertura</span>}
+              {visibleColumns.has('ticket') && <span className="px-2 py-1.5 text-center">Ticket</span>}
+            </div>
+          )}
+          {task.subtasks?.map(sub => (
+            <TaskRow
+              key={sub.id}
+              task={sub}
+              parentTask={task}
+              groupColor={groupColor}
+              gridCols={gridCols}
+              visibleColumns={visibleColumns}
+              profilesMap={profilesMap}
+              isSubtask
+              expandedTasks={expandedTasks}
+              onToggleExpand={onToggleExpand}
+              onClickTask={onClickTask}
+              onInlineUpdate={onInlineUpdate}
+              onAddSubtask={onAddSubtask}
+            />
+          ))}
+          {/* Add subelement button */}
+          <button
+            onClick={() => onAddSubtask(task.id)}
+            className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border"
+          >
+            <Plus className="h-3 w-3" /> Adicionar subelemento
+          </button>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function TableViewPage() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
   const [searchParams, setSearchParams] = useSearchParams();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [sidePanelTask, setSidePanelTask] = useState<{ task: TaskWithAssignees; parent?: TaskWithAssignees } | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<Set<TaskStatus>>(new Set());
@@ -381,22 +521,25 @@ export default function TableViewPage() {
 
   const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
-  const { columns, tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
+  const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
 
   const allAssigneeIds = useMemo(() => {
     const ids = new Set<string>();
-    tasks.forEach(t => t.task_assignees.forEach(a => ids.add(a.user_id)));
+    tasks.forEach(t => {
+      t.task_assignees.forEach(a => ids.add(a.user_id));
+      t.subtasks?.forEach(sub => sub.task_assignees.forEach(a => ids.add(a.user_id)));
+    });
     return Array.from(ids);
   }, [tasks]);
 
   const { data: profilesMap } = useAssigneeProfiles(allAssigneeIds);
 
-  // Apply filters
+  // Apply filters (on parent tasks only, subtasks follow parent)
   const filteredTasks = useMemo(() => {
     let result = tasks;
     if (searchText.trim()) {
       const lower = searchText.toLowerCase();
-      result = result.filter(t => t.title.toLowerCase().includes(lower));
+      result = result.filter(t => t.title.toLowerCase().includes(lower) || t.subtasks?.some(s => s.title.toLowerCase().includes(lower)));
     }
     if (filterStatus.size > 0) {
       result = result.filter(t => filterStatus.has(t.status));
@@ -410,7 +553,7 @@ export default function TableViewPage() {
   // Apply sorting
   const sortedTasks = useMemo(() => {
     if (!sortField) return filteredTasks;
-    const sorted = [...filteredTasks].sort((a, b) => {
+    return [...filteredTasks].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
         case 'title': cmp = a.title.localeCompare(b.title, 'pt-BR'); break;
@@ -421,7 +564,6 @@ export default function TableViewPage() {
       }
       return sortDir === 'desc' ? -cmp : cmp;
     });
-    return sorted;
   }, [filteredTasks, sortField, sortDir]);
 
   // Apply grouping
@@ -446,7 +588,7 @@ export default function TableViewPage() {
       return a.localeCompare(b);
     });
 
-    return entries.map(([key, tasks], i) => {
+    return entries.map(([key, tsks], i) => {
       let label: string;
       switch (groupBy) {
         case 'month': label = getMonthYearLabel(key); break;
@@ -454,22 +596,30 @@ export default function TableViewPage() {
         case 'priority': label = priorityLabels[key as TaskPriority] || key; break;
         case 'none': label = 'Todos os elementos'; break;
       }
-      return { key, label, tasks, color: groupColors[i % groupColors.length] };
+      return { key, label, tasks: tsks, color: groupColors[i % groupColors.length] };
     });
   }, [sortedTasks, groupBy]);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
       return next;
     });
   };
 
+  const toggleExpand = useCallback((taskId: string) => {
+    setExpandedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) { next.delete(taskId); } else { next.add(taskId); }
+      return next;
+    });
+  }, []);
+
   const toggleColumn = useCallback((col: ColumnKey) => {
     setVisibleColumns(prev => {
       const next = new Set(prev);
-      next.has(col) ? next.delete(col) : next.add(col);
+      if (next.has(col)) { next.delete(col); } else { next.add(col); }
       return next;
     });
   }, []);
@@ -486,12 +636,12 @@ export default function TableViewPage() {
     }
   };
 
-  const handleQuickAdd = (status: TaskStatus = 'todo') => {
-    const title = prompt('Título da tarefa:');
+  const handleQuickAdd = (status: TaskStatus = 'todo', parentId?: string) => {
+    const title = prompt(parentId ? 'Título do subelemento:' : 'Título da tarefa:');
     if (title?.trim()) {
       addTask.mutate(
-        { title: title.trim(), status, priority: 'medium' },
-        { onSuccess: () => toast.success('Tarefa criada!') }
+        { title: title.trim(), status, priority: 'medium', parent_task_id: parentId },
+        { onSuccess: () => toast.success(parentId ? 'Subelemento criado!' : 'Tarefa criada!') }
       );
     }
   };
@@ -500,7 +650,9 @@ export default function TableViewPage() {
     updateTask.mutate({ taskId, updates });
   };
 
-  const activeProject = projects?.find(p => p.id === activeProjectId);
+  const handleClickTask = (task: TaskWithAssignees, parent?: TaskWithAssignees) => {
+    setSidePanelTask({ task, parent });
+  };
 
   // Build grid template based on visible columns
   const gridCols = useMemo(() => {
@@ -516,7 +668,7 @@ export default function TableViewPage() {
 
   return (
     <div className="space-y-3">
-      {/* Header - project name like Monday */}
+      {/* Header */}
       <div className="flex items-center gap-3">
         {projects && projects.length > 0 ? (
           <Select value={activeProjectId} onValueChange={setSelectedProject}>
@@ -539,58 +691,27 @@ export default function TableViewPage() {
         )}
       </div>
 
-      {/* Monday.com Toolbar */}
+      {/* Toolbar */}
       {activeProjectId && (
         <div className="flex items-center gap-1 flex-wrap bg-card/50 rounded-lg px-2 py-1.5 border border-border">
-          <Button
-            onClick={() => handleQuickAdd('todo')}
-            size="sm"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium text-xs h-8"
-          >
+          <Button onClick={() => handleQuickAdd('todo')} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium text-xs h-8">
             <Plus className="h-3.5 w-3.5 mr-1" /> Criar elemento
           </Button>
-
           <div className="h-5 w-px bg-border mx-1" />
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`gap-1.5 text-xs h-8 ${searchOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-            onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchText(''); }}
-          >
+          <Button variant="ghost" size="sm" className={`gap-1.5 text-xs h-8 ${searchOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchText(''); }}>
             <Search className="h-3.5 w-3.5" /> Pesquisar
           </Button>
-
-          <FilterPopover
-            filterStatus={filterStatus}
-            setFilterStatus={setFilterStatus}
-            filterPriority={filterPriority}
-            setFilterPriority={setFilterPriority}
-          />
-
-          <SortPopover
-            sortField={sortField}
-            sortDir={sortDir}
-            onSort={(f, d) => { setSortField(f); setSortDir(d); }}
-          />
-
+          <FilterPopover filterStatus={filterStatus} setFilterStatus={setFilterStatus} filterPriority={filterPriority} setFilterPriority={setFilterPriority} />
+          <SortPopover sortField={sortField} sortDir={sortDir} onSort={(f, d) => { setSortField(f); setSortDir(d); }} />
           <HideColumnsPopover visible={visibleColumns} onToggle={toggleColumn} />
-
           <GroupByPopover groupBy={groupBy} onGroupBy={setGroupBy} />
         </div>
       )}
 
-      {/* Search bar */}
       {searchOpen && (
         <div className="flex items-center gap-2 px-1">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar elementos..."
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)}
-            className="max-w-sm h-8 text-sm"
-            autoFocus
-          />
+          <Input placeholder="Buscar elementos..." value={searchText} onChange={e => setSearchText(e.target.value)} className="max-w-sm h-8 text-sm" autoFocus />
           {searchText && (
             <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setSearchText('')}>
               <X className="h-3.5 w-3.5" />
@@ -599,22 +720,18 @@ export default function TableViewPage() {
         </div>
       )}
 
-      {/* Loading */}
       {(loadingProjects || loadingTasks) && (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
 
-      {/* Empty state */}
       {!loadingProjects && (!projects || projects.length === 0) ? (
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <FolderKanban className="h-12 w-12 text-muted-foreground/40 mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-1">Nenhum projeto ainda</h3>
           <p className="text-muted-foreground text-sm mb-4">Crie seu primeiro projeto para começar</p>
-          <Button onClick={handleCreateProject}>
-            <Plus className="h-4 w-4 mr-1" /> Criar Projeto
-          </Button>
+          <Button onClick={handleCreateProject}><Plus className="h-4 w-4 mr-1" /> Criar Projeto</Button>
         </div>
       ) : (
         <div className="space-y-5">
@@ -622,29 +739,18 @@ export default function TableViewPage() {
             const isCollapsed = collapsedGroups.has(group.key);
             return (
               <div key={group.key}>
-                {/* Group header */}
-                <button
-                  onClick={() => toggleGroup(group.key)}
-                  className="flex items-center gap-2 mb-1 group"
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-4 w-4" style={{ color: group.color }} />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" style={{ color: group.color }} />
-                  )}
-                  <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>
-                    {group.label}
-                  </span>
+                <button onClick={() => toggleGroup(group.key)} className="flex items-center gap-2 mb-1">
+                  {isCollapsed
+                    ? <ChevronRight className="h-4 w-4" style={{ color: group.color }} />
+                    : <ChevronDown className="h-4 w-4" style={{ color: group.color }} />}
+                  <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>{group.label}</span>
                   <span className="text-xs text-muted-foreground ml-1">{group.tasks.length} elementos</span>
                 </button>
 
                 {!isCollapsed && (
                   <div className="rounded-lg overflow-hidden border border-border">
                     {/* Column headers */}
-                    <div
-                      className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border"
-                      style={{ gridTemplateColumns: gridCols }}
-                    >
+                    <div className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-2">Elemento</span>
                       {visibleColumns.has('due_date') && <span className="px-2 py-2 text-center">Data Ação</span>}
@@ -655,56 +761,24 @@ export default function TableViewPage() {
                       {visibleColumns.has('ticket') && <span className="px-2 py-2 text-center">Nº Ticket</span>}
                     </div>
 
-                    {/* Task rows */}
+                    {/* Task rows with expandable subtasks */}
                     {group.tasks.map((task) => (
-                      <div
+                      <TaskRow
                         key={task.id}
-                        className="grid items-center border-b border-border last:border-b-0 hover:bg-accent/30 cursor-pointer transition-colors text-sm"
-                        style={{ gridTemplateColumns: gridCols }}
-                        onClick={() => setSelectedTask(task)}
-                      >
-                        <div style={{ backgroundColor: group.color }} className="h-full" />
-                        <span className="px-3 py-2 font-medium text-foreground truncate">{task.title}</span>
-                        {visibleColumns.has('due_date') && (
-                          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-                            {formatDateShort(task.due_date)}
-                          </span>
-                        )}
-                        {visibleColumns.has('priority') && (
-                          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
-                            <PriorityCell
-                              value={task.priority}
-                              onChange={(v) => handleInlineUpdate(task.id, { priority: v })}
-                            />
-                          </div>
-                        )}
-                        {visibleColumns.has('status') && (
-                          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
-                            <StatusCell
-                              value={task.status}
-                              onChange={(v) => handleInlineUpdate(task.id, { status: v })}
-                            />
-                          </div>
-                        )}
-                        {visibleColumns.has('assignee') && (
-                          <div className="px-1 py-1">
-                            <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap || new Map()} />
-                          </div>
-                        )}
-                        {visibleColumns.has('created_at') && (
-                          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-                            {formatDateShort(task.created_at)}
-                          </span>
-                        )}
-                        {visibleColumns.has('ticket') && (
-                          <span className="px-2 py-1 text-center text-xs text-muted-foreground">
-                            {task.ticket_number || '—'}
-                          </span>
-                        )}
-                      </div>
+                        task={task}
+                        groupColor={group.color}
+                        gridCols={gridCols}
+                        visibleColumns={visibleColumns}
+                        profilesMap={profilesMap || new Map()}
+                        expandedTasks={expandedTasks}
+                        onToggleExpand={toggleExpand}
+                        onClickTask={handleClickTask}
+                        onInlineUpdate={handleInlineUpdate}
+                        onAddSubtask={(parentId) => handleQuickAdd('todo', parentId)}
+                      />
                     ))}
 
-                    {/* Add element row */}
+                    {/* Add element */}
                     <button
                       onClick={() => handleQuickAdd('todo')}
                       className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5 border-b border-border"
@@ -712,11 +786,8 @@ export default function TableViewPage() {
                       <Plus className="h-3.5 w-3.5" /> Adicionar elemento
                     </button>
 
-                    {/* Summary row with color bars */}
-                    <div
-                      className="grid items-center bg-muted/20"
-                      style={{ gridTemplateColumns: gridCols }}
-                    >
+                    {/* Summary row */}
+                    <div className="grid items-center bg-muted/20" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-1.5" />
                       {visibleColumns.has('due_date') && <span className="px-2 py-1.5" />}
@@ -760,16 +831,21 @@ export default function TableViewPage() {
         </div>
       )}
 
-      {selectedTask && activeProjectId && (
-        <TaskDetailModal
-          task={selectedTask}
-          projectId={activeProjectId}
-          open={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onUpdate={(updates) => {
-            updateTask.mutate({ taskId: selectedTask.id, updates });
-          }}
-        />
+      {/* Side panel instead of modal */}
+      {sidePanelTask && activeProjectId && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setSidePanelTask(null)} />
+          <TaskSidePanel
+            task={sidePanelTask.task}
+            parentTask={sidePanelTask.parent}
+            projectId={activeProjectId}
+            open={!!sidePanelTask}
+            onClose={() => setSidePanelTask(null)}
+            onUpdate={(updates) => {
+              updateTask.mutate({ taskId: sidePanelTask.task.id, updates });
+            }}
+          />
+        </>
       )}
     </div>
   );

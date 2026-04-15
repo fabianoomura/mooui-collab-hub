@@ -11,6 +11,7 @@ export type TaskPriority = Database['public']['Enums']['task_priority'];
 export interface TaskWithAssignees extends TaskRow {
   task_assignees: { user_id: string }[];
   task_label_assignments: { label_id: string; task_labels: { name: string; color: string } | null }[];
+  subtasks?: TaskWithAssignees[];
 }
 
 export interface KanbanColumn {
@@ -45,7 +46,38 @@ export function useProjectTasks(projectId: string | undefined) {
         .eq('project_id', projectId)
         .order('position');
       if (error) throw error;
-      return (data || []) as unknown as TaskWithAssignees[];
+      
+      const allTasks = (data || []) as unknown as TaskWithAssignees[];
+      
+      // Build parent-child hierarchy
+      const parentTasks = allTasks.filter(t => !t.parent_task_id);
+      const childMap = new Map<string, TaskWithAssignees[]>();
+      allTasks.filter(t => t.parent_task_id).forEach(t => {
+        const pid = t.parent_task_id!;
+        if (!childMap.has(pid)) childMap.set(pid, []);
+        childMap.get(pid)!.push(t);
+      });
+      
+      parentTasks.forEach(t => {
+        t.subtasks = childMap.get(t.id) || [];
+      });
+      
+      return parentTasks;
+    },
+    enabled: !!projectId,
+  });
+
+  // Also return flat list of all tasks (parents + children) for counting etc
+  const allTasksFlat = useQuery({
+    queryKey: ['tasks-flat', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, status, priority, parent_task_id')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!projectId,
   });
@@ -63,11 +95,14 @@ export function useProjectTasks(projectId: string | undefined) {
         .eq('id', taskId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', projectId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-flat', projectId] });
+    },
   });
 
   const addTask = useMutation({
-    mutationFn: async (task: { title: string; status: TaskStatus; priority: TaskPriority }) => {
+    mutationFn: async (task: { title: string; status: TaskStatus; priority: TaskPriority; parent_task_id?: string }) => {
       if (!projectId || !user) throw new Error('Missing project or user');
       const { error } = await supabase
         .from('tasks')
@@ -77,10 +112,14 @@ export function useProjectTasks(projectId: string | undefined) {
           status: task.status,
           priority: task.priority,
           created_by: user.id,
+          parent_task_id: task.parent_task_id || null,
         });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', projectId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-flat', projectId] });
+    },
   });
 
   const updateTask = useMutation({
@@ -91,7 +130,10 @@ export function useProjectTasks(projectId: string | undefined) {
         .eq('id', taskId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', projectId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-flat', projectId] });
+    },
   });
 
   return { columns, tasks: tasksQuery.data || [], isLoading: tasksQuery.isLoading, moveTask, addTask, updateTask };
@@ -128,7 +170,6 @@ export function useCreateProject() {
         .single();
       if (error) throw error;
 
-      // Add creator as member
       await supabase.from('project_members').insert({
         project_id: project.id,
         user_id: user.id,
@@ -138,5 +179,90 @@ export function useCreateProject() {
       return project;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+  });
+}
+
+// Hook for task comments
+export function useTaskComments(taskId: string | undefined) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const commentsQuery = useQuery({
+    queryKey: ['task-comments', taskId],
+    queryFn: async () => {
+      if (!taskId) return [];
+      const { data, error } = await supabase
+        .from('task_comments')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      
+      // Fetch profiles
+      const userIds = [...new Set((data || []).map(c => c.user_id))];
+      if (userIds.length === 0) return [];
+      
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds);
+      
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+      
+      return (data || []).map(c => ({
+        ...c,
+        profile: profileMap.get(c.user_id) || null,
+      }));
+    },
+    enabled: !!taskId,
+  });
+
+  const addComment = useMutation({
+    mutationFn: async ({ taskId, content }: { taskId: string; content: string }) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase.from('task_comments').insert({
+        task_id: taskId,
+        user_id: user.id,
+        content,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-comments', taskId] });
+    },
+  });
+
+  return { comments: commentsQuery.data || [], isLoading: commentsQuery.isLoading, addComment };
+}
+
+// Hook for task activity log
+export function useTaskActivity(taskId: string | undefined) {
+  return useQuery({
+    queryKey: ['task-activity', taskId],
+    queryFn: async () => {
+      if (!taskId) return [];
+      const { data, error } = await supabase
+        .from('task_activity_log')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      
+      const userIds = [...new Set((data || []).map(a => a.user_id))];
+      if (userIds.length === 0) return [];
+      
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+      
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+      
+      return (data || []).map(a => ({
+        ...a,
+        profile: profileMap.get(a.user_id) || null,
+      }));
+    },
+    enabled: !!taskId,
   });
 }
