@@ -62,6 +62,9 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/tabela" element={<TableViewPage />} />
               <Route path="/kanban" element={<KanbanPage />} />
+              <Route path="/projetos" element={<ProjectsPage />} />
+              <Route path="/sprints" element={<SprintsPage />} />
+              <Route path="/equipe" element={<TeamPage />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
