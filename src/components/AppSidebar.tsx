@@ -2,7 +2,7 @@ import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check } fr
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useProjects } from '@/hooks/useProjectData';
+import { useProjects, useProjectsByOrg } from '@/hooks/useProjectData';
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +31,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const { user, signOut } = useAuth();
   const { organizations, currentOrg, setCurrentOrg, isAdmin } = useOrganization();
-  const { data: projects } = useProjects();
+  const { data: projects } = useProjectsByOrg(currentOrg?.id);
 
   const sortedProjects = useMemo(() => {
     if (!projects) return [];
