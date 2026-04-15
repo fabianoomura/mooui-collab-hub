@@ -36,7 +36,7 @@ export function TaskDetailModal({ task, open, onClose, onUpdate }: Props) {
   const [description, setDescription] = useState(task.description || '');
   const [comment, setComment] = useState('');
 
-  const assigneeName = task.task_assignees?.[0]?.profiles?.full_name || 'Não atribuído';
+  const assigneeName = task.task_assignees?.length > 0 ? 'Atribuído' : 'Não atribuído';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
