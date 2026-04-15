@@ -9,7 +9,7 @@ export type TaskStatus = Database['public']['Enums']['task_status'];
 export type TaskPriority = Database['public']['Enums']['task_priority'];
 
 export interface TaskWithAssignees extends TaskRow {
-  task_assignees: { user_id: string; profiles: { full_name: string | null; avatar_url: string | null } | null }[];
+  task_assignees: { user_id: string }[];
   task_label_assignments: { label_id: string; task_labels: { name: string; color: string } | null }[];
 }
 
@@ -39,7 +39,7 @@ export function useProjectTasks(projectId: string | undefined) {
         .from('tasks')
         .select(`
           *,
-          task_assignees(user_id, profiles:user_id(full_name, avatar_url)),
+          task_assignees(user_id),
           task_label_assignments(label_id, task_labels:label_id(name, color))
         `)
         .eq('project_id', projectId)

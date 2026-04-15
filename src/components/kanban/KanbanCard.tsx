@@ -14,8 +14,7 @@ export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDr
   const priority = priorityConfig[task.priority];
   const isOverdue = task.due_date && new Date(task.due_date) < new Date();
   const assignee = task.task_assignees?.[0];
-  const initials = assignee?.profiles?.full_name
-    ?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '';
+  const initials = assignee ? '👤' : '';
   const labels = task.task_label_assignments || [];
 
   return (

@@ -198,8 +198,7 @@ export default function TableViewPage() {
                         <div className="flex -space-x-1">
                           {task.task_assignees.length > 0 ? (
                             task.task_assignees.slice(0, 3).map((a) => {
-                              const initials = a.profiles?.full_name
-                                ?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+                              const initials = '?';
                               return (
                                 <Avatar key={a.user_id} className="h-7 w-7 border-2 border-background">
                                   <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
