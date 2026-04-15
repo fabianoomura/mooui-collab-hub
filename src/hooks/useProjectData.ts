@@ -9,7 +9,7 @@ export type TaskStatus = Database['public']['Enums']['task_status'];
 export type TaskPriority = Database['public']['Enums']['task_priority'];
 
 export interface TaskWithAssignees extends TaskRow {
-  task_assignees: { user_id: string; profiles: { full_name: string | null; avatar_url: string | null } | null }[];
+  task_assignees: { user_id: string }[];
   task_label_assignments: { label_id: string; task_labels: { name: string; color: string } | null }[];
 }
 
