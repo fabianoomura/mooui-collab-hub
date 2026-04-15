@@ -11,7 +11,7 @@ import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, Sliders
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { TaskDetailModal } from '@/components/kanban/TaskDetailModal';
+import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
