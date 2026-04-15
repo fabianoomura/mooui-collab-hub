@@ -580,6 +580,8 @@ function TaskRow({
               onToggleExpand={onToggleExpand} onClickTask={onClickTask} onInlineUpdate={onInlineUpdate}
               onAddSubtask={onAddSubtask} dynamicColumns={dynamicColumns} customValues={customValues}
               onSetCustomValue={onSetCustomValue}
+              statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
+              onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
             />
           ))}
           <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">
