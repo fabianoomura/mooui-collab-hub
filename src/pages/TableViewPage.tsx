@@ -112,43 +112,112 @@ function getMonthYearLabel(key: string): string {
 }
 
 // Inline editable cells
-function StatusCell({ value, onChange }: { value: TaskStatus; onChange: (v: TaskStatus) => void }) {
+function StatusCell({ value, onChange, onEditLabels, customLabels }: { value: TaskStatus; onChange: (v: TaskStatus) => void; onEditLabels?: () => void; customLabels?: LabelOption[] }) {
   const [open, setOpen] = useState(false);
   const statuses: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+
+  // If custom labels exist, find the one matching the current status
+  const getLabel = (s: TaskStatus) => {
+    const custom = customLabels?.find(l => l.id === s);
+    return custom?.text || statusLabels[s];
+  };
+  const getColor = (s: TaskStatus) => {
+    const custom = customLabels?.find(l => l.id === s);
+    return custom?.color || null;
+  };
+
+  const currentColor = getColor(value);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${statusCellColors[value]}`} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
-          {statusLabels[value]}
+        <button
+          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${!currentColor ? statusCellColors[value] : ''}`}
+          style={currentColor ? { backgroundColor: currentColor, color: '#fff' } : undefined}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {getLabel(value)}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-40 p-1" onClick={(e) => e.stopPropagation()}>
-        {statuses.map((s) => (
-          <button key={s} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${statusCellColors[s]} hover:opacity-90`} onClick={(e) => { e.stopPropagation(); onChange(s); setOpen(false); }}>
-            {statusLabels[s]}
-          </button>
-        ))}
+      <PopoverContent className="w-48 p-1" onClick={(e) => e.stopPropagation()}>
+        {statuses.map((s) => {
+          const color = getColor(s);
+          return (
+            <button
+              key={s}
+              className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 hover:opacity-90 font-medium text-center ${!color ? statusCellColors[s] : ''}`}
+              style={color ? { backgroundColor: color, color: '#fff' } : undefined}
+              onClick={(e) => { e.stopPropagation(); onChange(s); setOpen(false); }}
+            >
+              {getLabel(s)}
+            </button>
+          );
+        })}
+        {onEditLabels && (
+          <div className="border-t border-border mt-1 pt-1">
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onEditLabels(); }}
+            >
+              <span className="text-[10px]">✏️</span> Editar etiquetas
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
 }
 
-function PriorityCell({ value, onChange }: { value: TaskPriority; onChange: (v: TaskPriority) => void }) {
+function PriorityCell({ value, onChange, onEditLabels, customLabels }: { value: TaskPriority; onChange: (v: TaskPriority) => void; onEditLabels?: () => void; customLabels?: LabelOption[] }) {
   const [open, setOpen] = useState(false);
   const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical'];
+
+  const getLabel = (p: TaskPriority) => {
+    const custom = customLabels?.find(l => l.id === p);
+    return custom?.text || priorityLabels[p];
+  };
+  const getColor = (p: TaskPriority) => {
+    const custom = customLabels?.find(l => l.id === p);
+    return custom?.color || null;
+  };
+
+  const currentColor = getColor(value);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${priorityCellColors[value]}`} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
-          {priorityLabels[value]}
+        <button
+          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${!currentColor ? priorityCellColors[value] : ''}`}
+          style={currentColor ? { backgroundColor: currentColor, color: '#fff' } : undefined}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {getLabel(value)}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-36 p-1" onClick={(e) => e.stopPropagation()}>
-        {priorities.map((p) => (
-          <button key={p} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${priorityCellColors[p]} hover:opacity-90`} onClick={(e) => { e.stopPropagation(); onChange(p); setOpen(false); }}>
-            {priorityLabels[p]}
-          </button>
-        ))}
+      <PopoverContent className="w-40 p-1" onClick={(e) => e.stopPropagation()}>
+        {priorities.map((p) => {
+          const color = getColor(p);
+          return (
+            <button
+              key={p}
+              className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 hover:opacity-90 font-medium text-center ${!color ? priorityCellColors[p] : ''}`}
+              style={color ? { backgroundColor: color, color: '#fff' } : undefined}
+              onClick={(e) => { e.stopPropagation(); onChange(p); setOpen(false); }}
+            >
+              {getLabel(p)}
+            </button>
+          );
+        })}
+        {onEditLabels && (
+          <div className="border-t border-border mt-1 pt-1">
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onEditLabels(); }}
+            >
+              <span className="text-[10px]">✏️</span> Editar etiquetas
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
