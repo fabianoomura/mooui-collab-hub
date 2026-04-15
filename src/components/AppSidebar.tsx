@@ -1,8 +1,8 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useProjects, useProjectsByOrg } from '@/hooks/useProjectData';
+import { useProjectsByOrg, useCreateProject, useDeleteProject } from '@/hooks/useProjectData';
 import {
   Sidebar,
   SidebarContent,
@@ -18,8 +18,14 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Badge } from '@/components/ui/badge';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 const mainNav = [
   { title: 'Painel', url: '/', icon: LayoutDashboard },
@@ -32,6 +38,12 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { organizations, currentOrg, setCurrentOrg, isAdmin } = useOrganization();
   const { data: projects } = useProjectsByOrg(currentOrg?.id);
+  const createProject = useCreateProject();
+  const deleteProject = useDeleteProject();
+  const navigate = useNavigate();
+
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
 
   const sortedProjects = useMemo(() => {
     if (!projects) return [];
@@ -42,6 +54,33 @@ export function AppSidebar() {
     ?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
 
   const orgInitial = currentOrg?.name?.charAt(0)?.toUpperCase() || 'M';
+
+  const handleCreateProject = () => {
+    if (!newProjectName.trim()) return;
+    createProject.mutate(
+      { name: newProjectName.trim(), organizationId: currentOrg?.id },
+      {
+        onSuccess: (project) => {
+          toast.success('Projeto criado!');
+          setShowNewProject(false);
+          setNewProjectName('');
+          navigate(`/tabela?projeto=${project.id}`);
+        },
+        onError: () => toast.error('Erro ao criar projeto'),
+      }
+    );
+  };
+
+  const handleDeleteProject = (projectId: string, projectName: string) => {
+    if (!confirm(`Tem certeza que deseja arquivar "${projectName}"?`)) return;
+    deleteProject.mutate(projectId, {
+      onSuccess: () => {
+        toast.success('Projeto arquivado!');
+        navigate('/');
+      },
+      onError: () => toast.error('Erro ao arquivar projeto'),
+    });
+  };
 
   return (
     <Sidebar collapsible="icon" className="sidebar-gradient border-r-0">
@@ -134,22 +173,46 @@ export function AppSidebar() {
               </DropdownMenu>
             </div>
 
+            {/* Add project button */}
+            <div className="px-3 py-1">
+              <button
+                onClick={() => setShowNewProject(true)}
+                className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm"
+              >
+                <Plus className="h-3.5 w-3.5 shrink-0" />
+                <span>Novo projeto</span>
+              </button>
+            </div>
+
             <Collapsible defaultOpen>
               <CollapsibleContent>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {sortedProjects.map((project) => (
                       <SidebarMenuItem key={project.id}>
-                        <SidebarMenuButton asChild>
-                          <NavLink
-                            to={`/tabela?projeto=${project.id}`}
-                            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground py-1.5"
-                            activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                          >
-                            <Table2 className="h-3.5 w-3.5 mr-2 text-sidebar-muted shrink-0" />
-                            <span className="truncate text-sm">{project.name}</span>
-                          </NavLink>
-                        </SidebarMenuButton>
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            <SidebarMenuButton asChild>
+                              <NavLink
+                                to={`/tabela?projeto=${project.id}`}
+                                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground py-1.5"
+                                activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                              >
+                                <Table2 className="h-3.5 w-3.5 mr-2 text-sidebar-muted shrink-0" />
+                                <span className="truncate text-sm">{project.name}</span>
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent>
+                            <ContextMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => handleDeleteProject(project.id, project.name)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" />
+                              Arquivar projeto
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
                       </SidebarMenuItem>
                     ))}
                   </SidebarMenu>
@@ -182,6 +245,28 @@ export function AppSidebar() {
           )}
         </div>
       </SidebarFooter>
+
+      {/* New Project Dialog */}
+      <Dialog open={showNewProject} onOpenChange={setShowNewProject}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Projeto</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="Nome do projeto"
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewProject(false)}>Cancelar</Button>
+            <Button onClick={handleCreateProject} disabled={!newProjectName.trim() || createProject.isPending}>
+              Criar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sidebar>
   );
 }
