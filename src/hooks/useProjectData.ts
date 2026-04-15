@@ -156,16 +156,41 @@ export function useProjects() {
   });
 }
 
+export function useProjectsByOrg(orgId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['projects', 'org', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*, project_members(user_id)')
+        .eq('status', 'active')
+        .eq('organization_id', orgId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user && !!orgId,
+  });
+}
+
 export function useCreateProject() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ name, description, color }: { name: string; description?: string; color?: string }) => {
+    mutationFn: async ({ name, description, color, organizationId }: { name: string; description?: string; color?: string; organizationId?: string }) => {
       if (!user) throw new Error('Not authenticated');
       const { data: project, error } = await supabase
         .from('projects')
-        .insert({ name, description, color: color || '#D6336C', created_by: user.id })
+        .insert({
+          name,
+          description,
+          color: color || '#D6336C',
+          created_by: user.id,
+          organization_id: organizationId || null,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -178,7 +203,9 @@ export function useCreateProject() {
 
       return project;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
   });
 }
 
