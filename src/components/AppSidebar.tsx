@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Plus } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjects } from '@/hooks/useProjectData';
@@ -16,10 +16,10 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useMemo } from 'react';
 
 const mainNav = [
   { title: 'Painel', url: '/', icon: LayoutDashboard },
-  { title: 'Quadro Principal', url: '/tabela', icon: Table2 },
   { title: 'Equipe', url: '/equipe', icon: Users },
 ];
 
@@ -29,12 +29,18 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { data: projects } = useProjects();
 
+  const sortedProjects = useMemo(() => {
+    if (!projects) return [];
+    return [...projects].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }));
+  }, [projects]);
+
   const initials = user?.user_metadata?.full_name
     ?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
 
   return (
     <Sidebar collapsible="icon" className="sidebar-gradient border-r-0">
       <SidebarContent>
+        {/* Main nav */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider">
             {!collapsed && 'MOOUI'}
@@ -60,31 +66,44 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Projects list like Monday.com workspace */}
-        {!collapsed && projects && projects.length > 0 && (
+        {/* Áreas de Trabalho - Monday.com style */}
+        {!collapsed && (
           <SidebarGroup>
+            <div className="flex items-center justify-between px-3 py-1">
+              <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider p-0">
+                Áreas de trabalho
+              </SidebarGroupLabel>
+              <div className="flex items-center gap-1">
+                <button className="text-sidebar-muted hover:text-sidebar-foreground transition-colors p-0.5">
+                  <Search className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Workspace selector like Monday */}
+            <div className="px-3 py-1">
+              <div className="flex items-center gap-2 rounded-md bg-sidebar-accent/50 px-2 py-1.5">
+                <div className="h-6 w-6 rounded bg-primary flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0">
+                  M
+                </div>
+                <span className="text-sm font-medium text-sidebar-foreground truncate">MOOUI</span>
+                <ChevronDown className="h-3 w-3 text-sidebar-muted ml-auto shrink-0" />
+              </div>
+            </div>
+
             <Collapsible defaultOpen>
-              <CollapsibleTrigger className="flex items-center gap-1 w-full px-3 py-1">
-                <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider cursor-pointer flex items-center gap-1">
-                  <ChevronDown className="h-3 w-3" />
-                  Áreas de Trabalho
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
               <CollapsibleContent>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {projects.map((project) => (
+                    {sortedProjects.map((project) => (
                       <SidebarMenuItem key={project.id}>
                         <SidebarMenuButton asChild>
                           <NavLink
                             to={`/tabela?projeto=${project.id}`}
-                            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground py-1.5"
                             activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                           >
-                            <span
-                              className="h-2.5 w-2.5 rounded-sm shrink-0 mr-2"
-                              style={{ backgroundColor: project.color }}
-                            />
+                            <Table2 className="h-3.5 w-3.5 mr-2 text-sidebar-muted shrink-0" />
                             <span className="truncate text-sm">{project.name}</span>
                           </NavLink>
                         </SidebarMenuButton>
