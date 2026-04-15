@@ -82,9 +82,10 @@ export function KanbanBoard({ projectId }: Props) {
         </div>
       </DragDropContext>
 
-      {selectedTask && (
+      {selectedTask && projectId && (
         <TaskDetailModal
           task={selectedTask}
+          projectId={projectId}
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
           onUpdate={(updates) => {
