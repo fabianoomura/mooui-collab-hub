@@ -369,19 +369,12 @@ export default function TableViewPage() {
   const createProject = useCreateProject();
   const [searchParams, setSearchParams] = useSearchParams();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
-  const [searchText, setSearchText] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<Set<TaskStatus>>(new Set());
-  const [filterPriority, setFilterPriority] = useState<Set<TaskPriority>>(new Set());
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [groupBy, setGroupBy] = useState<GroupBy>('month');
-  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(ALL_COLUMNS));
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [sidePanelTask, setSidePanelTask] = useState<{ task: TaskWithAssignees; parent?: TaskWithAssignees } | null>(null);
 
   const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
-  const { columns, tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
+  const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
 
   const allAssigneeIds = useMemo(() => {
     const ids = new Set<string>();
