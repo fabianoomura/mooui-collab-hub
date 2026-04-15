@@ -39,7 +39,7 @@ export function useProjectTasks(projectId: string | undefined) {
         .from('tasks')
         .select(`
           *,
-          task_assignees(user_id, profiles:user_id(full_name, avatar_url)),
+          task_assignees(user_id),
           task_label_assignments(label_id, task_labels:label_id(name, color))
         `)
         .eq('project_id', projectId)
