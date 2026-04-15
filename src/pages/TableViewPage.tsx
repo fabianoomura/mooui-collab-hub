@@ -608,6 +608,43 @@ export default function TableViewPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
+  const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
+
+  // Custom label configs stored in localStorage per project (could be moved to DB)
+  const [statusLabelsConfig, setStatusLabelsConfig] = useState<LabelOption[]>(() => {
+    const saved = localStorage.getItem(`mooui_status_labels_${projectFromUrl}`);
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'backlog', text: 'Backlog', color: '#6B7280' },
+      { id: 'todo', text: 'Não Iniciado', color: '#3B82F6' },
+      { id: 'in_progress', text: 'Em Andamento', color: '#F59E0B' },
+      { id: 'in_review', text: 'Aguardando Revisão', color: '#8B5CF6' },
+      { id: 'done', text: 'Feito', color: '#22C55E' },
+    ];
+  });
+
+  const [priorityLabelsConfig, setPriorityLabelsConfig] = useState<LabelOption[]>(() => {
+    const saved = localStorage.getItem(`mooui_priority_labels_${projectFromUrl}`);
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'low', text: 'Baixa', color: '#6B7280' },
+      { id: 'medium', text: 'Média', color: '#F59E0B' },
+      { id: 'high', text: 'Alta', color: '#EF4444' },
+      { id: 'critical', text: 'Crítica', color: '#B91C1C' },
+    ];
+  });
+
+  const handleSaveStatusLabels = (labels: LabelOption[]) => {
+    setStatusLabelsConfig(labels);
+    localStorage.setItem(`mooui_status_labels_${activeProjectId}`, JSON.stringify(labels));
+    toast.success('Etiquetas de status atualizadas!');
+  };
+
+  const handleSavePriorityLabels = (labels: LabelOption[]) => {
+    setPriorityLabelsConfig(labels);
+    localStorage.setItem(`mooui_priority_labels_${activeProjectId}`, JSON.stringify(labels));
+    toast.success('Etiquetas de prioridade atualizadas!');
+  };
 
   const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
