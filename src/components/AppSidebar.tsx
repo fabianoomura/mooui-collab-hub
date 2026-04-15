@@ -1,6 +1,7 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Plus } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { useProjects } from '@/hooks/useProjectData';
 import {
   Sidebar,
@@ -15,7 +16,9 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import { useMemo } from 'react';
 
 const mainNav = [
@@ -27,6 +30,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { user, signOut } = useAuth();
+  const { organizations, currentOrg, setCurrentOrg, isAdmin } = useOrganization();
   const { data: projects } = useProjects();
 
   const sortedProjects = useMemo(() => {
@@ -36,6 +40,8 @@ export function AppSidebar() {
 
   const initials = user?.user_metadata?.full_name
     ?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+
+  const orgInitial = currentOrg?.name?.charAt(0)?.toUpperCase() || 'M';
 
   return (
     <Sidebar collapsible="icon" className="sidebar-gradient border-r-0">
@@ -66,7 +72,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Áreas de Trabalho - Monday.com style */}
+        {/* Áreas de Trabalho */}
         {!collapsed && (
           <SidebarGroup>
             <div className="flex items-center justify-between px-3 py-1">
@@ -80,15 +86,52 @@ export function AppSidebar() {
               </div>
             </div>
 
-            {/* Workspace selector like Monday */}
+            {/* Organization selector */}
             <div className="px-3 py-1">
-              <div className="flex items-center gap-2 rounded-md bg-sidebar-accent/50 px-2 py-1.5">
-                <div className="h-6 w-6 rounded bg-primary flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0">
-                  M
-                </div>
-                <span className="text-sm font-medium text-sidebar-foreground truncate">MOOUI</span>
-                <ChevronDown className="h-3 w-3 text-sidebar-muted ml-auto shrink-0" />
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-full flex items-center gap-2 rounded-md bg-sidebar-accent/50 px-2 py-1.5 hover:bg-sidebar-accent transition-colors">
+                    <div
+                      className="h-6 w-6 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0"
+                      style={{ backgroundColor: currentOrg?.color || 'hsl(var(--primary))' }}
+                    >
+                      {orgInitial}
+                    </div>
+                    <span className="text-sm font-medium text-sidebar-foreground truncate flex-1 text-left">
+                      {currentOrg?.name || 'Selecione'}
+                    </span>
+                    {isAdmin && (
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 bg-sidebar-accent text-sidebar-muted">
+                        Admin
+                      </Badge>
+                    )}
+                    <ChevronDown className="h-3 w-3 text-sidebar-muted shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  {organizations.map((org) => (
+                    <DropdownMenuItem
+                      key={org.id}
+                      onClick={() => setCurrentOrg(org)}
+                      className="flex items-center gap-2"
+                    >
+                      <div
+                        className="h-5 w-5 rounded flex items-center justify-center text-[8px] font-bold text-primary-foreground shrink-0"
+                        style={{ backgroundColor: org.color }}
+                      >
+                        {org.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="flex-1 truncate">{org.name}</span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 capitalize">
+                        {org.role === 'admin' ? 'Admin' : 'Membro'}
+                      </Badge>
+                      {currentOrg?.id === org.id && (
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <Collapsible defaultOpen>
