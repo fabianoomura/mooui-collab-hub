@@ -14,6 +14,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
+import { LabelEditorDialog, type LabelOption } from '@/components/table/LabelEditor';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
