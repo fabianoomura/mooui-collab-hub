@@ -939,6 +939,21 @@ export default function TableViewPage() {
           />
         </>
       )}
+
+      <LabelEditorDialog
+        open={editingLabelType === 'status'}
+        onOpenChange={(open) => !open && setEditingLabelType(null)}
+        labels={statusLabelsConfig}
+        onSave={handleSaveStatusLabels}
+        title="Editar etiquetas de Status"
+      />
+      <LabelEditorDialog
+        open={editingLabelType === 'priority'}
+        onOpenChange={(open) => !open && setEditingLabelType(null)}
+        labels={priorityLabelsConfig}
+        onSave={handleSavePriorityLabels}
+        title="Editar etiquetas de Prioridade"
+      />
     </div>
   );
 }
