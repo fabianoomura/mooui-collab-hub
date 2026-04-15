@@ -6,10 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
-import KanbanPage from "./pages/KanbanPage";
 import TableViewPage from "./pages/TableViewPage";
 import ProjectsPage from "./pages/ProjectsPage";
-import SprintsPage from "./pages/SprintsPage";
 import TeamPage from "./pages/TeamPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -61,9 +59,7 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/tabela" element={<TableViewPage />} />
-              <Route path="/kanban" element={<KanbanPage />} />
               <Route path="/projetos" element={<ProjectsPage />} />
-              <Route path="/sprints" element={<SprintsPage />} />
               <Route path="/equipe" element={<TeamPage />} />
             </Route>
 
