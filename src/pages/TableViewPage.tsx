@@ -14,6 +14,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
+import { LabelEditorDialog, type LabelOption } from '@/components/table/LabelEditor';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
@@ -111,43 +112,112 @@ function getMonthYearLabel(key: string): string {
 }
 
 // Inline editable cells
-function StatusCell({ value, onChange }: { value: TaskStatus; onChange: (v: TaskStatus) => void }) {
+function StatusCell({ value, onChange, onEditLabels, customLabels }: { value: TaskStatus; onChange: (v: TaskStatus) => void; onEditLabels?: () => void; customLabels?: LabelOption[] }) {
   const [open, setOpen] = useState(false);
   const statuses: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+
+  // If custom labels exist, find the one matching the current status
+  const getLabel = (s: TaskStatus) => {
+    const custom = customLabels?.find(l => l.id === s);
+    return custom?.text || statusLabels[s];
+  };
+  const getColor = (s: TaskStatus) => {
+    const custom = customLabels?.find(l => l.id === s);
+    return custom?.color || null;
+  };
+
+  const currentColor = getColor(value);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${statusCellColors[value]}`} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
-          {statusLabels[value]}
+        <button
+          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${!currentColor ? statusCellColors[value] : ''}`}
+          style={currentColor ? { backgroundColor: currentColor, color: '#fff' } : undefined}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {getLabel(value)}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-40 p-1" onClick={(e) => e.stopPropagation()}>
-        {statuses.map((s) => (
-          <button key={s} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${statusCellColors[s]} hover:opacity-90`} onClick={(e) => { e.stopPropagation(); onChange(s); setOpen(false); }}>
-            {statusLabels[s]}
-          </button>
-        ))}
+      <PopoverContent className="w-48 p-1" onClick={(e) => e.stopPropagation()}>
+        {statuses.map((s) => {
+          const color = getColor(s);
+          return (
+            <button
+              key={s}
+              className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 hover:opacity-90 font-medium text-center ${!color ? statusCellColors[s] : ''}`}
+              style={color ? { backgroundColor: color, color: '#fff' } : undefined}
+              onClick={(e) => { e.stopPropagation(); onChange(s); setOpen(false); }}
+            >
+              {getLabel(s)}
+            </button>
+          );
+        })}
+        {onEditLabels && (
+          <div className="border-t border-border mt-1 pt-1">
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onEditLabels(); }}
+            >
+              <span className="text-[10px]">✏️</span> Editar etiquetas
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
 }
 
-function PriorityCell({ value, onChange }: { value: TaskPriority; onChange: (v: TaskPriority) => void }) {
+function PriorityCell({ value, onChange, onEditLabels, customLabels }: { value: TaskPriority; onChange: (v: TaskPriority) => void; onEditLabels?: () => void; customLabels?: LabelOption[] }) {
   const [open, setOpen] = useState(false);
   const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical'];
+
+  const getLabel = (p: TaskPriority) => {
+    const custom = customLabels?.find(l => l.id === p);
+    return custom?.text || priorityLabels[p];
+  };
+  const getColor = (p: TaskPriority) => {
+    const custom = customLabels?.find(l => l.id === p);
+    return custom?.color || null;
+  };
+
+  const currentColor = getColor(value);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${priorityCellColors[value]}`} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
-          {priorityLabels[value]}
+        <button
+          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${!currentColor ? priorityCellColors[value] : ''}`}
+          style={currentColor ? { backgroundColor: currentColor, color: '#fff' } : undefined}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {getLabel(value)}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-36 p-1" onClick={(e) => e.stopPropagation()}>
-        {priorities.map((p) => (
-          <button key={p} className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${priorityCellColors[p]} hover:opacity-90`} onClick={(e) => { e.stopPropagation(); onChange(p); setOpen(false); }}>
-            {priorityLabels[p]}
-          </button>
-        ))}
+      <PopoverContent className="w-40 p-1" onClick={(e) => e.stopPropagation()}>
+        {priorities.map((p) => {
+          const color = getColor(p);
+          return (
+            <button
+              key={p}
+              className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 hover:opacity-90 font-medium text-center ${!color ? priorityCellColors[p] : ''}`}
+              style={color ? { backgroundColor: color, color: '#fff' } : undefined}
+              onClick={(e) => { e.stopPropagation(); onChange(p); setOpen(false); }}
+            >
+              {getLabel(p)}
+            </button>
+          );
+        })}
+        {onEditLabels && (
+          <div className="border-t border-border mt-1 pt-1">
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onEditLabels(); }}
+            >
+              <span className="text-[10px]">✏️</span> Editar etiquetas
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -419,6 +489,7 @@ function TaskRow({
   task, parentTask, groupColor, gridCols, visibleColumns, profilesMap, isSubtask,
   expandedTasks, onToggleExpand, onClickTask, onInlineUpdate, onAddSubtask,
   dynamicColumns, customValues, onSetCustomValue,
+  statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
@@ -435,6 +506,10 @@ function TaskRow({
   dynamicColumns: ProjectColumn[];
   customValues: Map<string, Map<string, string>>;
   onSetCustomValue: (taskId: string, columnId: string, value: string) => void;
+  statusLabelsConfig?: LabelOption[];
+  priorityLabelsConfig?: LabelOption[];
+  onEditStatusLabels?: () => void;
+  onEditPriorityLabels?: () => void;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
@@ -463,8 +538,8 @@ function TaskRow({
           )}
         </div>
         {visibleColumns.has('due_date') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.due_date)}</span>}
-        {visibleColumns.has('priority') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} /></div>}
-        {visibleColumns.has('status') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} /></div>}
+        {visibleColumns.has('priority') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} customLabels={priorityLabelsConfig} onEditLabels={onEditPriorityLabels} /></div>}
+        {visibleColumns.has('status') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} customLabels={statusLabelsConfig} onEditLabels={onEditStatusLabels} /></div>}
         {visibleColumns.has('assignee') && <div className="px-1 py-1"><AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} /></div>}
         {visibleColumns.has('created_at') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.created_at)}</span>}
         {visibleColumns.has('ticket') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{task.ticket_number || '—'}</span>}
@@ -505,6 +580,8 @@ function TaskRow({
               onToggleExpand={onToggleExpand} onClickTask={onClickTask} onInlineUpdate={onInlineUpdate}
               onAddSubtask={onAddSubtask} dynamicColumns={dynamicColumns} customValues={customValues}
               onSetCustomValue={onSetCustomValue}
+              statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
+              onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
             />
           ))}
           <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">
@@ -531,6 +608,43 @@ export default function TableViewPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
+  const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
+
+  // Custom label configs stored in localStorage per project (could be moved to DB)
+  const [statusLabelsConfig, setStatusLabelsConfig] = useState<LabelOption[]>(() => {
+    const saved = localStorage.getItem(`mooui_status_labels_${projectFromUrl}`);
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'backlog', text: 'Backlog', color: '#6B7280' },
+      { id: 'todo', text: 'Não Iniciado', color: '#3B82F6' },
+      { id: 'in_progress', text: 'Em Andamento', color: '#F59E0B' },
+      { id: 'in_review', text: 'Aguardando Revisão', color: '#8B5CF6' },
+      { id: 'done', text: 'Feito', color: '#22C55E' },
+    ];
+  });
+
+  const [priorityLabelsConfig, setPriorityLabelsConfig] = useState<LabelOption[]>(() => {
+    const saved = localStorage.getItem(`mooui_priority_labels_${projectFromUrl}`);
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'low', text: 'Baixa', color: '#6B7280' },
+      { id: 'medium', text: 'Média', color: '#F59E0B' },
+      { id: 'high', text: 'Alta', color: '#EF4444' },
+      { id: 'critical', text: 'Crítica', color: '#B91C1C' },
+    ];
+  });
+
+  const handleSaveStatusLabels = (labels: LabelOption[]) => {
+    setStatusLabelsConfig(labels);
+    localStorage.setItem(`mooui_status_labels_${activeProjectId}`, JSON.stringify(labels));
+    toast.success('Etiquetas de status atualizadas!');
+  };
+
+  const handleSavePriorityLabels = (labels: LabelOption[]) => {
+    setPriorityLabelsConfig(labels);
+    localStorage.setItem(`mooui_priority_labels_${activeProjectId}`, JSON.stringify(labels));
+    toast.success('Etiquetas de prioridade atualizadas!');
+  };
 
   const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
@@ -758,6 +872,9 @@ export default function TableViewPage() {
                         onAddSubtask={(parentId) => handleQuickAdd('todo', parentId)}
                         dynamicColumns={dynamicColumns} customValues={customValues}
                         onSetCustomValue={handleSetCustomValue}
+                        statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
+                        onEditStatusLabels={() => setEditingLabelType('status')}
+                        onEditPriorityLabels={() => setEditingLabelType('priority')}
                       />
                     ))}
 
@@ -822,6 +939,21 @@ export default function TableViewPage() {
           />
         </>
       )}
+
+      <LabelEditorDialog
+        open={editingLabelType === 'status'}
+        onOpenChange={(open) => !open && setEditingLabelType(null)}
+        labels={statusLabelsConfig}
+        onSave={handleSaveStatusLabels}
+        title="Editar etiquetas de Status"
+      />
+      <LabelEditorDialog
+        open={editingLabelType === 'priority'}
+        onOpenChange={(open) => !open && setEditingLabelType(null)}
+        labels={priorityLabelsConfig}
+        onSave={handleSavePriorityLabels}
+        title="Editar etiquetas de Prioridade"
+      />
     </div>
   );
 }
