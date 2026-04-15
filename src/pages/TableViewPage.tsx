@@ -489,6 +489,7 @@ function TaskRow({
   task, parentTask, groupColor, gridCols, visibleColumns, profilesMap, isSubtask,
   expandedTasks, onToggleExpand, onClickTask, onInlineUpdate, onAddSubtask,
   dynamicColumns, customValues, onSetCustomValue,
+  statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
@@ -505,6 +506,10 @@ function TaskRow({
   dynamicColumns: ProjectColumn[];
   customValues: Map<string, Map<string, string>>;
   onSetCustomValue: (taskId: string, columnId: string, value: string) => void;
+  statusLabelsConfig?: LabelOption[];
+  priorityLabelsConfig?: LabelOption[];
+  onEditStatusLabels?: () => void;
+  onEditPriorityLabels?: () => void;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
