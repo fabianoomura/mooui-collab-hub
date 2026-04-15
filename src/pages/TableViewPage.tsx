@@ -2,10 +2,11 @@ import { useProjects, useCreateProject, useProjectTasks, type TaskWithAssignees,
 import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, User } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -19,12 +20,12 @@ const statusLabels: Record<TaskStatus, string> = {
   done: 'Feito',
 };
 
-const statusColors: Record<TaskStatus, string> = {
-  backlog: 'bg-muted-foreground text-muted',
-  todo: 'bg-info text-info-foreground',
-  in_progress: 'bg-warning text-warning-foreground',
-  in_review: 'bg-primary text-primary-foreground',
-  done: 'bg-success text-success-foreground',
+const statusCellColors: Record<TaskStatus, string> = {
+  backlog: 'bg-[hsl(var(--muted))] text-muted-foreground',
+  todo: 'bg-[hsl(220,80%,55%)] text-white',
+  in_progress: 'bg-[hsl(35,90%,55%)] text-white',
+  in_review: 'bg-[hsl(280,60%,55%)] text-white',
+  done: 'bg-[hsl(145,60%,42%)] text-white',
 };
 
 const priorityLabels: Record<TaskPriority, string> = {
@@ -34,19 +35,25 @@ const priorityLabels: Record<TaskPriority, string> = {
   critical: 'Crítica',
 };
 
-const priorityColors: Record<TaskPriority, string> = {
-  low: 'bg-muted text-muted-foreground',
-  medium: 'bg-info/20 text-info',
-  high: 'bg-warning/20 text-warning',
-  critical: 'bg-destructive/20 text-destructive',
+const priorityCellColors: Record<TaskPriority, string> = {
+  low: 'bg-[hsl(210,15%,50%)] text-white',
+  medium: 'bg-[hsl(35,70%,50%)] text-white',
+  high: 'bg-[hsl(10,75%,55%)] text-white',
+  critical: 'bg-[hsl(0,85%,45%)] text-white',
 };
 
 const groupColors = [
-  'hsl(var(--primary))',
-  'hsl(var(--warning))',
-  'hsl(var(--success))',
-  'hsl(var(--info))',
-  'hsl(var(--destructive))',
+  'hsl(280, 60%, 55%)',
+  'hsl(200, 80%, 50%)',
+  'hsl(145, 60%, 42%)',
+  'hsl(35, 90%, 55%)',
+  'hsl(0, 75%, 55%)',
+  'hsl(320, 70%, 50%)',
+];
+
+const monthNames = [
+  'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
+  'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
 ];
 
 function getInitials(name: string | null): string {
@@ -54,12 +61,91 @@ function getInitials(name: string | null): string {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
+function formatDateShort(dateStr: string | null) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+function getMonthYearKey(dateStr: string | null): string {
+  if (!dateStr) return 'sem-data';
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
+}
+
+function getMonthYearLabel(key: string): string {
+  if (key === 'sem-data') return 'Sem Data';
+  const [year, month] = key.split('-').map(Number);
+  return `${monthNames[month]} - ${year}`;
+}
+
+// Inline editable status cell
+function StatusCell({ value, onChange }: { value: TaskStatus; onChange: (v: TaskStatus) => void }) {
+  const [open, setOpen] = useState(false);
+  const statuses: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${statusCellColors[value]}`}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {statusLabels[value]}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-1" onClick={(e) => e.stopPropagation()}>
+        {statuses.map((s) => (
+          <button
+            key={s}
+            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${statusCellColors[s]} hover:opacity-90`}
+            onClick={(e) => { e.stopPropagation(); onChange(s); setOpen(false); }}
+          >
+            {statusLabels[s]}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Inline editable priority cell
+function PriorityCell({ value, onChange }: { value: TaskPriority; onChange: (v: TaskPriority) => void }) {
+  const [open, setOpen] = useState(false);
+  const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical'];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={`w-full h-full px-2 py-1.5 text-[11px] font-medium text-center rounded-sm transition-colors ${priorityCellColors[value]}`}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {priorityLabels[value]}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-36 p-1" onClick={(e) => e.stopPropagation()}>
+        {priorities.map((p) => (
+          <button
+            key={p}
+            className={`w-full text-left px-3 py-1.5 text-xs rounded-sm mb-0.5 ${priorityCellColors[p]} hover:opacity-90`}
+            onClick={(e) => { e.stopPropagation(); onChange(p); setOpen(false); }}
+          >
+            {priorityLabels[p]}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: string }[]; profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }> }) {
-  if (assignees.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+  if (assignees.length === 0) return <span className="text-muted-foreground text-xs flex items-center justify-center h-full">—</span>;
 
   return (
     <TooltipProvider>
-      <div className="flex -space-x-1">
+      <div className="flex -space-x-1 justify-center">
         {assignees.slice(0, 3).map((a) => {
           const profile = profilesMap.get(a.user_id);
           const name = profile?.full_name || '?';
@@ -94,6 +180,8 @@ export default function TableViewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const projectFromUrl = searchParams.get('projeto');
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
@@ -108,17 +196,35 @@ export default function TableViewPage() {
 
   const { data: profilesMap } = useAssigneeProfiles(allAssigneeIds);
 
-  const groups = columns.map((col, i) => ({
-    label: col.title,
-    status: col.id,
-    tasks: col.tasks,
-    color: groupColors[i % groupColors.length],
-  })).filter(g => g.tasks.length > 0);
+  // Filter by search text
+  const filteredTasks = useMemo(() => {
+    if (!searchText.trim()) return tasks;
+    const lower = searchText.toLowerCase();
+    return tasks.filter(t => t.title.toLowerCase().includes(lower));
+  }, [tasks, searchText]);
 
-  const toggleGroup = (label: string) => {
+  // Group by month (using due_date, fallback to created_at)
+  const monthGroups = useMemo(() => {
+    const grouped = new Map<string, TaskWithAssignees[]>();
+    filteredTasks.forEach(task => {
+      const key = getMonthYearKey(task.due_date || task.created_at);
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(task);
+    });
+    // Sort groups by date key
+    const sorted = Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return sorted.map(([key, tasks], i) => ({
+      key,
+      label: getMonthYearLabel(key),
+      tasks,
+      color: groupColors[i % groupColors.length],
+    }));
+  }, [filteredTasks]);
+
+  const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      next.has(label) ? next.delete(label) : next.add(label);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
   };
@@ -137,7 +243,7 @@ export default function TableViewPage() {
     }
   };
 
-  const handleQuickAdd = (status: TaskStatus) => {
+  const handleQuickAdd = (status: TaskStatus = 'todo') => {
     const title = prompt('Título da tarefa:');
     if (title?.trim()) {
       addTask.mutate(
@@ -147,33 +253,27 @@ export default function TableViewPage() {
     }
   };
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  const handleInlineUpdate = (taskId: string, updates: Record<string, unknown>) => {
+    updateTask.mutate({ taskId, updates });
   };
 
   const activeProject = projects?.find(p => p.id === activeProjectId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {activeProject?.name || 'Quadro Principal'}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Visualize todas as tarefas em tabela</p>
-        </div>
         <div className="flex items-center gap-3">
           {projects && projects.length > 0 && (
             <Select value={activeProjectId} onValueChange={setSelectedProject}>
-              <SelectTrigger className="w-56">
+              <SelectTrigger className="w-56 border-0 bg-transparent text-xl font-bold text-foreground h-auto py-0">
                 <SelectValue placeholder="Selecione um projeto" />
               </SelectTrigger>
               <SelectContent>
                 {projects.map(p => (
                   <SelectItem key={p.id} value={p.id}>
                     <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                       {p.name}
                     </span>
                   </SelectItem>
@@ -181,18 +281,76 @@ export default function TableViewPage() {
               </SelectContent>
             </Select>
           )}
-          <Button onClick={handleCreateProject} size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Novo Projeto
-          </Button>
+          {!projects?.length && <h1 className="text-xl font-bold text-foreground">Quadro Principal</h1>}
         </div>
       </div>
 
+      {/* Monday.com-style Toolbar */}
+      {activeProjectId && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            onClick={() => handleQuickAdd('todo')}
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium"
+          >
+            <Plus className="h-4 w-4 mr-1" /> Criar elemento
+          </Button>
+
+          <div className="h-6 w-px bg-border mx-1" />
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
+            onClick={() => setSearchOpen(!searchOpen)}
+          >
+            <Search className="h-3.5 w-3.5" /> Pesquisar
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
+            <User className="h-3.5 w-3.5" /> Pessoa
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Filtro
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
+            <ArrowUpDown className="h-3.5 w-3.5" /> Ordenar
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
+            <Eye className="h-3.5 w-3.5" /> Ocultar
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs">
+            <LayoutGrid className="h-3.5 w-3.5" /> Agrupar por
+          </Button>
+
+          <div className="flex-1" />
+          <Button onClick={handleCreateProject} variant="outline" size="sm" className="text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" /> Novo Projeto
+          </Button>
+        </div>
+      )}
+
+      {/* Search bar */}
+      {searchOpen && (
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar elementos..."
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            className="max-w-sm h-8 text-sm"
+            autoFocus
+          />
+        </div>
+      )}
+
+      {/* Loading */}
       {(loadingProjects || loadingTasks) && (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
 
+      {/* Empty state */}
       {!loadingProjects && (!projects || projects.length === 0) ? (
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <FolderKanban className="h-12 w-12 text-muted-foreground/40 mb-4" />
@@ -204,90 +362,146 @@ export default function TableViewPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {groups.map((group) => {
-            const isCollapsed = collapsedGroups.has(group.label);
+          {monthGroups.map((group) => {
+            const isCollapsed = collapsedGroups.has(group.key);
             return (
-              <div key={group.label}>
+              <div key={group.key}>
+                {/* Group header */}
                 <button
-                  onClick={() => toggleGroup(group.label)}
-                  className="flex items-center gap-2 mb-2 group"
+                  onClick={() => toggleGroup(group.key)}
+                  className="flex items-center gap-2 mb-1 group"
                 >
                   {isCollapsed ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight className="h-4 w-4" style={{ color: group.color }} />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4" style={{ color: group.color }} />
                   )}
-                  <span className="text-sm font-bold" style={{ color: group.color }}>
+                  <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>
                     {group.label}
                   </span>
-                  <span className="text-xs text-muted-foreground">{group.tasks.length} Elementos</span>
+                  <span className="text-xs text-muted-foreground ml-1">{group.tasks.length} elementos</span>
                 </button>
 
                 {!isCollapsed && (
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <div className="grid grid-cols-[1fr_120px_100px_120px_100px_100px_110px] bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
-                      <span>Elemento</span>
-                      <span>Responsável</span>
-                      <span>Prioridade</span>
-                      <span>Status</span>
-                      <span>Abertura</span>
-                      <span>Conclusão</span>
-                      <span>Nº Ticket</span>
+                  <div className="rounded-lg overflow-hidden border border-border">
+                    {/* Column headers */}
+                    <div
+                      className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border"
+                      style={{
+                        gridTemplateColumns: '3px 1fr 110px 100px 120px 100px 100px 100px',
+                      }}
+                    >
+                      <div style={{ backgroundColor: group.color }} className="h-full" />
+                      <span className="px-3 py-2">Elemento</span>
+                      <span className="px-2 py-2 text-center">Data Ação</span>
+                      <span className="px-2 py-2 text-center">Prioridade</span>
+                      <span className="px-2 py-2 text-center">Status</span>
+                      <span className="px-2 py-2 text-center">Responsável</span>
+                      <span className="px-2 py-2 text-center">Abertura</span>
+                      <span className="px-2 py-2 text-center">Nº Ticket</span>
                     </div>
 
+                    {/* Task rows */}
                     {group.tasks.map((task) => (
                       <div
                         key={task.id}
+                        className="grid items-center border-b border-border last:border-b-0 hover:bg-accent/30 cursor-pointer transition-colors text-sm"
+                        style={{
+                          gridTemplateColumns: '3px 1fr 110px 100px 120px 100px 100px 100px',
+                        }}
                         onClick={() => setSelectedTask(task)}
-                        className="grid grid-cols-[1fr_120px_100px_120px_100px_100px_110px] px-3 py-2.5 items-center border-b border-border last:border-b-0 hover:bg-accent/40 cursor-pointer transition-colors text-sm"
-                        style={{ borderLeft: `3px solid ${group.color}` }}
                       >
-                        <span className="font-medium text-foreground truncate pr-2">{task.title}</span>
-                        <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap || new Map()} />
-                        <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${priorityColors[task.priority]}`}>
-                          {priorityLabels[task.priority]}
-                        </Badge>
-                        <Badge className={`text-[10px] px-2 py-0.5 ${statusColors[task.status]}`}>
-                          {statusLabels[task.status]}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{formatDate(task.created_at)}</span>
-                        <span className="text-xs text-muted-foreground">{formatDate(task.due_date)}</span>
-                        <span className="text-xs text-muted-foreground">{task.ticket_number || '—'}</span>
+                        <div style={{ backgroundColor: group.color }} className="h-full" />
+                        <span className="px-3 py-2 font-medium text-foreground truncate">{task.title}</span>
+                        <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+                          {formatDateShort(task.due_date)}
+                        </span>
+                        <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+                          <PriorityCell
+                            value={task.priority}
+                            onChange={(v) => handleInlineUpdate(task.id, { priority: v })}
+                          />
+                        </div>
+                        <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+                          <StatusCell
+                            value={task.status}
+                            onChange={(v) => handleInlineUpdate(task.id, { status: v })}
+                          />
+                        </div>
+                        <div className="px-1 py-1">
+                          <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap || new Map()} />
+                        </div>
+                        <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+                          {formatDateShort(task.created_at)}
+                        </span>
+                        <span className="px-2 py-1 text-center text-xs text-muted-foreground">
+                          {task.ticket_number || '—'}
+                        </span>
                       </div>
                     ))}
 
+                    {/* Add element row */}
                     <button
-                      onClick={() => handleQuickAdd(group.status)}
-                      className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors flex items-center gap-1"
+                      onClick={() => handleQuickAdd('todo')}
+                      className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5"
                     >
                       <Plus className="h-3.5 w-3.5" /> Adicionar elemento
                     </button>
+
+                    {/* Summary row with color indicators */}
+                    <div
+                      className="grid items-center border-t border-border bg-muted/20"
+                      style={{
+                        gridTemplateColumns: '3px 1fr 110px 100px 120px 100px 100px 100px',
+                      }}
+                    >
+                      <div style={{ backgroundColor: group.color }} className="h-full" />
+                      <span className="px-3 py-1.5" />
+                      <span className="px-2 py-1.5" />
+                      <div className="px-1 py-1.5 flex gap-0.5">
+                        {(['high', 'critical', 'medium', 'low'] as TaskPriority[]).map(p => {
+                          const count = group.tasks.filter(t => t.priority === p).length;
+                          if (count === 0) return null;
+                          return (
+                            <div
+                              key={p}
+                              className={`h-5 rounded-sm ${priorityCellColors[p]}`}
+                              style={{ flex: count }}
+                              title={`${priorityLabels[p]}: ${count}`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="px-1 py-1.5 flex gap-0.5">
+                        {(['done', 'in_progress', 'in_review', 'todo', 'backlog'] as TaskStatus[]).map(s => {
+                          const count = group.tasks.filter(t => t.status === s).length;
+                          if (count === 0) return null;
+                          return (
+                            <div
+                              key={s}
+                              className={`h-5 rounded-sm ${statusCellColors[s]}`}
+                              style={{ flex: count }}
+                              title={`${statusLabels[s]}: ${count}`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <span className="px-2 py-1.5" />
+                      <span className="px-2 py-1.5" />
+                      <span className="px-2 py-1.5" />
+                    </div>
                   </div>
                 )}
               </div>
             );
           })}
 
-          {tasks.length === 0 && !loadingTasks && activeProjectId && (
+          {/* Empty when no tasks */}
+          {filteredTasks.length === 0 && !loadingTasks && activeProjectId && (
             <div className="rounded-lg border border-border overflow-hidden">
-              <div className="grid grid-cols-[1fr_120px_100px_120px_100px_100px_110px] bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                <span>Elemento</span>
-                <span>Responsável</span>
-                <span>Prioridade</span>
-                <span>Status</span>
-                <span>Abertura</span>
-                <span>Conclusão</span>
-                <span>Nº Ticket</span>
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                {searchText ? 'Nenhum resultado encontrado.' : 'Nenhuma tarefa ainda. Clique em "Criar elemento" para começar.'}
               </div>
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                Nenhuma tarefa ainda.
-              </div>
-              <button
-                onClick={() => handleQuickAdd('todo')}
-                className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors flex items-center gap-1 border-t border-border"
-              >
-                <Plus className="h-3.5 w-3.5" /> Adicionar elemento
-              </button>
             </div>
           )}
         </div>
