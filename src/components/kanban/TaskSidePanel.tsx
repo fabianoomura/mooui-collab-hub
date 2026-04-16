@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar, User, Flag, Tag, MessageSquare, X, UserPlus, Hash, FileText, Activity, Info, Send } from 'lucide-react';
+import { TaskFilesTab } from './TaskFilesTab';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -176,11 +177,7 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
 
         {/* Files Tab */}
         <TabsContent value="files" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-4">
-              <p className="text-xs text-muted-foreground text-center py-8">Nenhum arquivo ainda</p>
-            </div>
-          </ScrollArea>
+          <TaskFilesTab taskId={task.id} />
         </TabsContent>
 
         {/* Activity Log Tab */}
