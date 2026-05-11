@@ -44,6 +44,7 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          is_dm: boolean
           is_private: boolean
           name: string
           organization_id: string
@@ -54,6 +55,7 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          is_dm?: boolean
           is_private?: boolean
           name: string
           organization_id: string
@@ -64,6 +66,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          is_dm?: boolean
           is_private?: boolean
           name?: string
           organization_id?: string
@@ -777,6 +780,10 @@ export type Database = {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
       }
+      get_or_create_dm: {
+        Args: { _org_id: string; _other_user_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -799,6 +806,10 @@ export type Database = {
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
+      }
+      unread_count: {
+        Args: { _channel_id: string; _user_id: string }
+        Returns: number
       }
     }
     Enums: {
