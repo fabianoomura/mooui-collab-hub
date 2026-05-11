@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom';
 const mainNav = [
   { title: 'Painel', url: '/', icon: LayoutDashboard },
   { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
+  { title: 'Documentação', url: '/docs', icon: BookOpen },
   { title: 'Equipe', url: '/equipe', icon: Users },
 ];
 
