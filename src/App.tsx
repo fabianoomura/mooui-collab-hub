@@ -12,6 +12,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import TeamPage from "./pages/TeamPage";
 import MessagesPage from "./pages/MessagesPage";
 import DocsPage from "./pages/DocsPage";
+import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -67,6 +68,7 @@ const App = () => (
               <Route path="/equipe" element={<TeamPage />} />
               <Route path="/mensagens" element={<MessagesPage />} />
               <Route path="/docs" element={<DocsPage />} />
+              <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

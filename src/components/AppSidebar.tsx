@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen, Settings } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -32,6 +32,7 @@ const mainNav = [
   { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
   { title: 'Documentação', url: '/docs', icon: BookOpen },
   { title: 'Equipe', url: '/equipe', icon: Users },
+  { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
 
 export function AppSidebar() {
