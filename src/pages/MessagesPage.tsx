@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Hash, Lock, Plus, Send, Trash2 } from 'lucide-react';
+import { Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -34,6 +34,8 @@ export default function MessagesPage() {
   const [newChannelPrivate, setNewChannelPrivate] = useState(false);
 
   const [messageInput, setMessageInput] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-select first channel
@@ -80,13 +82,40 @@ export default function MessagesPage() {
   };
 
   const handleSend = () => {
-    if (!messageInput.trim() || !activeChannelId) return;
+    if ((!messageInput.trim() && pendingFiles.length === 0) || !activeChannelId) return;
     const content = messageInput.trim();
+    const files = pendingFiles;
     setMessageInput('');
+    setPendingFiles([]);
     sendMessage.mutate(
-      { channelId: activeChannelId, content },
-      { onError: () => { toast.error('Erro ao enviar'); setMessageInput(content); } }
+      { channelId: activeChannelId, content: content || '📎', files: files.length ? files : undefined },
+      {
+        onError: () => {
+          toast.error('Erro ao enviar');
+          setMessageInput(content);
+          setPendingFiles(files);
+        },
+      }
     );
+  };
+
+  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const valid = files.filter(f => {
+      if (f.size > 50 * 1024 * 1024) {
+        toast.error(`${f.name} excede 50MB`);
+        return false;
+      }
+      return true;
+    });
+    setPendingFiles(prev => [...prev, ...valid]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const formatBytes = (n: number) => {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleDeleteChannel = (id: string, name: string) => {
