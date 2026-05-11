@@ -3,7 +3,62 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  :root,
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 220 22% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 22% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 22% 14%;
+
+    --primary: 338 70% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 22% 14%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 220 14% 94%;
+    --accent-foreground: 220 22% 14%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 90%;
+    --input: 220 14% 90%;
+    --ring: 338 70% 52%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 220 22% 13%;
+    --sidebar-foreground: 220 14% 80%;
+    --sidebar-primary: 338 70% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 18% 20%;
+    --sidebar-accent-foreground: 220 14% 90%;
+    --sidebar-border: 220 18% 22%;
+    --sidebar-ring: 338 70% 52%;
+    --sidebar-muted: 220 14% 50%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 210 100% 52%;
+    --info-foreground: 0 0% 100%;
+
+    --priority-critical: 0 84% 60%;
+    --priority-high: 25 95% 53%;
+    --priority-medium: 38 92% 50%;
+    --priority-low: 142 71% 45%;
+  }
+
+  .dark {
     --background: 220 22% 11%;
     --foreground: 220 14% 90%;
 
@@ -31,8 +86,6 @@
     --border: 220 18% 22%;
     --input: 220 18% 22%;
     --ring: 338 70% 52%;
-
-    --radius: 0.5rem;
 
     --sidebar-background: 220 22% 13%;
     --sidebar-foreground: 220 14% 80%;
@@ -70,7 +123,7 @@
 
 @layer utilities {
   .sidebar-gradient {
-    background: linear-gradient(180deg, hsl(220 20% 14%) 0%, hsl(220 22% 11%) 100%);
+    background: linear-gradient(180deg, hsl(var(--sidebar-background)) 0%, hsl(220 22% 11%) 100%);
   }
   .kanban-card {
     @apply bg-card rounded-lg border shadow-sm hover:shadow-md transition-shadow duration-200;
