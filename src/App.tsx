@@ -68,6 +68,7 @@ const App = () => (
               <Route path="/equipe" element={<TeamPage />} />
               <Route path="/mensagens" element={<MessagesPage />} />
               <Route path="/docs" element={<DocsPage />} />
+              <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
