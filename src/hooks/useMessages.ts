@@ -22,6 +22,37 @@ export interface MessageWithProfile {
   created_at: string;
   profile: { id: string; full_name: string | null; avatar_url: string | null } | null;
   attachments: MessageAttachment[];
+  reply_count?: number;
+}
+
+async function attachProfilesAndCounts(rows: any[], includeReplyCounts: boolean): Promise<MessageWithProfile[]> {
+  const userIds = [...new Set(rows.map(m => m.user_id))];
+  let profMap = new Map<string, any>();
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', userIds);
+    profMap = new Map((profiles || []).map(p => [p.id, p]));
+  }
+
+  let replyMap = new Map<string, number>();
+  if (includeReplyCounts && rows.length) {
+    const { data: replies } = await supabase
+      .from('messages')
+      .select('parent_message_id')
+      .in('parent_message_id', rows.map(r => r.id));
+    (replies || []).forEach((r: any) => {
+      replyMap.set(r.parent_message_id, (replyMap.get(r.parent_message_id) || 0) + 1);
+    });
+  }
+
+  return rows.map((m: any) => ({
+    ...m,
+    profile: profMap.get(m.user_id) || null,
+    attachments: (m.message_attachments || []) as MessageAttachment[],
+    reply_count: replyMap.get(m.id) || 0,
+  }));
 }
 
 export function useMessages(channelId: string | undefined) {
@@ -40,26 +71,11 @@ export function useMessages(channelId: string | undefined) {
         .order('created_at', { ascending: true })
         .limit(200);
       if (error) throw error;
-
-      const userIds = [...new Set((data || []).map(m => m.user_id))];
-      if (userIds.length === 0) return [];
-
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', userIds);
-      const map = new Map((profiles || []).map(p => [p.id, p]));
-
-      return (data || []).map((m: any) => ({
-        ...m,
-        profile: map.get(m.user_id) || null,
-        attachments: (m.message_attachments || []) as MessageAttachment[],
-      })) as MessageWithProfile[];
+      return attachProfilesAndCounts(data || [], true);
     },
     enabled: !!channelId && !!user,
   });
 
-  // Realtime subscription
   useEffect(() => {
     if (!channelId) return;
     const channel = supabase
@@ -69,6 +85,7 @@ export function useMessages(channelId: string | undefined) {
         { event: '*', schema: 'public', table: 'messages', filter: `channel_id=eq.${channelId}` },
         () => {
           queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+          queryClient.invalidateQueries({ queryKey: ['thread-messages'] });
         }
       )
       .subscribe();
@@ -80,6 +97,24 @@ export function useMessages(channelId: string | undefined) {
   return query;
 }
 
+export function useThreadMessages(parentId: string | undefined) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['thread-messages', parentId],
+    queryFn: async () => {
+      if (!parentId) return [];
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*, message_attachments(*)')
+        .eq('parent_message_id', parentId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return attachProfilesAndCounts(data || [], false);
+    },
+    enabled: !!parentId && !!user,
+  });
+}
+
 export function useSendMessage() {
   const { user } = useAuth();
   return useMutation({
@@ -87,16 +122,23 @@ export function useSendMessage() {
       channelId,
       content,
       files,
+      parentMessageId,
     }: {
       channelId: string;
       content: string;
       files?: File[];
+      parentMessageId?: string;
     }) => {
       if (!user) throw new Error('Não autenticado');
 
       const { data: msg, error } = await supabase
         .from('messages')
-        .insert({ channel_id: channelId, user_id: user.id, content })
+        .insert({
+          channel_id: channelId,
+          user_id: user.id,
+          content,
+          parent_message_id: parentMessageId || null,
+        })
         .select()
         .single();
       if (error) throw error;

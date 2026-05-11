@@ -8,8 +8,13 @@ export interface Channel {
   name: string;
   description: string | null;
   is_private: boolean;
+  is_dm: boolean;
   created_by: string;
   created_at: string;
+}
+
+export interface DmChannel extends Channel {
+  partner: { id: string; full_name: string | null; avatar_url: string | null } | null;
 }
 
 export function useChannels(orgId: string | undefined) {
@@ -23,11 +28,109 @@ export function useChannels(orgId: string | undefined) {
         .from('channels')
         .select('*')
         .eq('organization_id', orgId)
+        .eq('is_dm', false)
         .order('name');
       if (error) throw error;
       return (data || []) as Channel[];
     },
     enabled: !!user && !!orgId,
+  });
+}
+
+export function useDmChannels(orgId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['dm-channels', orgId, user?.id],
+    queryFn: async () => {
+      if (!orgId || !user) return [];
+      // Get DM channels where I'm a member
+      const { data: myMemberships, error: memErr } = await supabase
+        .from('channel_members')
+        .select('channel_id')
+        .eq('user_id', user.id);
+      if (memErr) throw memErr;
+      const channelIds = (myMemberships || []).map(m => m.channel_id);
+      if (channelIds.length === 0) return [];
+
+      const { data: dms, error: dmErr } = await supabase
+        .from('channels')
+        .select('*')
+        .eq('organization_id', orgId)
+        .eq('is_dm', true)
+        .in('id', channelIds);
+      if (dmErr) throw dmErr;
+      if (!dms || dms.length === 0) return [];
+
+      // Find the OTHER member in each DM
+      const { data: allMembers, error: allErr } = await supabase
+        .from('channel_members')
+        .select('channel_id, user_id')
+        .in('channel_id', dms.map(d => d.id));
+      if (allErr) throw allErr;
+
+      const partnerIds = new Set<string>();
+      const partnerByChannel = new Map<string, string>();
+      (allMembers || []).forEach(m => {
+        if (m.user_id !== user.id) {
+          partnerByChannel.set(m.channel_id, m.user_id);
+          partnerIds.add(m.user_id);
+        }
+      });
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', [...partnerIds]);
+      const profMap = new Map((profiles || []).map(p => [p.id, p]));
+
+      return dms.map(d => ({
+        ...d,
+        partner: profMap.get(partnerByChannel.get(d.id) || '') || null,
+      })) as DmChannel[];
+    },
+    enabled: !!user && !!orgId,
+  });
+}
+
+export function useOrgMembers(orgId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['org-members-profiles', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data: members, error } = await supabase
+        .from('organization_members')
+        .select('user_id')
+        .eq('organization_id', orgId);
+      if (error) throw error;
+      const ids = (members || []).map(m => m.user_id).filter(id => id !== user?.id);
+      if (ids.length === 0) return [];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', ids);
+      return (profiles || []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>;
+    },
+    enabled: !!user && !!orgId,
+  });
+}
+
+export function useOpenDm() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ otherUserId, orgId }: { otherUserId: string; orgId: string }) => {
+      const { data, error } = await supabase.rpc('get_or_create_dm', {
+        _other_user_id: otherUserId,
+        _org_id: orgId,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['dm-channels', vars.orgId] });
+    },
   });
 }
 
@@ -57,7 +160,6 @@ export function useCreateChannel() {
         .single();
       if (error) throw error;
 
-      // Auto-join creator
       await supabase.from('channel_members').insert({
         channel_id: channel.id,
         user_id: user.id,
@@ -80,24 +182,48 @@ export function useDeleteChannel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['dm-channels'] });
     },
   });
 }
 
-export function useJoinChannel() {
+export function useMarkChannelRead() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (channelId: string) => {
-      if (!user) throw new Error('Não autenticado');
-      const { error } = await supabase.from('channel_members').insert({
-        channel_id: channelId,
-        user_id: user.id,
-      });
-      if (error && error.code !== '23505') throw error; // ignore duplicate
+      if (!user) return;
+      await supabase
+        .from('channel_members')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('channel_id', channelId)
+        .eq('user_id', user.id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['channel-members'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-counts'] });
     },
+  });
+}
+
+export function useUnreadCounts(channelIds: string[]) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['unread-counts', user?.id, channelIds.sort().join(',')],
+    queryFn: async () => {
+      if (!user || channelIds.length === 0) return {} as Record<string, number>;
+      const result: Record<string, number> = {};
+      await Promise.all(
+        channelIds.map(async (cid) => {
+          const { data } = await supabase.rpc('unread_count', {
+            _channel_id: cid,
+            _user_id: user.id,
+          });
+          result[cid] = (data as number) || 0;
+        })
+      );
+      return result;
+    },
+    enabled: !!user && channelIds.length > 0,
+    refetchInterval: 15000,
   });
 }
