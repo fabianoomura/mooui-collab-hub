@@ -32,6 +32,7 @@ const mainNav = [
   { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
   { title: 'Documentação', url: '/docs', icon: BookOpen },
   { title: 'Equipe', url: '/equipe', icon: Users },
+  { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
 
 export function AppSidebar() {
