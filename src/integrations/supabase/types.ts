@@ -74,6 +74,56 @@ export type Database = {
         }
         Relationships: []
       }
+      doc_pages: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string
+          icon: string | null
+          id: string
+          organization_id: string
+          parent_id: string | null
+          position: number
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by: string
+          icon?: string | null
+          id?: string
+          organization_id: string
+          parent_id?: string | null
+          position?: number
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string
+          icon?: string | null
+          id?: string
+          organization_id?: string
+          parent_id?: string | null
+          position?: number
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_pages_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "doc_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_attachments: {
         Row: {
           created_at: string

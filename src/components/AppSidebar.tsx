@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom';
 const mainNav = [
   { title: 'Painel', url: '/', icon: LayoutDashboard },
   { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
+  { title: 'Documentação', url: '/docs', icon: BookOpen },
   { title: 'Equipe', url: '/equipe', icon: Users },
 ];
 
