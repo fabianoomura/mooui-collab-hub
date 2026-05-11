@@ -240,7 +240,48 @@ export default function MessagesPage() {
                           {formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR })}
                         </span>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
+                      {m.content && m.content !== '📎' && (
+                        <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
+                      )}
+                      {m.attachments && m.attachments.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {m.attachments.map((att) => {
+                            const isImage = att.file_type?.startsWith('image/');
+                            const isVideo = att.file_type?.startsWith('video/');
+                            if (isImage) {
+                              return (
+                                <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer" className="block max-w-sm">
+                                  <img src={att.file_url} alt={att.file_name} className="rounded-md border border-border max-h-72 object-contain bg-muted" />
+                                </a>
+                              );
+                            }
+                            if (isVideo) {
+                              return (
+                                <video key={att.id} src={att.file_url} controls className="rounded-md border border-border max-w-sm max-h-72" />
+                              );
+                            }
+                            return (
+                              <a
+                                key={att.id}
+                                href={att.file_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                download={att.file_name}
+                                className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 hover:bg-muted transition-colors max-w-sm"
+                              >
+                                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm truncate">{att.file_name}</p>
+                                  {att.file_size && (
+                                    <p className="text-[10px] text-muted-foreground">{formatBytes(att.file_size)}</p>
+                                  )}
+                                </div>
+                                <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                     {isMine && (
                       <button
@@ -257,7 +298,40 @@ export default function MessagesPage() {
             </div>
 
             <div className="p-3 border-t border-border">
+              {pendingFiles.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {pendingFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-muted/40 pl-2 pr-1 py-1 text-xs">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="truncate max-w-[160px]">{f.name}</span>
+                      <span className="text-muted-foreground">{formatBytes(f.size)}</span>
+                      <button
+                        onClick={() => setPendingFiles(prev => prev.filter((_, idx) => idx !== i))}
+                        className="text-muted-foreground hover:text-destructive p-0.5"
+                        aria-label="Remover"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex items-end gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFilePick}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Anexar arquivo"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <Textarea
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
@@ -271,12 +345,16 @@ export default function MessagesPage() {
                   rows={1}
                   className="resize-none min-h-[40px] max-h-32"
                 />
-                <Button onClick={handleSend} disabled={!messageInput.trim() || sendMessage.isPending} size="icon">
+                <Button
+                  onClick={handleSend}
+                  disabled={(!messageInput.trim() && pendingFiles.length === 0) || sendMessage.isPending}
+                  size="icon"
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Enter para enviar · Shift+Enter para nova linha
+                Enter para enviar · Shift+Enter para nova linha · Máx. 50MB por arquivo
               </p>
             </div>
           </>
