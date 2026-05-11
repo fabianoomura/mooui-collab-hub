@@ -233,6 +233,51 @@ export type Database = {
         }
         Relationships: []
       }
+      org_departments: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      org_positions: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -299,6 +344,7 @@ export type Database = {
           department: string | null
           full_name: string | null
           id: string
+          position: string | null
           updated_at: string
         }
         Insert: {
@@ -307,6 +353,7 @@ export type Database = {
           department?: string | null
           full_name?: string | null
           id: string
+          position?: string | null
           updated_at?: string
         }
         Update: {
@@ -315,6 +362,7 @@ export type Database = {
           department?: string | null
           full_name?: string | null
           id?: string
+          position?: string | null
           updated_at?: string
         }
         Relationships: []
