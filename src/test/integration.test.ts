@@ -337,13 +337,13 @@ Solicitações em: rh@mooui.com`,
   });
 
   it("can read back the full tree with parents and children", async () => {
-    const { data } = await alice
-      .from("doc_pages")
-      .select("id, title, parent_id")
-      .ilike("title", `%[${tag}]%`);
-    const folders = data!.filter(p => !p.parent_id);
-    const children = data!.filter(p => p.parent_id);
-    expect(folders.length).toBe(departments.length);
-    expect(children.length).toBe(departments.reduce((s, d) => s + d.pages.length, 0));
+    const { data: folders } = await alice
+      .from("doc_pages").select("id, title")
+      .ilike("title", `%[${tag}]%`).is("parent_id", null);
+    expect(folders!.length).toBe(departments.length);
+    const { data: children } = await alice
+      .from("doc_pages").select("id, parent_id")
+      .in("parent_id", folders!.map(f => f.id));
+    expect(children!.length).toBe(departments.reduce((s, d) => s + d.pages.length, 0));
   });
 });
