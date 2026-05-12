@@ -1,306 +1,254 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
-  useDocPages,
-  useCreateDocPage,
-  useUpdateDocPage,
-  useDeleteDocPage,
-  type DocPage,
+  useDocPages, useCreateDocPage, useUpdateDocPage, useDeleteDocPage, type DocPage,
 } from '@/hooks/useDocPages';
+import { useDepartments } from '@/hooks/useOrgSettings';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight } from 'lucide-react';
 import {
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  FileText,
-  Trash2,
-  MoreHorizontal,
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { NewPageDialog } from '@/components/docs/NewPageDialog';
+import { PagePermissions } from '@/components/docs/PagePermissions';
+import { IconPicker } from '@/components/docs/IconPicker';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-interface TreeNode extends DocPage {
-  children: TreeNode[];
-}
+interface ProfileLite { id: string; full_name: string | null; avatar_url: string | null; }
 
-function buildTree(pages: DocPage[]): TreeNode[] {
-  const map = new Map<string, TreeNode>();
-  pages.forEach((p) => map.set(p.id, { ...p, children: [] }));
-  const roots: TreeNode[] = [];
-  map.forEach((node) => {
-    if (node.parent_id && map.has(node.parent_id)) {
-      map.get(node.parent_id)!.children.push(node);
-    } else {
-      roots.push(node);
-    }
+function useProfilesByIds(ids: string[]) {
+  const key = [...new Set(ids)].sort().join(',');
+  return useQuery({
+    queryKey: ['profiles-lite', key],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('id,full_name,avatar_url').in('id', [...new Set(ids)]);
+      if (error) throw error;
+      return data as ProfileLite[];
+    },
   });
-  return roots;
 }
 
-function PageTreeItem({
-  node,
-  depth,
-  selectedId,
-  onSelect,
-  onAddChild,
-  onDelete,
-  expanded,
-  toggle,
-}: {
-  node: TreeNode;
-  depth: number;
-  selectedId?: string;
-  onSelect: (id: string) => void;
-  onAddChild: (parentId: string) => void;
-  onDelete: (id: string) => void;
-  expanded: Set<string>;
-  toggle: (id: string) => void;
-}) {
-  const isOpen = expanded.has(node.id);
-  const hasChildren = node.children.length > 0;
-  const isSelected = selectedId === node.id;
-
+function UserChip({ profile, label }: { profile?: ProfileLite; label: string }) {
+  const initials = (profile?.full_name ?? '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   return (
-    <div>
-      <div
-        className={cn(
-          'group flex items-center gap-1 rounded-md px-2 py-1 text-sm cursor-pointer hover:bg-accent',
-          isSelected && 'bg-accent text-accent-foreground font-medium'
-        )}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        onClick={() => onSelect(node.id)}
-      >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggle(node.id);
-          }}
-          className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
-        >
-          {hasChildren ? (
-            isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
-          ) : (
-            <span className="h-3 w-3" />
-          )}
-        </button>
-        <span className="text-base leading-none">{node.icon || '📄'}</span>
-        <span className="truncate flex-1">{node.title || 'Sem título'}</span>
-        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddChild(node.id);
-            }}
-            className="h-5 w-5 flex items-center justify-center rounded hover:bg-background"
-            title="Adicionar subpágina"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                onClick={(e) => e.stopPropagation()}
-                className="h-5 w-5 flex items-center justify-center rounded hover:bg-background"
-              >
-                <MoreHorizontal className="h-3 w-3" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => onDelete(node.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      {isOpen && hasChildren && (
-        <div>
-          {node.children.map((child) => (
-            <PageTreeItem
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              onAddChild={onAddChild}
-              onDelete={onDelete}
-              expanded={expanded}
-              toggle={toggle}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      {label}
+      <Avatar className="h-4 w-4">
+        {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+        <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+      </Avatar>
+      <span className="font-medium text-foreground/80">{profile?.full_name ?? '—'}</span>
+    </span>
   );
 }
 
 export default function DocsPage() {
-  const { currentOrg } = useOrganization();
+  const { currentOrg, isAdmin } = useOrganization();
   const { data: pages = [] } = useDocPages(currentOrg?.id);
+  const { data: departments = [] } = useDepartments(currentOrg?.id);
   const createPage = useCreateDocPage();
   const updatePage = useUpdateDocPage();
   const deletePage = useDeleteDocPage();
 
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [icon, setIcon] = useState('📄');
+  const [showNew, setShowNew] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const tree = useMemo(() => buildTree(pages), [pages]);
   const selected = pages.find((p) => p.id === selectedId);
 
-  // auto-select first page
+  const profileIds = useMemo(() => {
+    const s = new Set<string>();
+    pages.forEach(p => { s.add(p.created_by); if (p.updated_by) s.add(p.updated_by); });
+    return [...s];
+  }, [pages]);
+  const { data: profiles = [] } = useProfilesByIds(profileIds);
+  const profileMap = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
+
+  // Group pages by department
+  const grouped = useMemo(() => {
+    const byDept = new Map<string, DocPage[]>();
+    pages.forEach((p) => {
+      const k = p.department_id ?? '__none__';
+      if (!byDept.has(k)) byDept.set(k, []);
+      byDept.get(k)!.push(p);
+    });
+    byDept.forEach((arr) => arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR')));
+    const groups = departments
+      .map((d) => ({ id: d.id, name: d.name, color: d.color, pages: byDept.get(d.id) ?? [] }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    const orphan = byDept.get('__none__') ?? [];
+    if (orphan.length) groups.push({ id: '__none__', name: 'Sem setor', color: '#9CA3AF', pages: orphan });
+    return groups;
+  }, [pages, departments]);
+
   useEffect(() => {
     if (!selectedId && pages.length > 0) setSelectedId(pages[0].id);
   }, [pages, selectedId]);
 
-  // load selected into editor
   useEffect(() => {
     if (selected) {
       setTitle(selected.title);
       setContent(selected.content || '');
       setIcon(selected.icon || '📄');
-    } else {
-      setTitle('');
-      setContent('');
-      setIcon('📄');
     }
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId]); // eslint-disable-line
 
-  // autosave (debounced)
+  // autosave
   useEffect(() => {
     if (!selected) return;
-    if (
-      title === selected.title &&
-      content === (selected.content || '') &&
-      icon === (selected.icon || '📄')
-    )
-      return;
+    if (title === selected.title && content === (selected.content || '') && icon === (selected.icon || '📄')) return;
     const t = setTimeout(() => {
-      updatePage.mutate({ id: selected.id, title, content, icon });
-    }, 600);
+      updatePage.mutate({ id: selected.id, title, content, icon }, {
+        onError: () => toast.error('Sem permissão para editar este documento'),
+      });
+    }, 700);
     return () => clearTimeout(t);
-  }, [title, content, icon]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [title, content, icon]); // eslint-disable-line
 
-  const toggle = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  const toggleGroup = (id: string) => setCollapsed(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
 
-  const handleCreate = (parentId: string | null) => {
+  const handleCreate = (input: { title: string; icon: string; department_id: string | null }) => {
     if (!currentOrg) return;
     createPage.mutate(
-      { organization_id: currentOrg.id, parent_id: parentId },
+      { organization_id: currentOrg.id, ...input },
       {
-        onSuccess: (p) => {
-          setSelectedId(p.id);
-          if (parentId) {
-            setExpanded((prev) => new Set(prev).add(parentId));
-          }
-        },
+        onSuccess: (p) => { setSelectedId(p.id); setShowNew(false); toast.success('Página criada'); },
         onError: () => toast.error('Erro ao criar página'),
       }
     );
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Excluir esta página e todas as subpáginas?')) return;
+    if (!confirm('Excluir esta página?')) return;
     deletePage.mutate(id, {
-      onSuccess: () => {
-        toast.success('Página excluída');
-        if (selectedId === id) setSelectedId(undefined);
-      },
+      onSuccess: () => { toast.success('Página excluída'); if (selectedId === id) setSelectedId(undefined); },
       onError: () => toast.error('Sem permissão para excluir'),
     });
   };
 
   if (!currentOrg) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        Selecione uma organização
-      </div>
-    );
+    return <div className="flex items-center justify-center h-full text-muted-foreground">Selecione uma organização</div>;
   }
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      {/* Sidebar de páginas */}
       <aside className="w-72 border-r bg-card flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h2 className="text-sm font-semibold">Documentação</h2>
-          <Button size="sm" variant="ghost" onClick={() => handleCreate(null)}>
+          <Button size="sm" variant="ghost" onClick={() => setShowNew(true)}>
             <Plus className="h-4 w-4" />
           </Button>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2">
-            {tree.length === 0 ? (
+          <div className="p-2 space-y-1">
+            {grouped.length === 0 || pages.length === 0 ? (
               <button
-                onClick={() => handleCreate(null)}
+                onClick={() => setShowNew(true)}
                 className="w-full text-left text-sm text-muted-foreground p-3 rounded-md hover:bg-accent flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" /> Criar primeira página
               </button>
-            ) : (
-              tree.map((node) => (
-                <PageTreeItem
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  onAddChild={(pid) => handleCreate(pid)}
-                  onDelete={handleDelete}
-                  expanded={expanded}
-                  toggle={toggle}
-                />
-              ))
-            )}
+            ) : grouped.map((g) => {
+              const isOpen = !collapsed.has(g.id);
+              return (
+                <div key={g.id}>
+                  <button
+                    onClick={() => toggleGroup(g.id)}
+                    className="w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                  >
+                    {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    <Folder className="h-3.5 w-3.5" style={{ color: g.color }} />
+                    <span className="font-semibold">{g.name}</span>
+                    <span className="ml-auto text-[10px]">{g.pages.length}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="ml-2">
+                      {g.pages.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => setSelectedId(p.id)}
+                          className={cn(
+                            'group flex items-center gap-1.5 rounded-md px-2 py-1 text-sm cursor-pointer hover:bg-accent',
+                            selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
+                          )}
+                        >
+                          <span className="text-base leading-none">{p.icon || '📄'}</span>
+                          <span className="truncate flex-1">{p.title || 'Sem título'}</span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button onClick={(e) => e.stopPropagation()}
+                                className="opacity-0 group-hover:opacity-100 h-5 w-5 flex items-center justify-center rounded hover:bg-background">
+                                <MoreHorizontal className="h-3 w-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDelete(p.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      ))}
+                      {g.pages.length === 0 && (
+                        <div className="px-2 py-1 text-xs text-muted-foreground italic">Sem páginas</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </ScrollArea>
       </aside>
 
-      {/* Editor */}
       <main className="flex-1 overflow-auto">
         {selected ? (
-          <div className="max-w-3xl mx-auto px-12 py-12">
-            <div className="flex items-center gap-3 mb-4">
-              <Input
-                value={icon}
-                onChange={(e) => setIcon(e.target.value.slice(0, 4))}
-                className="w-16 text-3xl text-center border-0 bg-transparent focus-visible:ring-0 px-0 h-auto"
-              />
-              <span className="text-xs text-muted-foreground">
-                Atualizado{' '}
-                {formatDistanceToNow(new Date(selected.updated_at), {
-                  addSuffix: true,
-                  locale: ptBR,
+          <div className="max-w-3xl mx-auto px-6 sm:px-12 py-8 sm:py-12">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <IconPicker value={icon} onChange={setIcon} />
+              <div className="flex-1 min-w-[200px] flex flex-wrap gap-x-4 gap-y-1">
+                <UserChip profile={profileMap[selected.created_by]} label="Autor:" />
+                {selected.updated_by && (
+                  <UserChip profile={profileMap[selected.updated_by]} label="Editado por:" />
+                )}
+              </div>
+              <PagePermissions
+                page={selected}
+                disabled={!isAdmin}
+                onChange={(patch) => updatePage.mutate({ id: selected.id, ...patch }, {
+                  onSuccess: () => toast.success('Permissões atualizadas'),
+                  onError: () => toast.error('Erro ao atualizar permissões'),
                 })}
-              </span>
+              />
             </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Criado em {format(new Date(selected.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+              {' · '}
+              Atualizado {formatDistanceToNow(new Date(selected.updated_at), { addSuffix: true, locale: ptBR })}
+            </p>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Sem título"
-              className="text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
+              className="text-3xl sm:text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
             />
             <MarkdownEditor
               value={content}
@@ -312,12 +260,19 @@ export default function DocsPage() {
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
             <FileText className="h-12 w-12 opacity-30" />
             <p>Selecione ou crie uma página para começar</p>
-            <Button onClick={() => handleCreate(null)}>
+            <Button onClick={() => setShowNew(true)}>
               <Plus className="h-4 w-4 mr-2" /> Nova página
             </Button>
           </div>
         )}
       </main>
+
+      <NewPageDialog
+        open={showNew}
+        onOpenChange={setShowNew}
+        orgId={currentOrg.id}
+        onCreate={handleCreate}
+      />
     </div>
   );
 }
