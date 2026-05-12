@@ -19,14 +19,16 @@ export type Deal = {
   notes: string | null; position: number; status: string; created_by: string;
 };
 
-export function usePipelines() {
+export function usePipelines(instanceId?: string) {
   const { currentOrg } = useOrganization();
   return useQuery({
-    queryKey: ['crm_pipelines', currentOrg?.id],
+    queryKey: ['crm_pipelines', currentOrg?.id, instanceId ?? null],
     queryFn: async () => {
       if (!currentOrg) return [];
-      const { data, error } = await supabase.from('crm_pipelines').select('*')
-        .eq('organization_id', currentOrg.id).order('position');
+      let q = supabase.from('crm_pipelines').select('*')
+        .eq('organization_id', currentOrg.id);
+      if (instanceId) q = q.eq('instance_id', instanceId);
+      const { data, error } = await q.order('position');
       if (error) throw error;
       return (data || []) as Pipeline[];
     },
