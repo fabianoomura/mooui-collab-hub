@@ -27,6 +27,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 
 function useAllOrgMembers(orgId?: string) {
   return useQuery({
@@ -54,7 +55,8 @@ export default function LaunchesPage() {
 }
 
 function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
-  const { data: launches = [], isLoading } = useLaunches();
+  const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('lancamentos');
+  const { data: launches = [], isLoading } = useLaunches(activeInstance);
   const createMut = useCreateLaunch();
   const deleteMut = useDeleteLaunch();
   const dupMut = useDuplicateLaunch();
@@ -64,7 +66,7 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
 
   const handleCreate = () => {
     if (!form.name.trim()) return;
-    createMut.mutate(form, {
+    createMut.mutate({ ...form, instance_id: activeInstance ?? null }, {
       onSuccess: (l) => { toast.success('Lançamento criado'); setOpen(false); onSelect(l.id); },
       onError: (e: any) => toast.error(e.message),
     });

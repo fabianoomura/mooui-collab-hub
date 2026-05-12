@@ -44,14 +44,16 @@ export function useTemplateItems(templateId: string | undefined) {
   });
 }
 
-export function useChecklists() {
+export function useChecklists(instanceId?: string) {
   const { currentOrg } = useOrganization();
   return useQuery({
-    queryKey: ['launch_checklists', currentOrg?.id],
+    queryKey: ['launch_checklists', currentOrg?.id, instanceId ?? null],
     queryFn: async () => {
       if (!currentOrg) return [];
-      const { data, error } = await supabase.from('launch_checklists').select('*')
-        .eq('organization_id', currentOrg.id).order('created_at', { ascending: false });
+      let q = supabase.from('launch_checklists').select('*')
+        .eq('organization_id', currentOrg.id);
+      if (instanceId) q = q.eq('instance_id', instanceId);
+      const { data, error } = await q.order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as Checklist[];
     },
@@ -78,7 +80,7 @@ export function useCreateChecklistFromTemplate() {
   const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (p: { name: string; templateId?: string; launchId?: string; expected_arrival_date?: string }) => {
+    mutationFn: async (p: { name: string; templateId?: string; launchId?: string; expected_arrival_date?: string; instance_id?: string | null }) => {
       if (!currentOrg || !user) throw new Error('No org/user');
       const { data: cl, error } = await supabase.from('launch_checklists').insert({
         organization_id: currentOrg.id,
@@ -86,8 +88,9 @@ export function useCreateChecklistFromTemplate() {
         name: p.name,
         template_id: p.templateId ?? null,
         launch_id: p.launchId ?? null,
+        instance_id: p.instance_id ?? null,
         expected_arrival_date: p.expected_arrival_date ?? null,
-      } as any).select().single();
+      } as never).select().single();
       if (error) throw error;
 
       if (p.templateId) {
@@ -95,7 +98,7 @@ export function useCreateChecklistFromTemplate() {
           .eq('template_id', p.templateId).order('position');
         if (items?.length) {
           await supabase.from('launch_checklist_items').insert(
-            items.map((i: any) => ({
+            items.map((i) => ({
               checklist_id: cl.id, position: i.position, category: i.category, label: i.label, status: 'pending',
             }))
           );

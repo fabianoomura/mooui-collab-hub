@@ -21,18 +21,20 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 
 const fmtBRL = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const HOT_THRESHOLD_CENTS = 500_000; // R$ 5k+
 const COLD_DAYS = 14;
 
 export default function CRMPage() {
-  const { data: pipelines = [], isLoading: pipesLoading } = usePipelines();
+  const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('crm');
+  const { data: pipelines = [], isLoading: pipesLoading } = usePipelines(activeInstance);
   const [activePipeline, setActivePipeline] = useState<string>();
 
   useEffect(() => {
-    if (!activePipeline && pipelines.length) setActivePipeline(pipelines[0].id);
-  }, [pipelines, activePipeline]);
+    setActivePipeline(pipelines[0]?.id);
+  }, [pipelines]);
 
   const { data: stages = [] } = useStages(activePipeline);
   const { data: deals = [], isLoading: dealsLoading } = useDeals(activePipeline);
@@ -121,6 +123,12 @@ export default function CRMPage() {
             </Button>
           </>
         }
+      />
+
+      <ModuleInstanceBar
+        moduleKey="crm"
+        value={activeInstance}
+        onChange={setActiveInstance}
       />
 
       {pipesLoading ? (

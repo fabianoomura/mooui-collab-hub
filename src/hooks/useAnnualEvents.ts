@@ -18,20 +18,21 @@ export type AnnualEvent = {
   updated_at: string;
 };
 
-export function useAnnualEvents(year?: number) {
+export function useAnnualEvents(year?: number, instanceId?: string) {
   const { currentOrg } = useOrganization();
   return useQuery({
-    queryKey: ['annual-events', currentOrg?.id, year],
+    queryKey: ['annual-events', currentOrg?.id, year, instanceId ?? null],
     queryFn: async () => {
       if (!currentOrg) return [];
       const y = year ?? new Date().getFullYear();
-      const { data, error } = await supabase
+      let q = supabase
         .from('annual_events')
         .select('*')
         .eq('organization_id', currentOrg.id)
         .gte('start_date', `${y}-01-01`)
-        .lte('start_date', `${y}-12-31`)
-        .order('start_date');
+        .lte('start_date', `${y}-12-31`);
+      if (instanceId) q = q.eq('instance_id', instanceId);
+      const { data, error } = await q.order('start_date');
       if (error) throw error;
       return (data || []) as AnnualEvent[];
     },
@@ -44,7 +45,7 @@ export function useCreateAnnualEvent() {
   const { currentOrg } = useOrganization();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (input: Omit<AnnualEvent, 'id' | 'organization_id' | 'created_by' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (input: Omit<AnnualEvent, 'id' | 'organization_id' | 'created_by' | 'created_at' | 'updated_at'> & { instance_id?: string | null }) => {
       if (!currentOrg || !user) throw new Error('Sem organização');
       const { data, error } = await supabase.from('annual_events').insert({
         ...input,

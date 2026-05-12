@@ -21,6 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { PageHeader } from '@/components/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 
 const CATS: Record<string, { label: string; color: string }> = {
   geral: { label: 'Geral', color: 'bg-slate-500' },
@@ -43,7 +44,8 @@ const NEXT_STATUS: Record<string, string> = { pending: 'done', done: 'na', na: '
 type FilterKey = 'all' | 'pending' | 'overdue' | 'blocked';
 
 export default function ChecklistPage() {
-  const { data: checklists = [], isLoading: clLoading } = useChecklists();
+  const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('checagens');
+  const { data: checklists = [], isLoading: clLoading } = useChecklists(activeInstance);
   const { data: launches = [] } = useLaunches();
   const { data: templates = [] } = useTemplates();
   const [activeId, setActiveId] = useState<string>();

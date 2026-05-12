@@ -53,17 +53,18 @@ export function recalcStageDates(launchStart: string, stages: LaunchStage[]): La
   });
 }
 
-export function useLaunches() {
+export function useLaunches(instanceId?: string) {
   const { currentOrg } = useOrganization();
   return useQuery({
-    queryKey: ['launches', currentOrg?.id],
+    queryKey: ['launches', currentOrg?.id, instanceId ?? null],
     queryFn: async () => {
       if (!currentOrg) return [];
-      const { data, error } = await supabase
+      let q = supabase
         .from('launches')
         .select('*')
-        .eq('organization_id', currentOrg.id)
-        .order('created_at', { ascending: false });
+        .eq('organization_id', currentOrg.id);
+      if (instanceId) q = q.eq('instance_id', instanceId);
+      const { data, error } = await q.order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as Launch[];
     },
@@ -106,7 +107,7 @@ export function useCreateLaunch() {
   const { currentOrg } = useOrganization();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (input: { name: string; description?: string; start_date: string }) => {
+    mutationFn: async (input: { name: string; description?: string; start_date: string; instance_id?: string | null }) => {
       if (!currentOrg || !user) throw new Error('Sem organização');
       const { data, error } = await supabase.from('launches').insert({
         ...input,

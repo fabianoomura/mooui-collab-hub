@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 
 const CATEGORIES = [
   { value: 'lancamento', label: 'Lançamento', color: '#D6336C' },
@@ -34,7 +35,8 @@ export default function CalendarPage() {
   const [search, setSearch] = useState('');
   const [activeCats, setActiveCats] = useState<string[]>([]);
 
-  const { data: events = [], isLoading } = useAnnualEvents(year);
+  const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('calendario');
+  const { data: events = [], isLoading } = useAnnualEvents(year, activeInstance);
   const createEvt = useCreateAnnualEvent();
   const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
@@ -102,7 +104,7 @@ export default function CalendarPage() {
         onError: (e: any) => toast.error(e.message),
       });
     } else {
-      createEvt.mutate({ ...payload, project_id: null }, {
+      createEvt.mutate({ ...payload, project_id: null, instance_id: activeInstance ?? null } as any, {
         onSuccess: () => { toast.success('Evento criado'); setOpen(false); },
         onError: (e: any) => toast.error(e.message),
       });
@@ -140,6 +142,8 @@ export default function CalendarPage() {
           </div>
         }
       />
+
+      <ModuleInstanceBar moduleKey="calendario" value={activeInstance} onChange={setActiveInstance} />
 
       {/* Search + filter chips */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
