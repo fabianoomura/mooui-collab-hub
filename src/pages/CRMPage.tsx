@@ -363,11 +363,15 @@ export default function CRMPage() {
 }
 
 function DealCard({
-  deal, index, contacts, onClick,
-}: { deal: Deal; index: number; contacts: any[]; onClick: () => void }) {
+  deal, index, contacts, members, onClick, onAssign,
+}: {
+  deal: Deal; index: number; contacts: any[];
+  members: Array<{ id: string; full_name: string | null; avatar_url: string | null }>;
+  onClick: () => void;
+  onAssign: (uid: string | null) => void;
+}) {
   const c = contacts.find((x) => x.id === deal.contact_id);
   const isHot = deal.value_cents >= HOT_THRESHOLD_CENTS;
-  // "Frio" = sem update há > COLD_DAYS — usamos created_at como aproximação
   const updatedAt = (deal as any).updated_at ?? (deal as any).created_at;
   const daysStale = updatedAt
     ? Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86_400_000) : 0;
@@ -405,6 +409,7 @@ function DealCard({
               {!deal.shopify_order_number && deal.shopify_draft_order_name && (
                 <Badge variant="outline" className="text-[10px]">{deal.shopify_draft_order_name}</Badge>
               )}
+              <AssigneePicker value={deal.owner_id} onChange={onAssign} />
             </div>
           </div>
           {deal.shopify_draft_order_url && (
