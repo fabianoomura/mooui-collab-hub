@@ -502,15 +502,27 @@ function DealForm({
           <Input type="number" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} />
         </div>
       </div>
-      <div>
-        <Label>Contato</Label>
-        <Select value={contactId || 'none'} onValueChange={(v) => setContactId(v === 'none' ? '' : v)}>
-          <SelectTrigger><SelectValue placeholder="Sem contato" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">— Sem contato —</SelectItem>
-            {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Contato</Label>
+          <Select value={contactId || 'none'} onValueChange={(v) => setContactId(v === 'none' ? '' : v)}>
+            <SelectTrigger><SelectValue placeholder="Sem contato" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— Sem contato —</SelectItem>
+              {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Responsável</Label>
+          <Select value={ownerId || 'none'} onValueChange={(v) => setOwnerId(v === 'none' ? null : v)}>
+            <SelectTrigger><SelectValue placeholder="Sem responsável" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— Ninguém —</SelectItem>
+              {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name || 'Sem nome'}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
