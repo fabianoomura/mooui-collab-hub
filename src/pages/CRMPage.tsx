@@ -64,7 +64,28 @@ export default function CRMPage() {
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const { data: members = [] } = useOrgMembers();
+  const { currentOrg } = useOrganization();
+  const qc = useQueryClient();
+
+  const syncAbandoned = async () => {
+    if (!currentOrg || !activePipeline) return;
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('shopify-abandoned-checkouts', {
+        body: { organization_id: currentOrg.id, pipeline_id: activePipeline, since_days: 30 },
+      });
+      if (error) throw error;
+      const r = data as { fetched?: number; created?: number; skipped?: number; errors?: number };
+      toast.success(`Sync concluído: ${r.created ?? 0} novos, ${r.skipped ?? 0} já existentes`);
+      qc.invalidateQueries({ queryKey: ['crm_deals'] });
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Falha ao sincronizar');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filteredDeals = useMemo(() => {
     let list = deals;
