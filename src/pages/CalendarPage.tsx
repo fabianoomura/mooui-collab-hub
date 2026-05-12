@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 
 const CATEGORIES = [
   { value: 'lancamento', label: 'Lançamento', color: '#D6336C' },
@@ -34,7 +35,8 @@ export default function CalendarPage() {
   const [search, setSearch] = useState('');
   const [activeCats, setActiveCats] = useState<string[]>([]);
 
-  const { data: events = [], isLoading } = useAnnualEvents(year);
+  const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('calendario');
+  const { data: events = [], isLoading } = useAnnualEvents(year, activeInstance);
   const createEvt = useCreateAnnualEvent();
   const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
