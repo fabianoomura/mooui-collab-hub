@@ -37,11 +37,7 @@ describe("Integration: messaging between Alice and Bob", () => {
   }, 30_000);
 
   afterAll(async () => {
-    if (channelId) {
-      await alice.from("messages").delete().eq("channel_id", channelId);
-      await alice.from("channel_members").delete().eq("channel_id", channelId);
-      await alice.from("channels").delete().eq("id", channelId);
-    }
+    // Keep data visible in the UI for inspection.
     await alice.auth.signOut();
     await bob.auth.signOut();
   });
