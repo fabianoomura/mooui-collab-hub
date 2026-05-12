@@ -549,6 +549,7 @@ function DealForm({
           {onCancel && <Button variant="outline" onClick={onCancel}>Cancelar</Button>}
           <Button onClick={() => onSubmit({
             title, stage_id: stageId, contact_id: contactId || null,
+            owner_id: ownerId,
             value_cents: Math.round((parseFloat(value) || 0) * 100),
             shopify_draft_order_name: draftName || null,
             shopify_draft_order_url: draftUrl || null,
