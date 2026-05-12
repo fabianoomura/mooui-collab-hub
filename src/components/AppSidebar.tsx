@@ -33,7 +33,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 type NavItem = { title: string; url: string; icon: any };
@@ -73,6 +73,8 @@ export function AppSidebar() {
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
   const navigate = useNavigate();
+  const location = useLocation();
+  const showProjects = location.pathname.startsWith('/tabela') || location.pathname.startsWith('/projetos');
 
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -193,7 +195,7 @@ export function AppSidebar() {
         )}
 
         {/* Áreas de Trabalho — projetos */}
-        {!collapsed && (
+        {!collapsed && showProjects && (
           <SidebarGroup className="py-2">
             <Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
               <div className="flex items-center justify-between pr-2">
