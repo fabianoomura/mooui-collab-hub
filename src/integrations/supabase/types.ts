@@ -23,6 +23,7 @@ export type Database = {
           description: string | null
           end_date: string | null
           id: string
+          instance_id: string | null
           organization_id: string
           project_id: string | null
           start_date: string
@@ -37,6 +38,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          instance_id?: string | null
           organization_id: string
           project_id?: string | null
           start_date: string
@@ -51,13 +53,22 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          instance_id?: string | null
           organization_id?: string
           project_id?: string | null
           start_date?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "annual_events_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "module_instances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       channel_members: {
         Row: {
@@ -362,6 +373,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          instance_id: string | null
           kind: string
           name: string
           organization_id: string
@@ -370,6 +382,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          instance_id?: string | null
           kind?: string
           name: string
           organization_id: string
@@ -378,12 +391,21 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          instance_id?: string | null
           kind?: string
           name?: string
           organization_id?: string
           position?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "crm_pipelines_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "module_instances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_stages: {
         Row: {
@@ -548,6 +570,7 @@ export type Database = {
           created_by: string
           expected_arrival_date: string | null
           id: string
+          instance_id: string | null
           launch_id: string | null
           name: string
           organization_id: string
@@ -559,6 +582,7 @@ export type Database = {
           created_by: string
           expected_arrival_date?: string | null
           id?: string
+          instance_id?: string | null
           launch_id?: string | null
           name: string
           organization_id: string
@@ -570,6 +594,7 @@ export type Database = {
           created_by?: string
           expected_arrival_date?: string | null
           id?: string
+          instance_id?: string | null
           launch_id?: string | null
           name?: string
           organization_id?: string
@@ -577,6 +602,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "launch_checklists_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "module_instances"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "launch_checklists_launch_id_fkey"
             columns: ["launch_id"]
@@ -652,6 +684,7 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          instance_id: string | null
           name: string
           organization_id: string
           start_date: string
@@ -663,6 +696,7 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          instance_id?: string | null
           name: string
           organization_id: string
           start_date?: string
@@ -674,13 +708,22 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          instance_id?: string | null
           name?: string
           organization_id?: string
           start_date?: string
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "launches_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "module_instances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_room_bookings: {
         Row: {
@@ -840,6 +883,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      module_instances: {
+        Row: {
+          archived_at: string | null
+          color: string
+          created_at: string
+          created_by: string
+          description: string | null
+          icon: string | null
+          id: string
+          module_key: string
+          name: string
+          organization_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          color?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          module_key: string
+          name: string
+          organization_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          color?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          module_key?: string
+          name?: string
+          organization_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
