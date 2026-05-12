@@ -175,3 +175,82 @@ export function usePersistRecalc() {
     onSuccess: (launchId) => qc.invalidateQueries({ queryKey: ['launch-stages', launchId] }),
   });
 }
+
+export function useReorderStages() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ launchId, orderedIds }: { launchId: string; orderedIds: string[] }) => {
+      await Promise.all(orderedIds.map((id, idx) =>
+        supabase.from('launch_stages').update({ position: idx }).eq('id', id)
+      ));
+      return launchId;
+    },
+    onSuccess: (launchId) => qc.invalidateQueries({ queryKey: ['launch-stages', launchId] }),
+  });
+}
+
+export function useDuplicateLaunch() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrganization();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!currentOrg || !user) throw new Error('Sem organização');
+      const { data: src } = await supabase.from('launches').select('*').eq('id', id).single();
+      if (!src) throw new Error('Lançamento não encontrado');
+      const { data: newLaunch, error } = await supabase.from('launches').insert({
+        organization_id: currentOrg.id,
+        created_by: user.id,
+        name: `${src.name} (cópia)`,
+        description: src.description,
+        start_date: new Date().toISOString().split('T')[0],
+      }).select().single();
+      if (error) throw error;
+      const { data: srcStages } = await supabase.from('launch_stages')
+        .select('*').eq('launch_id', id).order('position');
+      if (srcStages?.length) {
+        await supabase.from('launch_stages').insert(
+          srcStages.map((s: any) => ({
+            launch_id: newLaunch.id,
+            name: s.name,
+            position: s.position,
+            duration_days: s.duration_days,
+            assignee_id: s.assignee_id,
+            status: 'pending',
+          }))
+        );
+      }
+      return newLaunch;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['launches'] }),
+  });
+}
+
+const DEFAULT_TEMPLATE = [
+  { name: 'Briefing & moodboard', duration_days: 5 },
+  { name: 'Produção', duration_days: 14 },
+  { name: 'Fotos', duration_days: 7 },
+  { name: 'Cadastro ERP', duration_days: 3 },
+  { name: 'Site (descrição + fotos)', duration_days: 5 },
+  { name: 'Lançamento', duration_days: 1 },
+];
+
+export function useSeedDefaultStages() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (launchId: string) => {
+      await supabase.from('launch_stages').insert(
+        DEFAULT_TEMPLATE.map((t, i) => ({
+          launch_id: launchId,
+          name: t.name,
+          position: i,
+          duration_days: t.duration_days,
+          status: 'pending',
+        }))
+      );
+      return launchId;
+    },
+    onSuccess: (launchId) => qc.invalidateQueries({ queryKey: ['launch-stages', launchId] }),
+  });
+}
+
