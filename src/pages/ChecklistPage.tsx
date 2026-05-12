@@ -63,19 +63,20 @@ export default function ChecklistPage() {
   const launch = launches.find((l) => l.id === active?.launch_id);
 
   return (
-    <div className="p-6 grid grid-cols-12 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
       {/* Sidebar */}
-      <div className="col-span-3 space-y-2">
+      <div className="lg:col-span-3 space-y-2">
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold">Checagens</h2>
           <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /></Button>
         </div>
+        <div className="flex lg:block gap-2 overflow-x-auto lg:overflow-visible -mx-3 px-3 lg:mx-0 lg:px-0 pb-2 lg:pb-0">
         {checklists.map((c) => {
           const l = launches.find((x) => x.id === c.launch_id);
           return (
             <Card
               key={c.id}
-              className={`p-3 cursor-pointer ${activeId === c.id ? 'border-primary' : ''}`}
+              className={`p-3 cursor-pointer shrink-0 w-[220px] lg:w-auto ${activeId === c.id ? 'border-primary' : ''}`}
               onClick={() => setActiveId(c.id)}
             >
               <div className="font-medium text-sm">{c.name}</div>
@@ -87,8 +88,9 @@ export default function ChecklistPage() {
           );
         })}
         {!checklists.length && <p className="text-sm text-muted-foreground">Nenhuma checagem ainda.</p>}
+        </div>
 
-        <div className="pt-4">
+        <div className="pt-2 lg:pt-4 hidden lg:block">
           <h3 className="text-xs uppercase text-muted-foreground mb-2">Templates ({templates.length})</h3>
           {templates.map((t) => (
             <div key={t.id} className="text-sm flex items-center gap-2 py-1">
@@ -99,7 +101,7 @@ export default function ChecklistPage() {
       </div>
 
       {/* Main */}
-      <div className="col-span-9 space-y-4">
+      <div className="lg:col-span-9 space-y-4 min-w-0">
         {active ? (
           <>
             <div className="flex items-start justify-between">
