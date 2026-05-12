@@ -59,48 +59,54 @@ export function PersonalPanel() {
       }
 
       // 2) Etapas de lançamento minhas
-      const { data: myStages = [] } = await supabase
+      const { data: myStagesData } = await supabase
         .from('launch_stages')
         .select('id, name, planned_end, status, launch_id, launches(name)')
         .eq('assignee_id', user.id).neq('status', 'done');
+      const myStages = myStagesData || [];
 
       // 3) Reservas minhas
-      const { data: myBookings = [] } = await supabase
+      const { data: myBookingsData } = await supabase
         .from('meeting_room_bookings')
         .select('id, title, starts_at, ends_at, room_id, meeting_rooms(name)')
         .eq('user_id', user.id)
         .gte('ends_at', new Date().toISOString())
         .order('starts_at');
+      const myBookings = myBookingsData || [];
 
       // 4) Eventos anuais da organização (próximos)
-      const { data: orgEvents = [] } = await supabase
+      const { data: orgEventsData } = await supabase
         .from('annual_events')
         .select('id, title, start_date, end_date, color')
         .eq('organization_id', currentOrg.id)
         .gte('start_date', today)
         .lte('start_date', window7)
         .order('start_date');
+      const orgEvents = orgEventsData || [];
 
       // 5) Itens de checagem atribuídos a mim
-      const { data: myCheckItems = [] } = await supabase
+      const { data: myCheckItemsData } = await supabase
         .from('launch_checklist_items')
         .select('id, label, due_date, status, checklist_id, launch_checklists(name)')
         .eq('assignee_id', user.id).neq('status', 'done').neq('status', 'na');
+      const myCheckItems = myCheckItemsData || [];
 
       // 6) Mensagens enviadas (24h)
       const since = new Date(Date.now() - 86_400_000).toISOString();
-      const { data: mySent = [], count: sentCount } = await supabase
+      const { data: mySentData, count: sentCount } = await supabase
         .from('messages')
         .select('id, content, created_at, channel_id, channels(name)', { count: 'exact' })
         .eq('user_id', user.id).gte('created_at', since)
         .order('created_at', { ascending: false }).limit(5);
+      const mySent = mySentData || [];
 
       // 7) Meus negócios CRM em aberto
-      const { data: myDeals = [] } = await supabase
+      const { data: myDealsData } = await supabase
         .from('crm_deals')
         .select('id, title, value_cents, updated_at, pipeline_id, stage_id')
         .eq('organization_id', currentOrg.id).eq('owner_id', user.id).eq('status', 'open')
         .order('updated_at', { ascending: false }).limit(5);
+      const myDeals = myDealsData || [];
 
       // ---- Build derived sets ----
       const overdue = [
