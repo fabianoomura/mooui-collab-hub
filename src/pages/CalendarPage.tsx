@@ -182,51 +182,69 @@ export default function CalendarPage() {
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-44 w-full" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {MONTHS.map((m, i) => {
-            const isCurrent = isCurrentYear && i === currentMonth;
-            return (
-              <Card
-                key={m}
-                className={cn(
-                  'p-4 min-h-[180px] flex flex-col',
-                  isCurrent && 'ring-2 ring-primary/40 bg-primary/[0.02]',
-                )}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    {m}
-                    {isCurrent && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">hoje</span>}
-                  </h3>
-                  <button onClick={() => openNew(i)} className="text-muted-foreground hover:text-primary" aria-label="Adicionar evento">
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="space-y-1.5 flex-1">
-                  {byMonth[i].length === 0 && (
-                    <p className="text-xs text-muted-foreground italic">Sem eventos</p>
-                  )}
-                  {byMonth[i].map(e => (
-                    <button
-                      key={`${e.id}-${i}`}
-                      onClick={() => openEdit(e)}
-                      className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
-                    >
-                      <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{e.title}</div>
-                        <div className="text-muted-foreground">
-                          {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                          {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+        <Tabs defaultValue="grid" className="w-full">
+          <TabsList className="grid w-full max-w-xs grid-cols-2">
+            <TabsTrigger value="grid" className="gap-1.5"><LayoutGrid className="h-3.5 w-3.5" /> Grade</TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-1.5"><GanttChart className="h-3.5 w-3.5" /> Linha do tempo</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="grid" className="mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {MONTHS.map((m, i) => {
+                const isCurrent = isCurrentYear && i === currentMonth;
+                return (
+                  <Card
+                    key={m}
+                    className={cn(
+                      'p-4 min-h-[180px] flex flex-col',
+                      isCurrent && 'ring-2 ring-primary/40 bg-primary/[0.02]',
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold flex items-center gap-2">
+                        {m}
+                        {isCurrent && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">hoje</span>}
+                      </h3>
+                      <button onClick={() => openNew(i)} className="text-muted-foreground hover:text-primary" aria-label="Adicionar evento">
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-1.5 flex-1">
+                      {byMonth[i].length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">Sem eventos</p>
+                      )}
+                      {byMonth[i].map(e => (
+                        <button
+                          key={`${e.id}-${i}`}
+                          onClick={() => openEdit(e)}
+                          className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
+                        >
+                          <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{e.title}</div>
+                            <div className="text-muted-foreground">
+                              {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                              {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="timeline" className="mt-4">
+            <TimelineView
+              year={year}
+              events={filtered}
+              isCurrentYear={isCurrentYear}
+              onEventClick={openEdit}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
