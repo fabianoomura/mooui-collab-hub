@@ -51,19 +51,43 @@ export default function CRMPage() {
   const [showNewContact, setShowNewContact] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [search, setSearch] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
+  const { data: members = [] } = useOrgMembers();
 
   const filteredDeals = useMemo(() => {
-    if (!search.trim()) return deals;
-    const q = search.toLowerCase();
-    return deals.filter((d) => {
-      const c = contacts.find((x) => x.id === d.contact_id);
-      return d.title.toLowerCase().includes(q)
-        || c?.name.toLowerCase().includes(q)
-        || c?.company?.toLowerCase().includes(q)
-        || d.shopify_draft_order_name?.toLowerCase().includes(q)
-        || d.shopify_order_number?.toLowerCase().includes(q);
+    let list = deals;
+    if (ownerFilter) list = list.filter((d) => d.owner_id === ownerFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((d) => {
+        const c = contacts.find((x) => x.id === d.contact_id);
+        return d.title.toLowerCase().includes(q)
+          || c?.name.toLowerCase().includes(q)
+          || c?.company?.toLowerCase().includes(q)
+          || d.shopify_draft_order_name?.toLowerCase().includes(q)
+          || d.shopify_order_number?.toLowerCase().includes(q);
+      });
+    }
+    return list;
+  }, [deals, search, contacts, ownerFilter]);
+
+  // Rendimento por pessoa (no pipeline ativo): total, ganhos, perdidos, abertos
+  const ownerStats = useMemo(() => {
+    const wonIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id));
+    const lostIds = new Set(stages.filter((s) => s.is_lost).map((s) => s.id));
+    const m = new Map<string, { count: number; total: number; won: number; lost: number; open: number }>();
+    deals.forEach((d) => {
+      if (!d.owner_id) return;
+      const s = m.get(d.owner_id) ?? { count: 0, total: 0, won: 0, lost: 0, open: 0 };
+      s.count += 1;
+      s.total += d.value_cents;
+      if (wonIds.has(d.stage_id)) s.won += d.value_cents;
+      else if (lostIds.has(d.stage_id)) s.lost += d.value_cents;
+      else s.open += d.value_cents;
+      m.set(d.owner_id, s);
     });
-  }, [deals, search, contacts]);
+    return m;
+  }, [deals, stages]);
 
   const dealsByStage = useMemo(() => {
     const map: Record<string, Deal[]> = {};
