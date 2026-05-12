@@ -22,6 +22,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
+import { AssigneePicker, useOrgMembers } from '@/components/AssigneePicker';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const fmtBRL = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const HOT_THRESHOLD_CENTS = 500_000; // R$ 5k+
