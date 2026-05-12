@@ -13,6 +13,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import TeamPage from "./pages/TeamPage";
 import MessagesPage from "./pages/MessagesPage";
 import DocsPage from "./pages/DocsPage";
+import RoomsPage from "./pages/RoomsPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="/equipe" element={<TeamPage />} />
               <Route path="/mensagens" element={<MessagesPage />} />
               <Route path="/docs" element={<DocsPage />} />
+              <Route path="/salas" element={<RoomsPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 
