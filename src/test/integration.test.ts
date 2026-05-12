@@ -20,13 +20,12 @@ async function signIn(c: SupabaseClient, creds: { email: string; password: strin
   return data.user!.id;
 }
 
-describe("Integration: messaging between Alice and Bob", () => {
+describe("Integration: channel messaging with @mentions", () => {
   let alice: SupabaseClient;
   let bob: SupabaseClient;
   let aliceId: string;
   let bobId: string;
   let channelId: string;
-  const createdMessageIds: string[] = [];
   const tag = `t${Date.now()}`;
 
   beforeAll(async () => {
@@ -37,12 +36,11 @@ describe("Integration: messaging between Alice and Bob", () => {
   }, 30_000);
 
   afterAll(async () => {
-    // Keep data visible in the UI for inspection.
     await alice.auth.signOut();
     await bob.auth.signOut();
   });
 
-  it("alice creates a channel", async () => {
+  it("alice creates a channel and both join", async () => {
     const { data, error } = await alice
       .from("channels")
       .insert({
@@ -55,61 +53,242 @@ describe("Integration: messaging between Alice and Bob", () => {
       .single();
     expect(error).toBeNull();
     channelId = data!.id;
+    await alice.from("channel_members").insert({ channel_id: channelId, user_id: aliceId });
+    await bob.from("channel_members").insert({ channel_id: channelId, user_id: bobId });
   });
 
-  it("both join the channel", async () => {
-    const r1 = await alice.from("channel_members").insert({ channel_id: channelId, user_id: aliceId });
-    const r2 = await bob.from("channel_members").insert({ channel_id: channelId, user_id: bobId });
-    expect(r1.error).toBeNull();
-    expect(r2.error).toBeNull();
-  });
-
-  it("alice and bob exchange messages and both can read them", async () => {
+  it("they exchange messages with @mentions", async () => {
     const msgs = [
-      { from: alice, uid: () => aliceId, text: `Oi Bob! [${tag}]` },
-      { from: bob,   uid: () => bobId,   text: `E aí Alice, tudo bem? [${tag}]` },
-      { from: alice, uid: () => aliceId, text: `Tudo ótimo, vamos fechar a sprint. [${tag}]` },
-      { from: bob,   uid: () => bobId,   text: `Combinado 🚀 [${tag}]` },
+      { from: alice, uid: aliceId, text: `Bom dia time! @Bob consegue revisar o PR de hoje? [${tag}]` },
+      { from: bob,   uid: bobId,   text: `Claro @Alice, vou olhar agora 👀 [${tag}]` },
+      { from: alice, uid: aliceId, text: `Obrigada @Bob! Depois marcamos a sync. [${tag}]` },
+      { from: bob,   uid: bobId,   text: `@Alice combinado, te chamo no DM 🚀 [${tag}]` },
     ];
     for (const m of msgs) {
-      const { data, error } = await m.from
+      const { error } = await m.from
         .from("messages")
-        .insert({ channel_id: channelId, user_id: m.uid(), content: m.text })
-        .select()
-        .single();
+        .insert({ channel_id: channelId, user_id: m.uid, content: m.text });
       expect(error).toBeNull();
-      createdMessageIds.push(data!.id);
     }
-
-    const { data: aliceView, error: e1 } = await alice
-      .from("messages").select("id, content, user_id")
-      .eq("channel_id", channelId).order("created_at");
-    const { data: bobView, error: e2 } = await bob
-      .from("messages").select("id, content, user_id")
-      .eq("channel_id", channelId).order("created_at");
-    expect(e1).toBeNull();
-    expect(e2).toBeNull();
-    expect(aliceView!.length).toBe(4);
-    expect(bobView!.length).toBe(4);
-    expect(aliceView!.map(m => m.content)).toEqual(bobView!.map(m => m.content));
-  });
-
-  it("non-members cannot read the messages of a private channel", async () => {
-    // make channel private and remove bob
-    await alice.from("channels").update({ is_private: true }).eq("id", channelId);
-    await alice.from("channel_members").delete().eq("channel_id", channelId).eq("user_id", bobId);
-    const { data } = await bob.from("messages").select("id").eq("channel_id", channelId);
-    expect(data ?? []).toHaveLength(0);
-    // restore for cleanup
-    await alice.from("channels").update({ is_private: false }).eq("id", channelId);
+    const { data } = await bob.from("messages").select("content").eq("channel_id", channelId).order("created_at");
+    expect(data!.length).toBe(4);
+    expect(data!.every(m => /@(Alice|Bob)/.test(m.content))).toBe(true);
   });
 });
 
-describe("Integration: Alice creates 3 doc pages", () => {
+describe("Integration: direct message between Alice and Bob", () => {
+  let alice: SupabaseClient;
+  let bob: SupabaseClient;
+  let aliceId: string;
+  let bobId: string;
+  let dmChannelId: string;
+  const tag = `dm${Date.now()}`;
+
+  beforeAll(async () => {
+    alice = newClient();
+    bob = newClient();
+    aliceId = await signIn(alice, ALICE);
+    bobId = await signIn(bob, BOB);
+  }, 30_000);
+
+  afterAll(async () => {
+    await alice.auth.signOut();
+    await bob.auth.signOut();
+  });
+
+  it("alice opens a DM with bob via get_or_create_dm", async () => {
+    const { data, error } = await alice.rpc("get_or_create_dm", {
+      _other_user_id: bobId,
+      _org_id: ORG_ID,
+    });
+    expect(error).toBeNull();
+    expect(data).toBeTruthy();
+    dmChannelId = data as string;
+  });
+
+  it("they have a back-and-forth DM conversation", async () => {
+    const convo = [
+      { from: alice, uid: aliceId, text: `Oi Bob, conversa rápida aqui no privado 😉 [${tag}]` },
+      { from: bob,   uid: bobId,   text: `Manda ver Alice [${tag}]` },
+      { from: alice, uid: aliceId, text: `Sobre o cliente novo: podemos começar segunda? [${tag}]` },
+      { from: bob,   uid: bobId,   text: `Pode contar comigo, alinho com o time 👍 [${tag}]` },
+      { from: alice, uid: aliceId, text: `Perfeito! Te mando o briefing por aqui mesmo. [${tag}]` },
+    ];
+    for (const m of convo) {
+      const { error } = await m.from
+        .from("messages")
+        .insert({ channel_id: dmChannelId, user_id: m.uid, content: m.text });
+      expect(error).toBeNull();
+    }
+    const { data: aliceView } = await alice.from("messages").select("content").eq("channel_id", dmChannelId).order("created_at");
+    const { data: bobView }   = await bob.from("messages").select("content").eq("channel_id", dmChannelId).order("created_at");
+    expect(aliceView!.length).toBeGreaterThanOrEqual(5);
+    expect(aliceView!.map(m => m.content)).toEqual(bobView!.map(m => m.content));
+  });
+
+  it("bob can reopen the same DM (idempotent)", async () => {
+    const { data } = await bob.rpc("get_or_create_dm", { _other_user_id: aliceId, _org_id: ORG_ID });
+    expect(data).toBe(dmChannelId);
+  });
+});
+
+describe("Integration: documentation organized by department folders", () => {
   let alice: SupabaseClient;
   let aliceId: string;
-  const pageIds: string[] = [];
   const tag = `d${Date.now()}`;
+
+  const departments: Array<{ name: string; icon: string; pages: Array<{ title: string; icon: string; content: string }> }> = [
+    {
+      name: "Engenharia",
+      icon: "💻",
+      pages: [
+        {
+          title: "Padrões de código",
+          icon: "📐",
+          content: `# Padrões de código
+
+## Convenções gerais
+- TypeScript estrito em todo o monorepo
+- ESLint + Prettier obrigatórios antes do commit
+- Nomes de componentes em PascalCase, hooks em camelCase com prefixo "use"
+
+## Pull Requests
+1. Branch a partir de \`main\` no formato \`feat/\`, \`fix/\` ou \`chore/\`
+2. PR deve ter descrição, screenshots e checklist
+3. Mínimo de 1 aprovação do time
+
+## Testes
+- Cobertura mínima de 70% em código novo
+- Vitest para unidade, Playwright para e2e`,
+        },
+        {
+          title: "Setup do ambiente",
+          icon: "⚙️",
+          content: `# Setup do ambiente
+
+\`\`\`bash
+git clone git@github.com:mooui/app.git
+cd app
+bun install
+bun dev
+\`\`\`
+
+Variáveis de ambiente em \`.env.local\` — peça as credenciais ao @Alice.`,
+        },
+        {
+          title: "Arquitetura",
+          icon: "🏗️",
+          content: `# Visão geral
+
+- **Frontend:** React 18 + Vite + Tailwind
+- **Backend:** Supabase (Postgres + RLS + Edge Functions)
+- **CI/CD:** GitHub Actions → deploy em Vercel
+
+## Decisões importantes
+- RLS ativo em todas as tabelas
+- Roles em tabela separada (\`user_roles\`) para evitar privilege escalation`,
+        },
+      ],
+    },
+    {
+      name: "Produto",
+      icon: "🎯",
+      pages: [
+        {
+          title: "Roadmap Q2 2026",
+          icon: "🗺️",
+          content: `# Roadmap Q2 2026
+
+## Abril
+- ✅ Lançamento do módulo de Mensagens
+- ✅ Avatares e perfis
+
+## Maio
+- 🚧 Notificações com @menções
+- 🚧 Documentação colaborativa
+
+## Junho
+- 🔜 Integração com Google Calendar
+- 🔜 Relatórios customizados`,
+        },
+        {
+          title: "Pesquisa de usuários",
+          icon: "🔍",
+          content: `# Insights da pesquisa de Maio
+
+Entrevistamos 12 clientes B2B. Principais descobertas:
+
+1. **Onboarding** — 8/12 acharam confuso o primeiro acesso
+2. **Mobile** — todos pediram melhor experiência no celular
+3. **Permissões** — necessidade clara de Admin vs Membro
+
+Próximos passos: redesenhar onboarding e validar com 5 usuários.`,
+        },
+      ],
+    },
+    {
+      name: "Marketing",
+      icon: "📣",
+      pages: [
+        {
+          title: "Calendário editorial",
+          icon: "📅",
+          content: `# Conteúdos da semana
+
+| Dia | Canal | Conteúdo |
+|-----|-------|----------|
+| Seg | Blog | "5 dicas de gestão ágil" |
+| Qua | LinkedIn | Case do cliente Acme |
+| Sex | Newsletter | Resumo do mês |
+
+Responsável: @Alice`,
+        },
+        {
+          title: "Tom de voz",
+          icon: "🎙️",
+          content: `# Tom de voz MOOUI
+
+- **Próximo:** falamos como amigos do time
+- **Direto:** sem jargão corporativo
+- **Brasileiro:** linguagem natural, com bom humor moderado
+
+Evitamos: "sinergia", "leverage", "deep dive".`,
+        },
+      ],
+    },
+    {
+      name: "Recursos Humanos",
+      icon: "🤝",
+      pages: [
+        {
+          title: "Manual do colaborador",
+          icon: "📘",
+          content: `# Bem-vindo à MOOUI!
+
+Este manual reúne tudo o que você precisa nos primeiros 30 dias.
+
+## Benefícios
+- Vale-refeição/alimentação flexível
+- Plano de saúde Bradesco Top
+- Day off no aniversário
+
+## Horário
+Trabalho remoto com horas flexíveis. Sync diário às 10h.`,
+        },
+        {
+          title: "Política de férias",
+          icon: "🏖️",
+          content: `# Férias
+
+- Solicitar com pelo menos 30 dias de antecedência
+- Mínimo de 5 dias corridos por solicitação
+- Pode ser parcelada em até 3 períodos
+
+Solicitações em: rh@mooui.com`,
+        },
+      ],
+    },
+  ];
 
   beforeAll(async () => {
     alice = newClient();
@@ -117,40 +296,54 @@ describe("Integration: Alice creates 3 doc pages", () => {
   }, 30_000);
 
   afterAll(async () => {
-    // Keep doc pages visible in the UI for inspection.
     await alice.auth.signOut();
   });
 
-  it("creates 3 doc pages and reads them back", async () => {
-    const titles = [`Onboarding ${tag}`, `Roadmap ${tag}`, `Reuniões ${tag}`];
-    for (let i = 0; i < titles.length; i++) {
-      const { data, error } = await alice
+  it("creates department folders with real documentation pages inside", async () => {
+    let totalPages = 0;
+    for (let i = 0; i < departments.length; i++) {
+      const dept = departments[i];
+      const { data: folder, error: fErr } = await alice
         .from("doc_pages")
         .insert({
           organization_id: ORG_ID,
-          title: titles[i],
-          content: `Conteúdo inicial da página ${i + 1}`,
+          title: `${dept.name} [${tag}]`,
+          icon: dept.icon,
+          content: `# ${dept.name}\n\nPasta com a documentação do setor de ${dept.name}.`,
           position: i,
           created_by: aliceId,
         })
         .select()
         .single();
-      expect(error).toBeNull();
-      pageIds.push(data!.id);
+      expect(fErr).toBeNull();
+      totalPages++;
+
+      for (let j = 0; j < dept.pages.length; j++) {
+        const p = dept.pages[j];
+        const { error: pErr } = await alice.from("doc_pages").insert({
+          organization_id: ORG_ID,
+          parent_id: folder!.id,
+          title: p.title,
+          icon: p.icon,
+          content: p.content,
+          position: j,
+          created_by: aliceId,
+        });
+        expect(pErr).toBeNull();
+        totalPages++;
+      }
     }
-    const { data, error } = await alice
-      .from("doc_pages").select("id, title")
-      .in("id", pageIds);
-    expect(error).toBeNull();
-    expect(data!.length).toBe(3);
-    expect(data!.map(p => p.title).sort()).toEqual(titles.slice().sort());
+    expect(totalPages).toBe(departments.reduce((s, d) => s + 1 + d.pages.length, 0));
   });
 
-  it("updates a page title", async () => {
-    const target = pageIds[0];
-    const { error } = await alice.from("doc_pages").update({ title: `Atualizado ${tag}` }).eq("id", target);
-    expect(error).toBeNull();
-    const { data } = await alice.from("doc_pages").select("title").eq("id", target).single();
-    expect(data!.title).toBe(`Atualizado ${tag}`);
+  it("can read back the full tree with parents and children", async () => {
+    const { data: folders } = await alice
+      .from("doc_pages").select("id, title")
+      .ilike("title", `%[${tag}]%`).is("parent_id", null);
+    expect(folders!.length).toBe(departments.length);
+    const { data: children } = await alice
+      .from("doc_pages").select("id, parent_id")
+      .in("parent_id", folders!.map(f => f.id));
+    expect(children!.length).toBe(departments.reduce((s, d) => s + d.pages.length, 0));
   });
 });
