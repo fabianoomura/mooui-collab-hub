@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { notifyUser } from '@/hooks/useNotifications';
 
 function formatBytes(n: number) {
   if (n < 1024) return `${n} B`;
@@ -407,11 +408,37 @@ export default function MessagesPage() {
     });
   };
 
+  const notifyMentions = (content: string, channelId: string, channelLabel: string) => {
+    const matches = Array.from(content.matchAll(/@([\wÀ-ÿ.-]+)/g)).map(m => m[1].toLowerCase());
+    if (!matches.length) return;
+    const seen = new Set<string>();
+    matches.forEach((token) => {
+      const member = orgMembers.find(m => {
+        const first = (m.full_name || '').split(' ')[0].toLowerCase();
+        const full = (m.full_name || '').toLowerCase();
+        return first === token || full === token;
+      });
+      if (member && member.id !== user?.id && !seen.has(member.id)) {
+        seen.add(member.id);
+        notifyUser({
+          userId: member.id,
+          type: 'mention',
+          title: `${user?.user_metadata?.full_name || 'Alguém'} mencionou você em ${channelLabel}`,
+          message: content.slice(0, 140),
+          link: `/mensagens`,
+        });
+      }
+    });
+  };
+
   const handleSend = (content: string, files: File[]) => {
     if (!activeChannelId) return;
     sendMessage.mutate(
       { channelId: activeChannelId, content, files: files.length ? files : undefined },
-      { onError: () => toast.error('Erro ao enviar') }
+      {
+        onSuccess: () => notifyMentions(content, activeChannelId, headerLabel ? (activeDm ? `DM com ${headerLabel}` : `#${headerLabel}`) : 'um canal'),
+        onError: () => toast.error('Erro ao enviar'),
+      }
     );
   };
 
@@ -419,7 +446,10 @@ export default function MessagesPage() {
     if (!activeChannelId || !threadParentId) return;
     sendMessage.mutate(
       { channelId: activeChannelId, content, files: files.length ? files : undefined, parentMessageId: threadParentId },
-      { onError: () => toast.error('Erro ao responder') }
+      {
+        onSuccess: () => notifyMentions(content, activeChannelId, headerLabel ? (activeDm ? `DM com ${headerLabel}` : `#${headerLabel}`) : 'um canal'),
+        onError: () => toast.error('Erro ao responder'),
+      }
     );
   };
 
