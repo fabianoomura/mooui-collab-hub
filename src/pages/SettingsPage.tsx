@@ -139,7 +139,10 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                 <tr key={m.user_id} className="border-t">
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7"><AvatarFallback className="text-xs">{initials}</AvatarFallback></Avatar>
+                      <Avatar className="h-7 w-7">
+                        {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.full_name ?? ''} />}
+                        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                      </Avatar>
                       <div className="font-medium">{m.full_name || 'Sem nome'}</div>
                     </div>
                   </td>
@@ -382,7 +385,10 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
                 <tr key={m.user_id} className="border-t">
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7"><AvatarFallback className="text-xs">{initials}</AvatarFallback></Avatar>
+                      <Avatar className="h-7 w-7">
+                        {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.full_name ?? ''} />}
+                        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                      </Avatar>
                       <span className="font-medium">{m.full_name || 'Sem nome'}</span>
                       {m.org_role === 'admin' && <Badge variant="secondary" className="text-[10px]">Admin org</Badge>}
                     </div>
