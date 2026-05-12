@@ -37,6 +37,7 @@ describe("Edits & saves: all modules", () => {
     const ins = await c.from("projects").insert({
       name: `proj-${tag}`, organization_id: ORG_ID, created_by: userId,
     }).select().single();
+    if (ins.error) console.error("PROJECTS INSERT ERR:", ins.error, "userId=", userId);
     expect(ins.error).toBeNull();
     created.push({ table: "projects", id: ins.data!.id });
 
