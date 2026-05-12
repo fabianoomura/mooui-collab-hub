@@ -22,10 +22,21 @@ import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
+import { AssigneePicker, useOrgMembers } from '@/components/AssigneePicker';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const fmtBRL = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const HOT_THRESHOLD_CENTS = 500_000; // R$ 5k+
 const COLD_DAYS = 14;
+
+function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] text-muted-foreground truncate">{label}</div>
+      <div className={`font-semibold truncate ${accent ?? ''}`}>{value}</div>
+    </div>
+  );
+}
 
 export default function CRMPage() {
   const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('crm');
@@ -49,19 +60,43 @@ export default function CRMPage() {
   const [showNewContact, setShowNewContact] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [search, setSearch] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
+  const { data: members = [] } = useOrgMembers();
 
   const filteredDeals = useMemo(() => {
-    if (!search.trim()) return deals;
-    const q = search.toLowerCase();
-    return deals.filter((d) => {
-      const c = contacts.find((x) => x.id === d.contact_id);
-      return d.title.toLowerCase().includes(q)
-        || c?.name.toLowerCase().includes(q)
-        || c?.company?.toLowerCase().includes(q)
-        || d.shopify_draft_order_name?.toLowerCase().includes(q)
-        || d.shopify_order_number?.toLowerCase().includes(q);
+    let list = deals;
+    if (ownerFilter) list = list.filter((d) => d.owner_id === ownerFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((d) => {
+        const c = contacts.find((x) => x.id === d.contact_id);
+        return d.title.toLowerCase().includes(q)
+          || c?.name.toLowerCase().includes(q)
+          || c?.company?.toLowerCase().includes(q)
+          || d.shopify_draft_order_name?.toLowerCase().includes(q)
+          || d.shopify_order_number?.toLowerCase().includes(q);
+      });
+    }
+    return list;
+  }, [deals, search, contacts, ownerFilter]);
+
+  // Rendimento por pessoa (no pipeline ativo): total, ganhos, perdidos, abertos
+  const ownerStats = useMemo(() => {
+    const wonIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id));
+    const lostIds = new Set(stages.filter((s) => s.is_lost).map((s) => s.id));
+    const m = new Map<string, { count: number; total: number; won: number; lost: number; open: number }>();
+    deals.forEach((d) => {
+      if (!d.owner_id) return;
+      const s = m.get(d.owner_id) ?? { count: 0, total: 0, won: 0, lost: 0, open: 0 };
+      s.count += 1;
+      s.total += d.value_cents;
+      if (wonIds.has(d.stage_id)) s.won += d.value_cents;
+      else if (lostIds.has(d.stage_id)) s.lost += d.value_cents;
+      else s.open += d.value_cents;
+      m.set(d.owner_id, s);
     });
-  }, [deals, search, contacts]);
+    return m;
+  }, [deals, stages]);
 
   const dealsByStage = useMemo(() => {
     const map: Record<string, Deal[]> = {};
@@ -131,6 +166,62 @@ export default function CRMPage() {
         onChange={setActiveInstance}
       />
 
+      {/* Filtro por responsável + rendimento */}
+      {members.length > 0 && (
+        <Card className="p-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground mr-1">Responsável:</span>
+            <button
+              onClick={() => setOwnerFilter(null)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                ownerFilter === null
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border hover:bg-muted/50 text-muted-foreground'
+              }`}
+            >
+              Todos
+            </button>
+            {members.map((m) => {
+              const s = ownerStats.get(m.id);
+              const active = ownerFilter === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setOwnerFilter(active ? null : m.id)}
+                  className={`text-xs px-2 py-1 rounded-full border transition-colors flex items-center gap-1.5 ${
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-border hover:bg-muted/50'
+                  }`}
+                  title={s ? `${s.count} negócio(s) · ${fmtBRL(s.total)}` : 'Sem negócios'}
+                >
+                  <Avatar className="h-5 w-5">
+                    {m.avatar_url && <AvatarImage src={m.avatar_url} />}
+                    <AvatarFallback className="text-[9px]">
+                      {(m.full_name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate max-w-[100px]">{(m.full_name || 'Sem nome').split(' ')[0]}</span>
+                  {s && <span className="opacity-70">· {s.count}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {ownerFilter && (() => {
+            const m = members.find((x) => x.id === ownerFilter);
+            const s = ownerStats.get(ownerFilter) ?? { count: 0, total: 0, won: 0, lost: 0, open: 0 };
+            return (
+              <div className="mt-3 pt-3 border-t grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <Stat label={`${m?.full_name?.split(' ')[0] || 'Pessoa'} · negócios`} value={String(s.count)} />
+                <Stat label="Em aberto" value={fmtBRL(s.open)} />
+                <Stat label="Ganhos" value={fmtBRL(s.won)} accent="text-emerald-600" />
+                <Stat label="Perdidos" value={fmtBRL(s.lost)} accent="text-destructive" />
+              </div>
+            );
+          })()}
+        </Card>
+      )}
+
       {pipesLoading ? (
         <div className="flex gap-2"><Skeleton className="h-9 w-32" /><Skeleton className="h-9 w-32" /></div>
       ) : (
@@ -187,7 +278,16 @@ export default function CRMPage() {
                                 }`}
                               >
                                 {list.map((d, idx) => (
-                                  <DealCard key={d.id} deal={d} index={idx} contacts={contacts} onClick={() => setEditingDeal(d)} />
+                                  <DealCard
+                                    key={d.id}
+                                    deal={d}
+                                    index={idx}
+                                    contacts={contacts}
+                                    members={members}
+                                    onClick={() => setEditingDeal(d)}
+                                    onAssign={(uid) => updateDeal.mutate({ id: d.id, owner_id: uid })}
+                                  />
+
                                 ))}
                                 {provided.placeholder}
                                 {list.length === 0 && !snapshot.isDraggingOver && (
@@ -263,11 +363,15 @@ export default function CRMPage() {
 }
 
 function DealCard({
-  deal, index, contacts, onClick,
-}: { deal: Deal; index: number; contacts: any[]; onClick: () => void }) {
+  deal, index, contacts, members, onClick, onAssign,
+}: {
+  deal: Deal; index: number; contacts: any[];
+  members: Array<{ id: string; full_name: string | null; avatar_url: string | null }>;
+  onClick: () => void;
+  onAssign: (uid: string | null) => void;
+}) {
   const c = contacts.find((x) => x.id === deal.contact_id);
   const isHot = deal.value_cents >= HOT_THRESHOLD_CENTS;
-  // "Frio" = sem update há > COLD_DAYS — usamos created_at como aproximação
   const updatedAt = (deal as any).updated_at ?? (deal as any).created_at;
   const daysStale = updatedAt
     ? Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86_400_000) : 0;
@@ -305,6 +409,7 @@ function DealCard({
               {!deal.shopify_order_number && deal.shopify_draft_order_name && (
                 <Badge variant="outline" className="text-[10px]">{deal.shopify_draft_order_name}</Badge>
               )}
+              <AssigneePicker value={deal.owner_id} onChange={onAssign} />
             </div>
           </div>
           {deal.shopify_draft_order_url && (
@@ -376,6 +481,8 @@ function DealForm({
   const [draftUrl, setDraftUrl] = useState(initial?.shopify_draft_order_url ?? '');
   const [orderNumber, setOrderNumber] = useState(initial?.shopify_order_number ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [ownerId, setOwnerId] = useState<string | null>(initial?.owner_id ?? null);
+  const { data: members = [] } = useOrgMembers();
 
   return (
     <div className="space-y-3">
@@ -395,15 +502,27 @@ function DealForm({
           <Input type="number" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} />
         </div>
       </div>
-      <div>
-        <Label>Contato</Label>
-        <Select value={contactId || 'none'} onValueChange={(v) => setContactId(v === 'none' ? '' : v)}>
-          <SelectTrigger><SelectValue placeholder="Sem contato" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">— Sem contato —</SelectItem>
-            {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Contato</Label>
+          <Select value={contactId || 'none'} onValueChange={(v) => setContactId(v === 'none' ? '' : v)}>
+            <SelectTrigger><SelectValue placeholder="Sem contato" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— Sem contato —</SelectItem>
+              {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Responsável</Label>
+          <Select value={ownerId || 'none'} onValueChange={(v) => setOwnerId(v === 'none' ? null : v)}>
+            <SelectTrigger><SelectValue placeholder="Sem responsável" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— Ninguém —</SelectItem>
+              {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name || 'Sem nome'}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -430,6 +549,7 @@ function DealForm({
           {onCancel && <Button variant="outline" onClick={onCancel}>Cancelar</Button>}
           <Button onClick={() => onSubmit({
             title, stage_id: stageId, contact_id: contactId || null,
+            owner_id: ownerId,
             value_cents: Math.round((parseFloat(value) || 0) * 100),
             shopify_draft_order_name: draftName || null,
             shopify_draft_order_url: draftUrl || null,
