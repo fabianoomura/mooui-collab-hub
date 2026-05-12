@@ -4,10 +4,12 @@ import remarkGfm from 'remark-gfm';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
   List, ListOrdered, ListChecks, Quote, Code, Link2, Table as TableIcon,
-  Minus, Eye, Pencil,
+  Minus, Eye, Pencil, Image as ImageIcon, Loader2,
 } from 'lucide-react';
 
 interface Props {
