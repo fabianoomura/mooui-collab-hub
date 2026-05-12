@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen, Settings, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
