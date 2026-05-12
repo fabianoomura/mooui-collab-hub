@@ -55,7 +55,7 @@ export function OrgSwitcher({ className }: Props) {
           >
             <div
               className="h-6 w-6 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0"
-              style={{ backgroundColor: org.color }}
+              style={{ backgroundColor: org.color || 'hsl(var(--primary))' }}
             >
               {org.name.charAt(0).toUpperCase()}
             </div>
