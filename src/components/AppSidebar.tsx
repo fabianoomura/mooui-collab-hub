@@ -32,6 +32,7 @@ const baseNav = [
   { title: 'Painel', url: '/', icon: LayoutDashboard },
   { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
   { title: 'Documentação', url: '/docs', icon: BookOpen },
+  { title: 'Salas', url: '/salas', icon: Calendar },
   { title: 'Equipe', url: '/equipe', icon: Users },
 ];
 const adminNav = { title: 'Configurações', url: '/configuracoes', icon: Settings };
