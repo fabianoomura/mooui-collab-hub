@@ -151,6 +151,12 @@ export default function CRMPage() {
         subtitle={`Funil de vendas — ${filteredDeals.length} negócio${filteredDeals.length === 1 ? '' : 's'} · ${fmtBRL(totalValue)}`}
         actions={
           <>
+            {activePipelineKind === 'varejo' && (
+              <Button variant="outline" size="sm" onClick={syncAbandoned} disabled={syncing || !activePipeline}>
+                <ShoppingCart className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{syncing ? 'Sincronizando…' : 'Sync Shopify'}</span>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowNewContact(true)}>
               <UserPlus className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Novo contato</span>
