@@ -125,6 +125,12 @@ export default function CRMPage() {
         }
       />
 
+      <ModuleInstanceBar
+        moduleKey="crm"
+        value={activeInstance}
+        onChange={setActiveInstance}
+      />
+
       {pipesLoading ? (
         <div className="flex gap-2"><Skeleton className="h-9 w-32" /><Skeleton className="h-9 w-32" /></div>
       ) : (
