@@ -15,7 +15,8 @@ import {
   SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useMyProfile } from '@/hooks/useProfile';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
@@ -27,13 +28,13 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
-const mainNav = [
+const baseNav = [
   { title: 'Painel', url: '/', icon: LayoutDashboard },
   { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
   { title: 'Documentação', url: '/docs', icon: BookOpen },
   { title: 'Equipe', url: '/equipe', icon: Users },
-  { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
+const adminNav = { title: 'Configurações', url: '/configuracoes', icon: Settings };
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -41,6 +42,7 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { organizations, currentOrg, setCurrentOrg, isAdmin } = useOrganization();
   const { data: projects } = useProjectsByOrg(currentOrg?.id);
+  const { data: myProfile } = useMyProfile();
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
   const navigate = useNavigate();
@@ -53,8 +55,10 @@ export function AppSidebar() {
     return [...projects].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }));
   }, [projects]);
 
-  const initials = user?.user_metadata?.full_name
-    ?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const mainNav = useMemo(() => (isAdmin ? [...baseNav, adminNav] : baseNav), [isAdmin]);
+
+  const initials = (myProfile?.full_name || user?.user_metadata?.full_name || '?')
+    .split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
   const orgInitial = currentOrg?.name?.charAt(0)?.toUpperCase() || 'M';
 
@@ -229,6 +233,7 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
+            {myProfile?.avatar_url && <AvatarImage src={myProfile.avatar_url} alt={myProfile.full_name ?? ''} />}
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
               {initials}
             </AvatarFallback>
@@ -236,7 +241,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-accent-foreground truncate">
-                {user?.user_metadata?.full_name || 'Usuário'}
+                {myProfile?.full_name || user?.user_metadata?.full_name || 'Usuário'}
               </p>
               <p className="text-xs text-sidebar-muted truncate">{user?.email}</p>
             </div>
