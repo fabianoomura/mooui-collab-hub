@@ -49,36 +49,36 @@ export default function CRMPage() {
   const activePipelineKind = pipelines.find((p) => p.id === activePipeline)?.kind ?? 'atacado';
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">CRM</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">CRM</h1>
           <p className="text-sm text-muted-foreground">Funil de vendas — atacado e arquitetos</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowNewContact(true)}>
-            <UserPlus className="h-4 w-4 mr-2" /> Novo contato
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => setShowNewContact(true)}>
+            <UserPlus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Novo </span>contato
           </Button>
-          <Button onClick={() => setShowNewDeal(true)} disabled={!activePipeline || !stages.length}>
-            <Plus className="h-4 w-4 mr-2" /> Novo negócio
+          <Button size="sm" className="flex-1 sm:flex-initial" onClick={() => setShowNewDeal(true)} disabled={!activePipeline || !stages.length}>
+            <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Novo </span>negócio
           </Button>
         </div>
       </div>
 
       <Tabs value={activePipeline} onValueChange={setActivePipeline}>
-        <TabsList>
+        <TabsList className="w-full sm:w-auto overflow-x-auto">
           {pipelines.map((p) => (
-            <TabsTrigger key={p.id} value={p.id}>
-              {p.name} <Badge variant="secondary" className="ml-2 capitalize">{p.kind}</Badge>
+            <TabsTrigger key={p.id} value={p.id} className="text-xs sm:text-sm">
+              {p.name} <Badge variant="secondary" className="ml-2 capitalize hidden sm:inline-flex">{p.kind}</Badge>
             </TabsTrigger>
           ))}
         </TabsList>
 
         {pipelines.map((p) => (
           <TabsContent key={p.id} value={p.id} className="mt-4">
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-3 px-3 sm:mx-0 sm:px-0">
               {stages.map((stage) => (
-                <div key={stage.id} className="min-w-[280px] flex-shrink-0">
+                <div key={stage.id} className="w-[260px] sm:min-w-[280px] sm:w-auto flex-shrink-0">
                   <div className="flex items-center justify-between mb-2 px-1">
                     <div className="flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full" style={{ background: stage.color }} />
