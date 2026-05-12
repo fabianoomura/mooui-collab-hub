@@ -481,6 +481,8 @@ function DealForm({
   const [draftUrl, setDraftUrl] = useState(initial?.shopify_draft_order_url ?? '');
   const [orderNumber, setOrderNumber] = useState(initial?.shopify_order_number ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [ownerId, setOwnerId] = useState<string | null>(initial?.owner_id ?? null);
+  const { data: members = [] } = useOrgMembers();
 
   return (
     <div className="space-y-3">
