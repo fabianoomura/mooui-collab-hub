@@ -6,7 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Search } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Search, LayoutGrid, GanttChart } from 'lucide-react';
 import {
   useAnnualEvents, useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent,
 } from '@/hooks/useAnnualEvents';
@@ -180,51 +182,69 @@ export default function CalendarPage() {
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-44 w-full" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {MONTHS.map((m, i) => {
-            const isCurrent = isCurrentYear && i === currentMonth;
-            return (
-              <Card
-                key={m}
-                className={cn(
-                  'p-4 min-h-[180px] flex flex-col',
-                  isCurrent && 'ring-2 ring-primary/40 bg-primary/[0.02]',
-                )}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    {m}
-                    {isCurrent && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">hoje</span>}
-                  </h3>
-                  <button onClick={() => openNew(i)} className="text-muted-foreground hover:text-primary" aria-label="Adicionar evento">
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="space-y-1.5 flex-1">
-                  {byMonth[i].length === 0 && (
-                    <p className="text-xs text-muted-foreground italic">Sem eventos</p>
-                  )}
-                  {byMonth[i].map(e => (
-                    <button
-                      key={`${e.id}-${i}`}
-                      onClick={() => openEdit(e)}
-                      className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
-                    >
-                      <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{e.title}</div>
-                        <div className="text-muted-foreground">
-                          {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                          {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+        <Tabs defaultValue="grid" className="w-full">
+          <TabsList className="grid w-full max-w-xs grid-cols-2">
+            <TabsTrigger value="grid" className="gap-1.5"><LayoutGrid className="h-3.5 w-3.5" /> Grade</TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-1.5"><GanttChart className="h-3.5 w-3.5" /> Linha do tempo</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="grid" className="mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {MONTHS.map((m, i) => {
+                const isCurrent = isCurrentYear && i === currentMonth;
+                return (
+                  <Card
+                    key={m}
+                    className={cn(
+                      'p-4 min-h-[180px] flex flex-col',
+                      isCurrent && 'ring-2 ring-primary/40 bg-primary/[0.02]',
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold flex items-center gap-2">
+                        {m}
+                        {isCurrent && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">hoje</span>}
+                      </h3>
+                      <button onClick={() => openNew(i)} className="text-muted-foreground hover:text-primary" aria-label="Adicionar evento">
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-1.5 flex-1">
+                      {byMonth[i].length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">Sem eventos</p>
+                      )}
+                      {byMonth[i].map(e => (
+                        <button
+                          key={`${e.id}-${i}`}
+                          onClick={() => openEdit(e)}
+                          className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
+                        >
+                          <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{e.title}</div>
+                            <div className="text-muted-foreground">
+                              {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                              {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="timeline" className="mt-4">
+            <TimelineView
+              year={year}
+              events={filtered}
+              isCurrentYear={isCurrentYear}
+              onEventClick={openEdit}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -282,5 +302,166 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function dayOfYear(d: Date) {
+  const start = new Date(d.getFullYear(), 0, 0);
+  const diff = d.getTime() - start.getTime();
+  return Math.floor(diff / 86400000);
+}
+
+function TimelineView({
+  year, events, isCurrentYear, onEventClick,
+}: {
+  year: number;
+  events: AnnualEvent[];
+  isCurrentYear: boolean;
+  onEventClick: (e: AnnualEvent) => void;
+}) {
+  const totalDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => a.start_date.localeCompare(b.start_date)),
+    [events]
+  );
+
+  const todayPct = useMemo(() => {
+    if (!isCurrentYear) return null;
+    return (dayOfYear(new Date()) / totalDays) * 100;
+  }, [isCurrentYear, totalDays]);
+
+  // Month boundaries as percentage
+  const monthMarkers = useMemo(() => {
+    const arr: { label: string; pct: number; widthPct: number }[] = [];
+    for (let m = 0; m < 12; m++) {
+      const startDay = dayOfYear(new Date(year, m, 1));
+      const endDay = m === 11 ? totalDays : dayOfYear(new Date(year, m + 1, 1));
+      arr.push({
+        label: MONTHS[m],
+        pct: (startDay / totalDays) * 100,
+        widthPct: ((endDay - startDay) / totalDays) * 100,
+      });
+    }
+    return arr;
+  }, [year, totalDays]);
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      {/* Header com meses */}
+      <div className="sticky top-0 z-10 bg-card border-b">
+        <div className="flex">
+          <div className="w-44 sm:w-56 shrink-0 px-3 py-2 text-xs font-semibold text-muted-foreground border-r">
+            Evento
+          </div>
+          <div className="relative flex-1 min-w-[720px]">
+            <div className="flex h-9">
+              {monthMarkers.map((m, i) => (
+                <div
+                  key={m.label}
+                  className={cn(
+                    'flex items-center justify-center text-xs font-medium border-r last:border-r-0',
+                    isCurrentYear && i === new Date().getMonth() ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                  style={{ width: `${m.widthPct}%` }}
+                >
+                  {m.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Linhas */}
+      <div className="overflow-x-auto">
+        <div className="min-w-full">
+          {sorted.length === 0 && (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              Nenhum evento no período
+            </div>
+          )}
+          <TooltipProvider delayDuration={200}>
+            {sorted.map((e) => {
+              const startD = new Date(e.start_date + 'T00:00:00');
+              const endD = e.end_date ? new Date(e.end_date + 'T00:00:00') : startD;
+              // Clamp to year
+              const yStart = new Date(year, 0, 1);
+              const yEnd = new Date(year, 11, 31);
+              const s = startD < yStart ? yStart : startD;
+              const en = endD > yEnd ? yEnd : endD;
+              const startPct = (dayOfYear(s) / totalDays) * 100;
+              const widthPct = Math.max(((dayOfYear(en) - dayOfYear(s) + 1) / totalDays) * 100, 0.6);
+
+              return (
+                <div key={e.id} className="flex items-center border-b last:border-b-0 hover:bg-muted/30 transition-colors group">
+                  <div className="w-44 sm:w-56 shrink-0 px-3 py-2.5 border-r">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
+                      <span className="text-xs font-medium truncate">{e.title}</span>
+                    </div>
+                  </div>
+                  <div className="relative flex-1 min-w-[720px] h-10">
+                    {/* Month gridlines */}
+                    {monthMarkers.map((m, i) => (
+                      <div
+                        key={i}
+                        className="absolute top-0 bottom-0 border-r border-border/40"
+                        style={{ left: `${m.pct + m.widthPct}%` }}
+                      />
+                    ))}
+                    {/* Today line */}
+                    {todayPct !== null && (
+                      <div
+                        className="absolute top-0 bottom-0 w-px bg-primary/60 z-10"
+                        style={{ left: `${todayPct}%` }}
+                      />
+                    )}
+                    {/* Bar */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onEventClick(e)}
+                          className="absolute top-1/2 -translate-y-1/2 h-6 rounded-md shadow-sm hover:shadow-md hover:brightness-110 transition-all flex items-center px-2 overflow-hidden"
+                          style={{
+                            left: `${startPct}%`,
+                            width: `${widthPct}%`,
+                            backgroundColor: e.color,
+                            minWidth: '8px',
+                          }}
+                        >
+                          <span className="text-[10px] font-medium text-white truncate whitespace-nowrap">
+                            {e.title}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <div className="text-xs">
+                          <div className="font-semibold">{e.title}</div>
+                          <div className="text-muted-foreground">
+                            {startD.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                            {e.end_date && ` → ${endD.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              );
+            })}
+          </TooltipProvider>
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div className="px-3 py-2 border-t flex items-center gap-3 flex-wrap text-xs text-muted-foreground bg-muted/20">
+        {todayPct !== null && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-px h-3 bg-primary" /> hoje
+          </span>
+        )}
+        <span>{sorted.length} evento{sorted.length !== 1 ? 's' : ''} em {year}</span>
+      </div>
+    </Card>
   );
 }
