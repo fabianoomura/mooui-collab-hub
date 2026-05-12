@@ -176,14 +176,36 @@ export function MarkdownEditor({ value, onChange, placeholder }: Props) {
         </div>
       </div>
 
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) uploadImage(f);
+          e.target.value = '';
+        }}
+      />
+
       {mode === 'edit' ? (
-        <Textarea
-          ref={ref}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="min-h-[60vh] border-0 bg-transparent focus-visible:ring-0 px-0 resize-none text-base leading-relaxed placeholder:text-muted-foreground/40 font-mono text-sm"
-        />
+        <div className="relative">
+          {uploading && (
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 text-xs text-muted-foreground bg-card border rounded px-2 py-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Enviando imagem…
+            </div>
+          )}
+          <Textarea
+            ref={ref}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onPaste={handlePaste}
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            placeholder={placeholder}
+            className="min-h-[60vh] border-0 bg-transparent focus-visible:ring-0 px-0 resize-none text-base leading-relaxed placeholder:text-muted-foreground/40 font-mono text-sm"
+          />
+        </div>
       ) : (
         <div className={cn('prose-doc min-h-[60vh] text-base leading-relaxed')}>
           {value.trim() ? (
