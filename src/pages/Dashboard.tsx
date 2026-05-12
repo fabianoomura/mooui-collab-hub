@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PersonalPanel } from '@/components/dashboard/PersonalPanel';
 
 type ModuleCard = {
   title: string;
@@ -186,6 +187,9 @@ export default function Dashboard() {
           </div>
         </Card>
       ) : null}
+
+      {/* Painel pessoal — em atraso, agenda, mensagens, CRM */}
+      <PersonalPanel />
 
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Módulos</h2>
