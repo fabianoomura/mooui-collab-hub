@@ -130,6 +130,48 @@ describe("Integration: direct message between Alice and Bob", () => {
     const { data } = await bob.rpc("get_or_create_dm", { _other_user_id: aliceId, _org_id: ORG_ID });
     expect(data).toBe(dmChannelId);
   });
+
+  it("alice sends a DM message with a file attachment", async () => {
+    // upload a small text file to chat-attachments bucket
+    const fileContent = `Notas da reunião — ${tag}\n\n- Validar onboarding\n- Subir build até sexta`;
+    const blob = new Blob([fileContent], { type: "text/plain" });
+    const path = `${aliceId}/dm-${tag}/notas-${tag}.txt`;
+    const { error: upErr } = await alice.storage
+      .from("chat-attachments")
+      .upload(path, blob, { upsert: true, contentType: "text/plain" });
+    expect(upErr).toBeNull();
+    const { data: pub } = alice.storage.from("chat-attachments").getPublicUrl(path);
+
+    // create the message
+    const { data: msg, error: mErr } = await alice
+      .from("messages")
+      .insert({
+        channel_id: dmChannelId,
+        user_id: aliceId,
+        content: `Segue o arquivo de notas 📎 [${tag}]`,
+      })
+      .select().single();
+    expect(mErr).toBeNull();
+
+    // attach
+    const { error: attErr } = await alice.from("message_attachments").insert({
+      message_id: msg!.id,
+      file_name: `notas-${tag}.txt`,
+      file_url: pub.publicUrl,
+      file_type: "text/plain",
+      file_size: fileContent.length,
+    });
+    expect(attErr).toBeNull();
+
+    // bob can see message AND attachment
+    const { data: bobView } = await bob
+      .from("messages")
+      .select("id, content, message_attachments(file_name, file_url)")
+      .eq("id", msg!.id).single();
+    expect(bobView!.content).toContain(tag);
+    expect((bobView as any).message_attachments.length).toBe(1);
+    expect((bobView as any).message_attachments[0].file_name).toBe(`notas-${tag}.txt`);
+  });
 });
 
 describe("Integration: documentation organized by department folders", () => {
