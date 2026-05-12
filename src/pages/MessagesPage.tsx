@@ -615,7 +615,7 @@ export default function MessagesPage() {
               )}
             </header>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
               {messages.length === 0 && (
                 <div className="text-center text-sm text-muted-foreground py-8">
                   {activeDm
