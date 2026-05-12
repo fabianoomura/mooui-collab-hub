@@ -29,6 +29,15 @@ const fmtBRL = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style:
 const HOT_THRESHOLD_CENTS = 500_000; // R$ 5k+
 const COLD_DAYS = 14;
 
+function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] text-muted-foreground truncate">{label}</div>
+      <div className={`font-semibold truncate ${accent ?? ''}`}>{value}</div>
+    </div>
+  );
+}
+
 export default function CRMPage() {
   const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('crm');
   const { data: pipelines = [], isLoading: pipesLoading } = usePipelines(activeInstance);
