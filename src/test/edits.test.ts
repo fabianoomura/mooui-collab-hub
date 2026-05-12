@@ -12,37 +12,14 @@ function newClient() {
   });
 }
 
-/**
- * Many tables (projects, doc_pages, ...) have separate INSERT and SELECT
- * RLS policies. The SELECT policy requires the user to be a "member" of the
- * row, which only happens AFTER insert (via project_members / explicit
- * grant). Doing `.insert(...).select()` therefore breaks because RETURNING
- * is filtered by the SELECT policy. Pattern below mirrors what the app does:
- * insert without returning, register membership, then read.
- */
 async function createProject(c: SupabaseClient, userId: string, name: string) {
-  const ins = await c.from("projects").insert({
+  // Trigger add_project_creator_as_owner makes the row visible to the creator
+  // immediately, so .select().single() works on the same call.
+  const { data, error } = await c.from("projects").insert({
     name, organization_id: ORG_ID, created_by: userId,
-  });
-  expect(ins.error).toBeNull();
-  // Mirror useCreateProject hook: register creator as owner.
-  // (project_members RLS allows creator to insert themselves.)
-  const { data: rows } = await c.from("projects").select("id").eq("name", name);
-  // After membership insert below, the row becomes visible — so retry once if needed.
-  let id = rows?.[0]?.id as string | undefined;
-  if (!id) {
-    // Insert membership first using a name lookup via service-less workaround
-    // is impossible here, so we recover the id via direct created_by filter.
-    const { data: byCb } = await c.from("projects").select("id").eq("created_by", userId).order("created_at", { ascending: false }).limit(5);
-    id = byCb?.find(() => true)?.id;
-  }
-  if (id) {
-    await c.from("project_members").insert({ project_id: id, user_id: userId, role: "owner" });
-  }
-  // Now we should be able to read it back
-  const { data: visible } = await c.from("projects").select("*").eq("name", name).maybeSingle();
-  expect(visible).toBeTruthy();
-  return visible!.id as string;
+  }).select().single();
+  expect(error).toBeNull();
+  return data!.id as string;
 }
 
 describe("Edits & saves: all modules", () => {
