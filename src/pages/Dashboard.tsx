@@ -188,6 +188,9 @@ export default function Dashboard() {
         </Card>
       ) : null}
 
+      {/* Painel pessoal — em atraso, agenda, mensagens, CRM */}
+      <PersonalPanel />
+
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Módulos</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
