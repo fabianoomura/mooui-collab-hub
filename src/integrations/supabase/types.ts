@@ -280,6 +280,7 @@ export type Database = {
       }
       crm_deals: {
         Row: {
+          abandoned_at: string | null
           contact_id: string | null
           created_at: string
           created_by: string
@@ -291,6 +292,9 @@ export type Database = {
           owner_id: string | null
           pipeline_id: string
           position: number
+          shopify_checkout_token: string | null
+          shopify_checkout_url: string | null
+          shopify_customer_email: string | null
           shopify_draft_order_id: string | null
           shopify_draft_order_name: string | null
           shopify_draft_order_url: string | null
@@ -302,6 +306,7 @@ export type Database = {
           value_cents: number
         }
         Insert: {
+          abandoned_at?: string | null
           contact_id?: string | null
           created_at?: string
           created_by: string
@@ -313,6 +318,9 @@ export type Database = {
           owner_id?: string | null
           pipeline_id: string
           position?: number
+          shopify_checkout_token?: string | null
+          shopify_checkout_url?: string | null
+          shopify_customer_email?: string | null
           shopify_draft_order_id?: string | null
           shopify_draft_order_name?: string | null
           shopify_draft_order_url?: string | null
@@ -324,6 +332,7 @@ export type Database = {
           value_cents?: number
         }
         Update: {
+          abandoned_at?: string | null
           contact_id?: string | null
           created_at?: string
           created_by?: string
@@ -335,6 +344,9 @@ export type Database = {
           owner_id?: string | null
           pipeline_id?: string
           position?: number
+          shopify_checkout_token?: string | null
+          shopify_checkout_url?: string | null
+          shopify_customer_email?: string | null
           shopify_draft_order_id?: string | null
           shopify_draft_order_name?: string | null
           shopify_draft_order_url?: string | null

@@ -15,9 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
-  ExternalLink, Plus, Building2, UserPlus, Search, Trash2, Flame, Snowflake, Briefcase,
+  ExternalLink, Plus, Building2, UserPlus, Search, Trash2, Flame, Snowflake, Briefcase, ShoppingCart,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,7 +64,28 @@ export default function CRMPage() {
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const { data: members = [] } = useOrgMembers();
+  const { currentOrg } = useOrganization();
+  const qc = useQueryClient();
+
+  const syncAbandoned = async () => {
+    if (!currentOrg || !activePipeline) return;
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('shopify-abandoned-checkouts', {
+        body: { organization_id: currentOrg.id, pipeline_id: activePipeline, since_days: 30 },
+      });
+      if (error) throw error;
+      const r = data as { fetched?: number; created?: number; skipped?: number; errors?: number };
+      toast.success(`Sync concluído: ${r.created ?? 0} novos, ${r.skipped ?? 0} já existentes`);
+      qc.invalidateQueries({ queryKey: ['crm_deals'] });
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Falha ao sincronizar');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filteredDeals = useMemo(() => {
     let list = deals;
@@ -148,6 +172,12 @@ export default function CRMPage() {
         subtitle={`Funil de vendas — ${filteredDeals.length} negócio${filteredDeals.length === 1 ? '' : 's'} · ${fmtBRL(totalValue)}`}
         actions={
           <>
+            {activePipelineKind === 'varejo' && (
+              <Button variant="outline" size="sm" onClick={syncAbandoned} disabled={syncing || !activePipeline}>
+                <ShoppingCart className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{syncing ? 'Sincronizando…' : 'Sync Shopify'}</span>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowNewContact(true)}>
               <UserPlus className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Novo contato</span>
