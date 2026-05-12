@@ -131,7 +131,7 @@ describe("Integration: direct message between Alice and Bob", () => {
     expect(data).toBe(dmChannelId);
   });
 
-  it("alice sends a DM message with a file attachment", async () => {
+  it("alice sends a DM message with a file attachment", async () => {  // eslint-disable-line
     // upload a small text file to chat-attachments bucket
     const fileContent = `Notas da reunião — ${tag}\n\n- Validar onboarding\n- Subir build até sexta`;
     const blob = new Blob([fileContent], { type: "text/plain" });
