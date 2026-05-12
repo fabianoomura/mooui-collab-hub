@@ -143,6 +143,8 @@ export default function CalendarPage() {
         }
       />
 
+      <ModuleInstanceBar moduleKey="calendario" value={activeInstance} onChange={setActiveInstance} />
+
       {/* Search + filter chips */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="relative w-full sm:w-72">
