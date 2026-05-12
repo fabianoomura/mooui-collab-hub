@@ -16,6 +16,8 @@ import DocsPage from "./pages/DocsPage";
 import RoomsPage from "./pages/RoomsPage";
 import CalendarPage from "./pages/CalendarPage";
 import LaunchesPage from "./pages/LaunchesPage";
+import CRMPage from "./pages/CRMPage";
+import ChecklistPage from "./pages/ChecklistPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -76,6 +78,8 @@ const App = () => (
               <Route path="/salas" element={<RoomsPage />} />
               <Route path="/calendario" element={<CalendarPage />} />
               <Route path="/lancamentos" element={<LaunchesPage />} />
+              <Route path="/crm" element={<CRMPage />} />
+              <Route path="/checagens" element={<ChecklistPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 

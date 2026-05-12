@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase, ClipboardCheck } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -35,6 +35,8 @@ const baseNav = [
   { title: 'Salas', url: '/salas', icon: Calendar },
   { title: 'Calendário Anual', url: '/calendario', icon: CalendarDays },
   { title: 'Lançamentos', url: '/lancamentos', icon: Rocket },
+  { title: 'Checagem Site', url: '/checagens', icon: ClipboardCheck },
+  { title: 'CRM', url: '/crm', icon: Briefcase },
   { title: 'Equipe', url: '/equipe', icon: Users },
 ];
 const adminNav = { title: 'Configurações', url: '/configuracoes', icon: Settings };
