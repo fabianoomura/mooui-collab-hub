@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus } from 'lucide-react';
+import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -461,10 +461,17 @@ export default function MessagesPage() {
     ? activeDm.partner?.full_name || 'Conversa'
     : activeChannel?.name || '';
 
+  const showChatOnMobile = !!activeChannelId;
+
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] -m-6">
+    <div className="flex h-[calc(100vh-3.5rem)] -m-3 sm:-m-6">
       {/* Sidebar */}
-      <aside className="w-60 border-r border-border bg-muted/30 flex flex-col shrink-0">
+      <aside
+        className={cn(
+          'w-full md:w-60 border-r border-border bg-muted/30 flex-col shrink-0',
+          showChatOnMobile ? 'hidden md:flex' : 'flex'
+        )}
+      >
         <div className="p-3 border-b border-border">
           <h2 className="font-semibold text-sm">{currentOrg.name}</h2>
           <p className="text-xs text-muted-foreground">Mensagens</p>
@@ -562,15 +569,25 @@ export default function MessagesPage() {
       </aside>
 
       {/* Messages area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn(
+        'flex-1 flex-col min-w-0',
+        showChatOnMobile ? 'flex' : 'hidden md:flex'
+      )}>
         {!activeChannel ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="flex-1 flex items-center justify-center text-muted-foreground p-4 text-center text-sm">
             Crie ou selecione um canal para começar.
           </div>
         ) : (
           <>
-            <header className="h-14 border-b border-border flex items-center justify-between px-4 shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
+            <header className="h-14 border-b border-border flex items-center justify-between px-3 sm:px-4 shrink-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <button
+                  onClick={() => setActiveChannelId(null)}
+                  className="md:hidden -ml-1 p-1 text-muted-foreground hover:text-foreground"
+                  aria-label="Voltar"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
                 {activeDm ? (
                   <Avatar className="h-6 w-6">
                     <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
@@ -584,7 +601,7 @@ export default function MessagesPage() {
                 )}
                 <h1 className="font-semibold truncate">{headerLabel}</h1>
                 {activeChannel.description && !activeDm && (
-                  <span className="text-sm text-muted-foreground truncate">— {activeChannel.description}</span>
+                  <span className="hidden sm:inline text-sm text-muted-foreground truncate">— {activeChannel.description}</span>
                 )}
               </div>
               {!activeDm && (activeChannel.created_by === user?.id || isAdmin) && (
@@ -598,7 +615,7 @@ export default function MessagesPage() {
               )}
             </header>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
               {messages.length === 0 && (
                 <div className="text-center text-sm text-muted-foreground py-8">
                   {activeDm
@@ -630,7 +647,7 @@ export default function MessagesPage() {
 
       {/* Thread side panel */}
       {threadParentId && threadParent && (
-        <aside className="w-96 border-l border-border bg-background flex flex-col shrink-0">
+        <aside className="fixed inset-0 z-40 md:static md:inset-auto md:w-96 w-full border-l border-border bg-background flex flex-col shrink-0">
           <header className="h-14 border-b border-border flex items-center justify-between px-4 shrink-0">
             <div>
               <h2 className="font-semibold text-sm">Thread</h2>
