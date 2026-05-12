@@ -569,15 +569,25 @@ export default function MessagesPage() {
       </aside>
 
       {/* Messages area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn(
+        'flex-1 flex-col min-w-0',
+        showChatOnMobile ? 'flex' : 'hidden md:flex'
+      )}>
         {!activeChannel ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="flex-1 flex items-center justify-center text-muted-foreground p-4 text-center text-sm">
             Crie ou selecione um canal para começar.
           </div>
         ) : (
           <>
-            <header className="h-14 border-b border-border flex items-center justify-between px-4 shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
+            <header className="h-14 border-b border-border flex items-center justify-between px-3 sm:px-4 shrink-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <button
+                  onClick={() => setActiveChannelId(null)}
+                  className="md:hidden -ml-1 p-1 text-muted-foreground hover:text-foreground"
+                  aria-label="Voltar"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
                 {activeDm ? (
                   <Avatar className="h-6 w-6">
                     <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
