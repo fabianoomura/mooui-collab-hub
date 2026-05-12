@@ -61,7 +61,17 @@ function MessageItem({ msg, isMine, onDelete, onOpenThread, showThreadAction }: 
           </span>
         </div>
         {msg.content && msg.content !== '📎' && (
-          <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+          <p className="text-sm whitespace-pre-wrap break-words">
+            {msg.content.split(/(@[\wÀ-ÿ.-]+)/g).map((part, i) =>
+              part.startsWith('@') ? (
+                <span key={i} className="text-primary font-medium bg-primary/10 rounded px-1">
+                  {part}
+                </span>
+              ) : (
+                <span key={i}>{part}</span>
+              )
+            )}
+          </p>
         )}
         {msg.attachments?.length > 0 && (
           <div className="mt-2 space-y-2">
