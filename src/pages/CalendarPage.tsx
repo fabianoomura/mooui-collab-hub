@@ -304,3 +304,164 @@ export default function CalendarPage() {
     </div>
   );
 }
+
+function dayOfYear(d: Date) {
+  const start = new Date(d.getFullYear(), 0, 0);
+  const diff = d.getTime() - start.getTime();
+  return Math.floor(diff / 86400000);
+}
+
+function TimelineView({
+  year, events, isCurrentYear, onEventClick,
+}: {
+  year: number;
+  events: AnnualEvent[];
+  isCurrentYear: boolean;
+  onEventClick: (e: AnnualEvent) => void;
+}) {
+  const totalDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => a.start_date.localeCompare(b.start_date)),
+    [events]
+  );
+
+  const todayPct = useMemo(() => {
+    if (!isCurrentYear) return null;
+    return (dayOfYear(new Date()) / totalDays) * 100;
+  }, [isCurrentYear, totalDays]);
+
+  // Month boundaries as percentage
+  const monthMarkers = useMemo(() => {
+    const arr: { label: string; pct: number; widthPct: number }[] = [];
+    for (let m = 0; m < 12; m++) {
+      const startDay = dayOfYear(new Date(year, m, 1));
+      const endDay = m === 11 ? totalDays : dayOfYear(new Date(year, m + 1, 1));
+      arr.push({
+        label: MONTHS[m],
+        pct: (startDay / totalDays) * 100,
+        widthPct: ((endDay - startDay) / totalDays) * 100,
+      });
+    }
+    return arr;
+  }, [year, totalDays]);
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      {/* Header com meses */}
+      <div className="sticky top-0 z-10 bg-card border-b">
+        <div className="flex">
+          <div className="w-44 sm:w-56 shrink-0 px-3 py-2 text-xs font-semibold text-muted-foreground border-r">
+            Evento
+          </div>
+          <div className="relative flex-1 min-w-[720px]">
+            <div className="flex h-9">
+              {monthMarkers.map((m, i) => (
+                <div
+                  key={m.label}
+                  className={cn(
+                    'flex items-center justify-center text-xs font-medium border-r last:border-r-0',
+                    isCurrentYear && i === new Date().getMonth() ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                  style={{ width: `${m.widthPct}%` }}
+                >
+                  {m.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Linhas */}
+      <div className="overflow-x-auto">
+        <div className="min-w-full">
+          {sorted.length === 0 && (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              Nenhum evento no período
+            </div>
+          )}
+          <TooltipProvider delayDuration={200}>
+            {sorted.map((e) => {
+              const startD = new Date(e.start_date + 'T00:00:00');
+              const endD = e.end_date ? new Date(e.end_date + 'T00:00:00') : startD;
+              // Clamp to year
+              const yStart = new Date(year, 0, 1);
+              const yEnd = new Date(year, 11, 31);
+              const s = startD < yStart ? yStart : startD;
+              const en = endD > yEnd ? yEnd : endD;
+              const startPct = (dayOfYear(s) / totalDays) * 100;
+              const widthPct = Math.max(((dayOfYear(en) - dayOfYear(s) + 1) / totalDays) * 100, 0.6);
+
+              return (
+                <div key={e.id} className="flex items-center border-b last:border-b-0 hover:bg-muted/30 transition-colors group">
+                  <div className="w-44 sm:w-56 shrink-0 px-3 py-2.5 border-r">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
+                      <span className="text-xs font-medium truncate">{e.title}</span>
+                    </div>
+                  </div>
+                  <div className="relative flex-1 min-w-[720px] h-10">
+                    {/* Month gridlines */}
+                    {monthMarkers.map((m, i) => (
+                      <div
+                        key={i}
+                        className="absolute top-0 bottom-0 border-r border-border/40"
+                        style={{ left: `${m.pct + m.widthPct}%` }}
+                      />
+                    ))}
+                    {/* Today line */}
+                    {todayPct !== null && (
+                      <div
+                        className="absolute top-0 bottom-0 w-px bg-primary/60 z-10"
+                        style={{ left: `${todayPct}%` }}
+                      />
+                    )}
+                    {/* Bar */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onEventClick(e)}
+                          className="absolute top-1/2 -translate-y-1/2 h-6 rounded-md shadow-sm hover:shadow-md hover:brightness-110 transition-all flex items-center px-2 overflow-hidden"
+                          style={{
+                            left: `${startPct}%`,
+                            width: `${widthPct}%`,
+                            backgroundColor: e.color,
+                            minWidth: '8px',
+                          }}
+                        >
+                          <span className="text-[10px] font-medium text-white truncate whitespace-nowrap">
+                            {e.title}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <div className="text-xs">
+                          <div className="font-semibold">{e.title}</div>
+                          <div className="text-muted-foreground">
+                            {startD.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                            {e.end_date && ` → ${endD.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              );
+            })}
+          </TooltipProvider>
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div className="px-3 py-2 border-t flex items-center gap-3 flex-wrap text-xs text-muted-foreground bg-muted/20">
+        {todayPct !== null && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-px h-3 bg-primary" /> hoje
+          </span>
+        )}
+        <span>{sorted.length} evento{sorted.length !== 1 ? 's' : ''} em {year}</span>
+      </div>
+    </Card>
+  );
+}
