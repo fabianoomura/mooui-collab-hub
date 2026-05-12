@@ -461,10 +461,17 @@ export default function MessagesPage() {
     ? activeDm.partner?.full_name || 'Conversa'
     : activeChannel?.name || '';
 
+  const showChatOnMobile = !!activeChannelId;
+
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] -m-6">
+    <div className="flex h-[calc(100vh-3.5rem)] -m-3 sm:-m-6">
       {/* Sidebar */}
-      <aside className="w-60 border-r border-border bg-muted/30 flex flex-col shrink-0">
+      <aside
+        className={cn(
+          'w-full md:w-60 border-r border-border bg-muted/30 flex-col shrink-0',
+          showChatOnMobile ? 'hidden md:flex' : 'flex'
+        )}
+      >
         <div className="p-3 border-b border-border">
           <h2 className="font-semibold text-sm">{currentOrg.name}</h2>
           <p className="text-xs text-muted-foreground">Mensagens</p>
