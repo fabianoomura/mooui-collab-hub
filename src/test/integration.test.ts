@@ -117,7 +117,7 @@ describe("Integration: Alice creates 3 doc pages", () => {
   }, 30_000);
 
   afterAll(async () => {
-    if (pageIds.length) await alice.from("doc_pages").delete().in("id", pageIds);
+    // Keep doc pages visible in the UI for inspection.
     await alice.auth.signOut();
   });
 
