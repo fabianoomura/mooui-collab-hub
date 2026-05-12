@@ -22,7 +22,48 @@ type Mode = 'edit' | 'preview';
 
 export function MarkdownEditor({ value, onChange, placeholder }: Props) {
   const [mode, setMode] = useState<Mode>('edit');
+  const [uploading, setUploading] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const uploadImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Apenas imagens são aceitas');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id ?? 'anon';
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `docs/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('chat-attachments').upload(path, file, {
+        contentType: file.type, upsert: false,
+      });
+      if (error) throw error;
+      const { data: pub } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+      insertBlock(`![${file.name}](${pub.publicUrl})`);
+      toast.success('Imagem inserida');
+    } catch (e: any) {
+      toast.error('Erro ao enviar imagem: ' + (e?.message ?? ''));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
+    if (item) {
+      const f = item.getAsFile();
+      if (f) { e.preventDefault(); uploadImage(f); }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    const f = Array.from(e.dataTransfer.files).find((x) => x.type.startsWith('image/'));
+    if (f) { e.preventDefault(); uploadImage(f); }
+  };
+
 
   const wrap = (before: string, after = before, sample = '') => {
     const el = ref.current;
