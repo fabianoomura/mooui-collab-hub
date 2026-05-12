@@ -130,6 +130,58 @@ describe("Integration: direct message between Alice and Bob", () => {
     const { data } = await bob.rpc("get_or_create_dm", { _other_user_id: aliceId, _org_id: ORG_ID });
     expect(data).toBe(dmChannelId);
   });
+
+  it("alice sends a DM message with a file attachment", async () => {
+    // Upload via Supabase Storage REST API (works around supabase-js fetch issue in vitest)
+    const fileContent = `Notas da reunião — ${tag}\n- Validar onboarding\n- Subir build até sexta`;
+    const path = `${aliceId}/dm-${tag}/notas-${tag}.txt`;
+    const { data: { session } } = await alice.auth.getSession();
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/chat-attachments/${path}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session!.access_token}`,
+          apikey: ANON,
+          "Content-Type": "text/plain",
+          "x-upsert": "true",
+        },
+        body: fileContent,
+      }
+    );
+    expect(uploadRes.ok).toBe(true);
+    const fileUrl = `${SUPABASE_URL}/storage/v1/object/public/chat-attachments/${path}`;
+
+    // create the message
+    const { data: msg, error: mErr } = await alice
+      .from("messages")
+      .insert({
+        channel_id: dmChannelId,
+        user_id: aliceId,
+        content: `Segue o arquivo de notas 📎 [${tag}]`,
+      })
+      .select().single();
+    expect(mErr).toBeNull();
+
+    // attach file metadata
+    const { error: attErr } = await alice.from("message_attachments").insert({
+      message_id: msg!.id,
+      file_name: `notas-${tag}.txt`,
+      file_url: fileUrl,
+      file_type: "text/plain",
+      file_size: fileContent.length,
+    });
+    expect(attErr).toBeNull();
+
+    // bob can see message AND attachment
+    const { data: bobView } = await bob
+      .from("messages")
+      .select("id, content, message_attachments(file_name, file_url)")
+      .eq("id", msg!.id).single();
+    expect(bobView!.content).toContain(tag);
+    expect((bobView as any).message_attachments.length).toBe(1);
+    expect((bobView as any).message_attachments[0].file_name).toBe(`notas-${tag}.txt`);
+  }, 30_000);
 });
 
 describe("Integration: documentation organized by department folders", () => {
