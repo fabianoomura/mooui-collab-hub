@@ -131,16 +131,26 @@ describe("Integration: direct message between Alice and Bob", () => {
     expect(data).toBe(dmChannelId);
   });
 
-  it("alice sends a DM message with a file attachment", async () => {  // eslint-disable-line
-    // upload a small text file to chat-attachments bucket
-    const fileContent = `Notas da reunião — ${tag}\n\n- Validar onboarding\n- Subir build até sexta`;
-    const blob = new Blob([fileContent], { type: "text/plain" });
+  it("alice sends a DM message with a file attachment", async () => {
+    // Upload via Supabase Storage REST API (works around supabase-js fetch issue in vitest)
+    const fileContent = `Notas da reunião — ${tag}\n- Validar onboarding\n- Subir build até sexta`;
     const path = `${aliceId}/dm-${tag}/notas-${tag}.txt`;
-    const { error: upErr } = await alice.storage
-      .from("chat-attachments")
-      .upload(path, blob, { upsert: true, contentType: "text/plain" });
-    expect(upErr).toBeNull();
-    const { data: pub } = alice.storage.from("chat-attachments").getPublicUrl(path);
+    const { data: { session } } = await alice.auth.getSession();
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/chat-attachments/${path}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session!.access_token}`,
+          apikey: ANON,
+          "Content-Type": "text/plain",
+          "x-upsert": "true",
+        },
+        body: fileContent,
+      }
+    );
+    expect(uploadRes.ok).toBe(true);
+    const fileUrl = `${SUPABASE_URL}/storage/v1/object/public/chat-attachments/${path}`;
 
     // create the message
     const { data: msg, error: mErr } = await alice
@@ -153,11 +163,11 @@ describe("Integration: direct message between Alice and Bob", () => {
       .select().single();
     expect(mErr).toBeNull();
 
-    // attach
+    // attach file metadata
     const { error: attErr } = await alice.from("message_attachments").insert({
       message_id: msg!.id,
       file_name: `notas-${tag}.txt`,
-      file_url: pub.publicUrl,
+      file_url: fileUrl,
       file_type: "text/plain",
       file_size: fileContent.length,
     });
