@@ -104,9 +104,9 @@ export default function ChecklistPage() {
       <div className="lg:col-span-9 space-y-4 min-w-0">
         {active ? (
           <>
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold">{active.name}</h1>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-semibold break-words">{active.name}</h1>
                 {launch && <p className="text-sm text-muted-foreground">Lançamento: <strong>{launch.name}</strong></p>}
                 {active.expected_arrival_date && (
                   <p className="text-sm text-muted-foreground">
@@ -114,7 +114,7 @@ export default function ChecklistPage() {
                   </p>
                 )}
               </div>
-              <Button variant="outline" onClick={() => setShowSaveTpl(true)}>
+              <Button variant="outline" size="sm" className="self-start" onClick={() => setShowSaveTpl(true)}>
                 <Save className="h-4 w-4 mr-2" /> Salvar como template
               </Button>
             </div>
