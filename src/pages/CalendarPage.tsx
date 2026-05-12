@@ -6,9 +6,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
-import { useAnnualEvents, useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent } from '@/hooks/useAnnualEvents';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Search } from 'lucide-react';
+import {
+  useAnnualEvents, useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent,
+} from '@/hooks/useAnnualEvents';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/PageHeader';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 const CATEGORIES = [
   { value: 'lancamento', label: 'Lançamento', color: '#D6336C' },
@@ -23,21 +29,38 @@ export default function CalendarPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', description: '', category: 'acao', start_date: '', end_date: '' });
+  const [search, setSearch] = useState('');
+  const [activeCats, setActiveCats] = useState<string[]>([]);
 
   const { data: events = [], isLoading } = useAnnualEvents(year);
   const createEvt = useCreateAnnualEvent();
   const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
+  const confirm = useConfirm();
+
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const isCurrentYear = year === today.getFullYear();
+
+  const filtered = useMemo(() => {
+    return events.filter((e) => {
+      if (activeCats.length && !activeCats.includes(e.category)) return false;
+      if (search.trim() && !e.title.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [events, activeCats, search]);
 
   const byMonth = useMemo(() => {
     const map: Record<number, AnnualEvent[]> = {};
     for (let i = 0; i < 12; i++) map[i] = [];
-    events.forEach(e => {
-      const m = new Date(e.start_date + 'T00:00:00').getMonth();
-      map[m].push(e);
+    filtered.forEach(e => {
+      const startM = new Date(e.start_date + 'T00:00:00').getMonth();
+      const endM = e.end_date ? new Date(e.end_date + 'T00:00:00').getMonth() : startM;
+      // Span a faixa em todos os meses cobertos
+      for (let m = startM; m <= endM; m++) map[m].push(e);
     });
     return map;
-  }, [events]);
+  }, [filtered]);
 
   const openNew = (monthIdx?: number) => {
     const m = monthIdx ?? new Date().getMonth();
@@ -84,63 +107,125 @@ export default function CalendarPage() {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!editingId) return;
-    if (!confirm('Excluir este evento?')) return;
+    const ok = await confirm({ title: 'Excluir este evento?', destructive: true, confirmText: 'Excluir' });
+    if (!ok) return;
     deleteEvt.mutate(editingId, {
       onSuccess: () => { toast.success('Evento excluído'); setOpen(false); },
       onError: (e: any) => toast.error(e.message),
     });
   };
 
+  const toggleCat = (c: string) =>
+    setActiveCats(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Calendário Anual</h1>
-          <p className="text-muted-foreground text-sm mt-1">Planejamento de lançamentos, ações e datas-chave</p>
+    <div className="space-y-4">
+      <PageHeader
+        crumbs={[{ label: 'Início', to: '/' }, { label: 'Calendário Anual' }]}
+        title="Calendário Anual"
+        subtitle="Planejamento de lançamentos, ações e datas-chave"
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="icon" onClick={() => setYear(y => y - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-base sm:text-lg font-semibold w-14 text-center">{year}</span>
+            <Button variant="outline" size="icon" onClick={() => setYear(y => y + 1)}><ChevronRight className="h-4 w-4" /></Button>
+            <Button size="sm" onClick={() => openNew()}>
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Novo evento</span>
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Search + filter chips */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar evento…"
+            className="pl-8 h-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="icon" onClick={() => setYear(y => y - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-          <span className="text-lg font-semibold w-16 text-center">{year}</span>
-          <Button variant="outline" size="icon" onClick={() => setYear(y => y + 1)}><ChevronRight className="h-4 w-4" /></Button>
-          <Button size="sm" onClick={() => openNew()} className="ml-1"><Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo evento</span></Button>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {CATEGORIES.map(c => {
+            const active = activeCats.includes(c.value);
+            return (
+              <button
+                key={c.value}
+                onClick={() => toggleCat(c.value)}
+                className={cn(
+                  'text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1.5',
+                  active ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50',
+                )}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
+                <span className={active ? 'text-foreground' : 'text-muted-foreground'}>{c.label}</span>
+              </button>
+            );
+          })}
+          {activeCats.length > 0 && (
+            <button onClick={() => setActiveCats([])} className="text-xs text-muted-foreground hover:text-foreground underline">
+              limpar
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {MONTHS.map((m, i) => (
-          <Card key={m} className="p-4 min-h-[180px] flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">{m}</h3>
-              <button onClick={() => openNew(i)} className="text-muted-foreground hover:text-primary">
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-1.5 flex-1">
-              {byMonth[i].length === 0 && !isLoading && (
-                <p className="text-xs text-muted-foreground italic">Sem eventos</p>
-              )}
-              {byMonth[i].map(e => (
-                <button
-                  key={e.id}
-                  onClick={() => openEdit(e)}
-                  className="group w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
-                >
-                  <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{e.title}</div>
-                    <div className="text-muted-foreground">
-                      {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                      {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </Card>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-44 w-full" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {MONTHS.map((m, i) => {
+            const isCurrent = isCurrentYear && i === currentMonth;
+            return (
+              <Card
+                key={m}
+                className={cn(
+                  'p-4 min-h-[180px] flex flex-col',
+                  isCurrent && 'ring-2 ring-primary/40 bg-primary/[0.02]',
+                )}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    {m}
+                    {isCurrent && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">hoje</span>}
+                  </h3>
+                  <button onClick={() => openNew(i)} className="text-muted-foreground hover:text-primary" aria-label="Adicionar evento">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="space-y-1.5 flex-1">
+                  {byMonth[i].length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">Sem eventos</p>
+                  )}
+                  {byMonth[i].map(e => (
+                    <button
+                      key={`${e.id}-${i}`}
+                      onClick={() => openEdit(e)}
+                      className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
+                    >
+                      <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{e.title}</div>
+                        <div className="text-muted-foreground">
+                          {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                          {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
