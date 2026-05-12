@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
-import { useAnnualEvents, useCreateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent } from '@/hooks/useAnnualEvents';
+import { useAnnualEvents, useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent } from '@/hooks/useAnnualEvents';
 import { toast } from 'sonner';
 
 const CATEGORIES = [
@@ -21,11 +21,12 @@ const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', '
 export default function CalendarPage() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [open, setOpen] = useState(false);
-  const [defaultMonth, setDefaultMonth] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', description: '', category: 'acao', start_date: '', end_date: '' });
 
   const { data: events = [], isLoading } = useAnnualEvents(year);
   const createEvt = useCreateAnnualEvent();
+  const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
 
   const byMonth = useMemo(() => {
@@ -40,26 +41,54 @@ export default function CalendarPage() {
 
   const openNew = (monthIdx?: number) => {
     const m = monthIdx ?? new Date().getMonth();
-    setDefaultMonth(m);
     const dd = String(new Date().getDate()).padStart(2, '0');
     const mm = String(m + 1).padStart(2, '0');
+    setEditingId(null);
     setForm({ title: '', description: '', category: 'acao', start_date: `${year}-${mm}-${dd}`, end_date: '' });
     setOpen(true);
   };
 
-  const handleCreate = () => {
+  const openEdit = (e: AnnualEvent) => {
+    setEditingId(e.id);
+    setForm({
+      title: e.title,
+      description: e.description || '',
+      category: e.category,
+      start_date: e.start_date,
+      end_date: e.end_date || '',
+    });
+    setOpen(true);
+  };
+
+  const handleSave = () => {
     if (!form.title.trim() || !form.start_date) return;
     const cat = CATEGORIES.find(c => c.value === form.category)!;
-    createEvt.mutate({
+    const payload = {
       title: form.title.trim(),
       description: form.description.trim() || null,
       category: form.category,
       color: cat.color,
       start_date: form.start_date,
       end_date: form.end_date || null,
-      project_id: null,
-    }, {
-      onSuccess: () => { toast.success('Evento criado'); setOpen(false); },
+    };
+    if (editingId) {
+      updateEvt.mutate({ id: editingId, ...payload }, {
+        onSuccess: () => { toast.success('Evento atualizado'); setOpen(false); },
+        onError: (e: any) => toast.error(e.message),
+      });
+    } else {
+      createEvt.mutate({ ...payload, project_id: null }, {
+        onSuccess: () => { toast.success('Evento criado'); setOpen(false); },
+        onError: (e: any) => toast.error(e.message),
+      });
+    }
+  };
+
+  const handleDelete = () => {
+    if (!editingId) return;
+    if (!confirm('Excluir este evento?')) return;
+    deleteEvt.mutate(editingId, {
+      onSuccess: () => { toast.success('Evento excluído'); setOpen(false); },
       onError: (e: any) => toast.error(e.message),
     });
   };
@@ -93,7 +122,11 @@ export default function CalendarPage() {
                 <p className="text-xs text-muted-foreground italic">Sem eventos</p>
               )}
               {byMonth[i].map(e => (
-                <div key={e.id} className="group flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs">
+                <button
+                  key={e.id}
+                  onClick={() => openEdit(e)}
+                  className="group w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
+                >
                   <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{e.title}</div>
@@ -102,13 +135,7 @@ export default function CalendarPage() {
                       {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
                     </div>
                   </div>
-                  <button
-                    onClick={() => { if (confirm(`Excluir "${e.title}"?`)) deleteEvt.mutate(e.id); }}
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
+                </button>
               ))}
             </div>
           </Card>
@@ -117,7 +144,7 @@ export default function CalendarPage() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Novo evento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? 'Editar evento' : 'Novo evento'}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Título</Label>
@@ -154,9 +181,18 @@ export default function CalendarPage() {
               <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={!form.title.trim() || createEvt.isPending}>Criar</Button>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {editingId ? (
+              <Button variant="ghost" onClick={handleDelete} className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4 mr-1" /> Excluir
+              </Button>
+            ) : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={!form.title.trim() || createEvt.isPending || updateEvt.isPending}>
+                {editingId ? 'Salvar' : 'Criar'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -58,6 +58,18 @@ export function useCreateAnnualEvent() {
   });
 }
 
+export function useUpdateAnnualEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: Partial<AnnualEvent> & { id: string }) => {
+      const { data, error } = await supabase.from('annual_events').update(patch).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['annual-events'] }),
+  });
+}
+
 export function useDeleteAnnualEvent() {
   const qc = useQueryClient();
   return useMutation({

@@ -1138,6 +1138,16 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      notify_user: {
+        Args: {
+          _link?: string
+          _message?: string
+          _title: string
+          _type: string
+          _user_id: string
+        }
+        Returns: string
+      }
       unread_count: {
         Args: { _channel_id: string; _user_id: string }
         Returns: number
