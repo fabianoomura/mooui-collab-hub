@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PersonalPanel } from '@/components/dashboard/PersonalPanel';
 
 type ModuleCard = {
   title: string;
