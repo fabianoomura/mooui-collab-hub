@@ -173,6 +173,12 @@ export default function ChecklistPage() {
         }
       />
 
+      <ModuleInstanceBar
+        moduleKey="checagens"
+        value={activeInstance}
+        onChange={setActiveInstance}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Sidebar (desktop only) */}
         <aside className="hidden lg:block lg:col-span-3">{ChecklistsSidebar}</aside>
