@@ -647,7 +647,7 @@ export default function MessagesPage() {
 
       {/* Thread side panel */}
       {threadParentId && threadParent && (
-        <aside className="w-96 border-l border-border bg-background flex flex-col shrink-0">
+        <aside className="fixed inset-0 z-40 md:static md:inset-auto md:w-96 w-full border-l border-border bg-background flex flex-col shrink-0">
           <header className="h-14 border-b border-border flex items-center justify-between px-4 shrink-0">
             <div>
               <h2 className="font-semibold text-sm">Thread</h2>
