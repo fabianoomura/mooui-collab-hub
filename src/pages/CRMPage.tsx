@@ -278,7 +278,16 @@ export default function CRMPage() {
                                 }`}
                               >
                                 {list.map((d, idx) => (
-                                  <DealCard key={d.id} deal={d} index={idx} contacts={contacts} onClick={() => setEditingDeal(d)} />
+                                  <DealCard
+                                    key={d.id}
+                                    deal={d}
+                                    index={idx}
+                                    contacts={contacts}
+                                    members={members}
+                                    onClick={() => setEditingDeal(d)}
+                                    onAssign={(uid) => updateDeal.mutate({ id: d.id, owner_id: uid })}
+                                  />
+
                                 ))}
                                 {provided.placeholder}
                                 {list.length === 0 && !snapshot.isDraggingOver && (
