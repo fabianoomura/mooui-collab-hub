@@ -288,11 +288,15 @@ export default function ChecklistPage() {
                                 {STATUS_ICON[it.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.pending}
                               </button>
                               <span className={cn(
-                                'flex-1 text-sm',
+                                'flex-1 text-sm min-w-0 break-words',
                                 it.status === 'done' && 'line-through text-muted-foreground',
                               )}>
                                 {it.label}
                               </span>
+                              <AssigneePicker
+                                value={it.assignee_id}
+                                onChange={(uid) => updateItem.mutate({ id: it.id, assignee_id: uid })}
+                              />
                               {it.due_date && (
                                 <span className={cn(
                                   'text-xs',
