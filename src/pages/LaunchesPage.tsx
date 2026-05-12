@@ -97,7 +97,7 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
 
       <ModuleInstanceBar
         moduleKey="lancamentos"
-        activeId={activeInstance}
+        value={activeInstance}
         onChange={setActiveInstance}
       />
 
