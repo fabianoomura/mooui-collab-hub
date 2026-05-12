@@ -28,6 +28,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
+import { AssigneePicker } from '@/components/AssigneePicker';
 
 function useAllOrgMembers(orgId?: string) {
   return useQuery({
@@ -344,14 +345,16 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
                                 {s.actual_end && ` · concluído ${fmtDate(s.actual_end)}`}
                               </div>
                             </div>
-                            {member && (
-                              <Avatar className="h-7 w-7">
-                                {member.avatar_url && <AvatarImage src={member.avatar_url} />}
-                                <AvatarFallback className="text-[10px]">
-                                  {(member.full_name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <AssigneePicker
+                                value={s.assignee_id}
+                                onChange={(uid) => upsert.mutate({
+                                  id: s.id, launch_id: id, name: s.name,
+                                  position: s.position, duration_days: s.duration_days,
+                                  assignee_id: uid,
+                                } as any)}
+                              />
+                            </div>
                             <button
                               onClick={(e) => { e.stopPropagation(); askDeleteStage(s); }}
                               className="text-muted-foreground hover:text-destructive"
