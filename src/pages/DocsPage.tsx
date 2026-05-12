@@ -302,11 +302,10 @@ export default function DocsPage() {
               placeholder="Sem título"
               className="text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
             />
-            <Textarea
+            <MarkdownEditor
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Comece a escrever, ou pressione '/' para comandos..."
-              className="min-h-[60vh] border-0 bg-transparent focus-visible:ring-0 px-0 resize-none text-base leading-relaxed placeholder:text-muted-foreground/40"
+              onChange={setContent}
+              placeholder="Comece a escrever em Markdown… use a barra de ferramentas para inserir tabelas, checklists, código, citações e mais."
             />
           </div>
         ) : (
