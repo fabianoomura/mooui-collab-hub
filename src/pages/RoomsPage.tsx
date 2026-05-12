@@ -1,0 +1,203 @@
+import { useMemo, useState } from 'react';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useMeetingRooms } from '@/hooks/useMeetingRooms';
+import { useRoomBookings, useDeleteBooking, type RoomBooking } from '@/hooks/useRoomBookings';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Settings2, Trash2, Users } from 'lucide-react';
+import { addDays, startOfWeek, format, isSameDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ManageRoomsDialog } from '@/components/rooms/ManageRoomsDialog';
+import { BookingDialog } from '@/components/rooms/BookingDialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 8h..19h
+
+export default function RoomsPage() {
+  const { currentOrg, isAdmin } = useOrganization();
+  const { user } = useAuth();
+  const { data: rooms = [] } = useMeetingRooms(currentOrg?.id);
+  const [roomId, setRoomId] = useState<string>('__all__');
+  const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [showManage, setShowManage] = useState(false);
+  const [showBooking, setShowBooking] = useState(false);
+  const [presetStart, setPresetStart] = useState<Date | undefined>();
+  const [presetRoom, setPresetRoom] = useState<string | undefined>();
+
+  const range = useMemo(() => ({ from: weekStart, to: addDays(weekStart, 7) }), [weekStart]);
+  const { data: bookings = [] } = useRoomBookings(currentOrg?.id, roomId === '__all__' ? undefined : roomId, range);
+  const delBooking = useDeleteBooking();
+
+  const userIds = useMemo(() => [...new Set(bookings.map(b => b.user_id))], [bookings]);
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['booking-profiles', userIds.sort().join(',')],
+    enabled: userIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('id,full_name,avatar_url').in('id', userIds);
+      if (error) throw error;
+      return data as { id: string; full_name: string | null; avatar_url: string | null }[];
+    },
+  });
+  const profileMap = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
+  const roomMap = useMemo(() => Object.fromEntries(rooms.map(r => [r.id, r])), [rooms]);
+
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  if (!currentOrg) {
+    return <div className="flex items-center justify-center h-full text-muted-foreground">Selecione uma organização</div>;
+  }
+
+  return (
+    <div className="container max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold">Salas de Reunião</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={roomId} onValueChange={setRoomId}>
+            <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas as salas</SelectItem>
+              {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setShowManage(true)}>
+              <Settings2 className="h-4 w-4 mr-1" />Gerenciar salas
+            </Button>
+          )}
+          <Button size="sm" onClick={() => { setPresetStart(undefined); setPresetRoom(roomId === '__all__' ? undefined : roomId); setShowBooking(true); }}
+            disabled={rooms.length === 0}>
+            <Plus className="h-4 w-4 mr-1" />Nova reserva
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="h-4 w-4" /></Button>
+          <span className="text-sm font-medium">
+            {format(weekStart, "d 'de' MMM", { locale: ptBR })} – {format(addDays(weekStart, 6), "d 'de' MMM yyyy", { locale: ptBR })}
+          </span>
+          <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
+        </div>
+      </div>
+
+      {rooms.length === 0 ? (
+        <div className="border rounded-lg p-8 text-center text-muted-foreground">
+          <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
+          <p className="mb-3">Nenhuma sala cadastrada ainda.</p>
+          {isAdmin && <Button onClick={() => setShowManage(true)}>Cadastrar primeira sala</Button>}
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-x-auto bg-card">
+          <div className="min-w-[700px]">
+            <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
+              <div />
+              {days.map(d => (
+                <div key={d.toISOString()} className={`p-2 text-center text-xs ${isSameDay(d, new Date()) ? 'bg-primary/10' : ''}`}>
+                  <div className="font-medium uppercase">{format(d, 'EEE', { locale: ptBR })}</div>
+                  <div className="text-muted-foreground">{format(d, 'd/MM')}</div>
+                </div>
+              ))}
+            </div>
+            {HOURS.map(h => (
+              <div key={h} className="grid grid-cols-[60px_repeat(7,1fr)] border-b last:border-b-0 min-h-[60px]">
+                <div className="text-[10px] text-muted-foreground p-1 text-right pr-2 border-r">{h}:00</div>
+                {days.map(d => {
+                  const slotStart = new Date(d); slotStart.setHours(h, 0, 0, 0);
+                  const slotEnd = new Date(d); slotEnd.setHours(h + 1, 0, 0, 0);
+                  const cellBookings = bookings.filter(b => {
+                    const s = new Date(b.starts_at), e = new Date(b.ends_at);
+                    return s < slotEnd && e > slotStart && isSameDay(s, d) && s.getHours() === h;
+                  });
+                  return (
+                    <div key={d.toISOString() + h} className="border-r last:border-r-0 p-0.5 relative cursor-pointer hover:bg-accent/30"
+                      onClick={() => { setPresetStart(slotStart); setPresetRoom(roomId === '__all__' ? undefined : roomId); setShowBooking(true); }}>
+                      {cellBookings.map(b => (
+                        <BookingBlock
+                          key={b.id} booking={b}
+                          room={roomMap[b.room_id]}
+                          profile={profileMap[b.user_id]}
+                          canDelete={isAdmin || b.user_id === user?.id}
+                          onDelete={() => {
+                            if (!confirm('Excluir esta reserva?')) return;
+                            delBooking.mutate(b.id, {
+                              onSuccess: () => toast.success('Reserva excluída'),
+                              onError: () => toast.error('Sem permissão'),
+                            });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <ManageRoomsDialog open={showManage} onOpenChange={setShowManage} orgId={currentOrg.id} />
+      <BookingDialog
+        open={showBooking}
+        onOpenChange={setShowBooking}
+        orgId={currentOrg.id}
+        rooms={rooms}
+        defaultRoomId={presetRoom}
+        defaultStart={presetStart}
+      />
+    </div>
+  );
+}
+
+function BookingBlock({ booking, room, profile, canDelete, onDelete }: {
+  booking: RoomBooking;
+  room?: { name: string; color: string };
+  profile?: { full_name: string | null; avatar_url: string | null };
+  canDelete: boolean;
+  onDelete: () => void;
+}) {
+  const initials = (profile?.full_name ?? '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const start = format(new Date(booking.starts_at), 'HH:mm');
+  const end = format(new Date(booking.ends_at), 'HH:mm');
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="block w-full text-left rounded text-[10px] px-1.5 py-1 mb-0.5 truncate text-white"
+          style={{ background: room?.color ?? 'hsl(var(--primary))' }}
+        >
+          <span className="font-semibold">{start}</span> {booking.title}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64">
+        <div className="space-y-2">
+          <h4 className="font-semibold text-sm">{booking.title}</h4>
+          <p className="text-xs text-muted-foreground">{room?.name} · {start} – {end}</p>
+          {booking.description && <p className="text-sm">{booking.description}</p>}
+          <div className="flex items-center gap-2 pt-1">
+            <Avatar className="h-6 w-6">
+              {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+              <AvatarFallback className="text-[9px]">{initials}</AvatarFallback>
+            </Avatar>
+            <span className="text-xs">{profile?.full_name ?? 'Usuário'}</span>
+          </div>
+          {canDelete && (
+            <Button size="sm" variant="ghost" className="w-full text-destructive" onClick={onDelete}>
+              <Trash2 className="h-3.5 w-3.5 mr-1" />Excluir reserva
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
