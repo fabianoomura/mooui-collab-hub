@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus } from 'lucide-react';
+import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useOrganization } from '@/contexts/OrganizationContext';
