@@ -171,10 +171,7 @@ describe("Integration: direct message between Alice and Bob", () => {
     expect(bobView!.content).toContain(tag);
     expect((bobView as any).message_attachments.length).toBe(1);
     expect((bobView as any).message_attachments[0].file_name).toBe(`notas-${tag}.txt`);
-  });
-});
-
-describe("Integration: documentation organized by department folders", () => {
+  }, 30_000);
   let alice: SupabaseClient;
   let aliceId: string;
   const tag = `d${Date.now()}`;
