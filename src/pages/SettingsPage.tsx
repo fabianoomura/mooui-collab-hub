@@ -26,8 +26,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProfileTab } from '@/components/settings/ProfileTab';
 
 export default function SettingsPage() {
   const { currentOrg, isAdmin } = useOrganization();
@@ -37,37 +38,49 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4">
+    <div className="container max-w-6xl mx-auto py-6 sm:py-8 px-3 sm:px-4">
       <div className="mb-6 flex items-center gap-3">
         <SettingsIcon className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-bold">Configurações</h1>
-          <p className="text-sm text-muted-foreground">{currentOrg.name}</p>
+          <h1 className="text-xl sm:text-2xl font-bold">Configurações</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">{currentOrg.name}</p>
         </div>
       </div>
 
       {!isAdmin && (
         <div className="mb-4 p-3 bg-muted rounded-md text-sm text-muted-foreground">
-          Você está em modo somente leitura. Apenas administradores podem editar.
+          Você está em modo somente leitura. Apenas administradores podem editar usuários, setores e permissões.
         </div>
       )}
 
-      <Tabs defaultValue="users">
-        <TabsList>
-          <TabsTrigger value="users"><UsersIcon className="h-4 w-4 mr-2" />Usuários</TabsTrigger>
-          <TabsTrigger value="departments"><Building2 className="h-4 w-4 mr-2" />Setores & Cargos</TabsTrigger>
-          <TabsTrigger value="permissions"><Shield className="h-4 w-4 mr-2" />Permissões</TabsTrigger>
+      <Tabs defaultValue="profile">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="profile"><UserIcon className="h-4 w-4 mr-2" />Meu perfil</TabsTrigger>
+          {isAdmin && <TabsTrigger value="users"><UsersIcon className="h-4 w-4 mr-2" />Usuários</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="departments"><Building2 className="h-4 w-4 mr-2" />Setores & Cargos</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="permissions"><Shield className="h-4 w-4 mr-2" />Permissões</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="users" className="mt-6">
-          <UsersTab orgId={currentOrg.id} canEdit={isAdmin} />
+        <TabsContent value="profile" className="mt-6">
+          <ProfileTab />
         </TabsContent>
-        <TabsContent value="departments" className="mt-6">
-          <DepartmentsTab orgId={currentOrg.id} canEdit={isAdmin} />
-        </TabsContent>
-        <TabsContent value="permissions" className="mt-6">
-          <PermissionsTab orgId={currentOrg.id} canEdit={isAdmin} />
-        </TabsContent>
+        {isAdmin && (
+          <>
+            <TabsContent value="users" className="mt-6">
+              <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+                <UsersTab orgId={currentOrg.id} canEdit={isAdmin} />
+              </div>
+            </TabsContent>
+            <TabsContent value="departments" className="mt-6">
+              <DepartmentsTab orgId={currentOrg.id} canEdit={isAdmin} />
+            </TabsContent>
+            <TabsContent value="permissions" className="mt-6">
+              <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+                <PermissionsTab orgId={currentOrg.id} canEdit={isAdmin} />
+              </div>
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </div>
   );
