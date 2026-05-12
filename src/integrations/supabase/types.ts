@@ -119,6 +119,313 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_template_items: {
+        Row: {
+          category: string
+          hint: string | null
+          id: string
+          label: string
+          position: number
+          template_id: string
+        }
+        Insert: {
+          category?: string
+          hint?: string | null
+          id?: string
+          label: string
+          position?: number
+          template_id: string
+        }
+        Update: {
+          category?: string
+          hint?: string | null
+          id?: string
+          label?: string
+          position?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      crm_contacts: {
+        Row: {
+          address: string | null
+          company: string | null
+          created_at: string
+          created_by: string
+          document: string | null
+          email: string | null
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          company?: string | null
+          created_at?: string
+          created_by: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          kind?: string
+          name: string
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          company?: string | null
+          created_at?: string
+          created_by?: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      crm_deal_activities: {
+        Row: {
+          content: string | null
+          created_at: string
+          deal_id: string
+          id: string
+          kind: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          deal_id: string
+          id?: string
+          kind?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          deal_id?: string
+          id?: string
+          kind?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_deal_activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "crm_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_deals: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          created_by: string
+          currency: string
+          expected_close_date: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          owner_id: string | null
+          pipeline_id: string
+          position: number
+          shopify_draft_order_id: string | null
+          shopify_draft_order_name: string | null
+          shopify_draft_order_url: string | null
+          shopify_order_number: string | null
+          stage_id: string
+          status: string
+          title: string
+          updated_at: string
+          value_cents: number
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          created_by: string
+          currency?: string
+          expected_close_date?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          owner_id?: string | null
+          pipeline_id: string
+          position?: number
+          shopify_draft_order_id?: string | null
+          shopify_draft_order_name?: string | null
+          shopify_draft_order_url?: string | null
+          shopify_order_number?: string | null
+          stage_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          value_cents?: number
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          expected_close_date?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          owner_id?: string | null
+          pipeline_id?: string
+          position?: number
+          shopify_draft_order_id?: string | null
+          shopify_draft_order_name?: string | null
+          shopify_draft_order_url?: string | null
+          shopify_order_number?: string | null
+          stage_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          value_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_deals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "crm_pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "crm_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_pipelines: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          organization_id: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name: string
+          organization_id: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          organization_id?: string
+          position?: number
+        }
+        Relationships: []
+      }
+      crm_stages: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_lost: boolean
+          is_won: boolean
+          name: string
+          pipeline_id: string
+          position: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_lost?: boolean
+          is_won?: boolean
+          name: string
+          pipeline_id: string
+          position?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_lost?: boolean
+          is_won?: boolean
+          name?: string
+          pipeline_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_stages_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "crm_pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doc_pages: {
         Row: {
           can_delete_roles: Database["public"]["Enums"]["app_role"][]
@@ -181,6 +488,107 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "doc_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      launch_checklist_items: {
+        Row: {
+          assignee_id: string | null
+          category: string
+          checklist_id: string
+          completed_at: string | null
+          completed_by: string | null
+          due_date: string | null
+          id: string
+          label: string
+          notes: string | null
+          position: number
+          status: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          category?: string
+          checklist_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          due_date?: string | null
+          id?: string
+          label: string
+          notes?: string | null
+          position?: number
+          status?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          category?: string
+          checklist_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          due_date?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          position?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launch_checklist_items_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "launch_checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      launch_checklists: {
+        Row: {
+          created_at: string
+          created_by: string
+          expected_arrival_date: string | null
+          id: string
+          launch_id: string | null
+          name: string
+          organization_id: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expected_arrival_date?: string | null
+          id?: string
+          launch_id?: string | null
+          name: string
+          organization_id: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expected_arrival_date?: string | null
+          id?: string
+          launch_id?: string | null
+          name?: string
+          organization_id?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launch_checklists_launch_id_fkey"
+            columns: ["launch_id"]
+            isOneToOne: false
+            referencedRelation: "launches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "launch_checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
             referencedColumns: ["id"]
           },
         ]
