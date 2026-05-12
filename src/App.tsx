@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import Dashboard from "./pages/Dashboard";
 import TableViewPage from "./pages/TableViewPage";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -62,6 +63,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <OrganizationProvider>
+          <ConfirmProvider>
           <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/cadastro" element={<PublicRoute><Signup /></PublicRoute>} />
@@ -85,6 +87,7 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </ConfirmProvider>
           </OrganizationProvider>
         </AuthProvider>
       </BrowserRouter>

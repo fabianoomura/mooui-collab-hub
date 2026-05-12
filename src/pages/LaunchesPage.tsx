@@ -1,22 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, Trash2, ArrowLeft, Rocket, AlertTriangle, CheckCircle2, Calendar as CalIcon } from 'lucide-react';
+import {
+  Plus, Trash2, Rocket, AlertTriangle, CheckCircle2, Calendar as CalIcon,
+  Copy, GripVertical, Sparkles,
+} from 'lucide-react';
 import {
   useLaunches, useCreateLaunch, useDeleteLaunch,
   useLaunch, useLaunchStages, useUpsertStage, useDeleteStage, usePersistRecalc,
+  useReorderStages, useDuplicateLaunch, useSeedDefaultStages,
   recalcStageDates, type LaunchStage,
 } from '@/hooks/useLaunches';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/PageHeader';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 function useAllOrgMembers(orgId?: string) {
   return useQuery({
@@ -35,10 +45,10 @@ function useAllOrgMembers(orgId?: string) {
 
 const fmtDate = (d?: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—';
 const daysBetween = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+const todayStr = () => new Date().toISOString().split('T')[0];
 
 export default function LaunchesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
   if (selectedId) return <LaunchDetail id={selectedId} onBack={() => setSelectedId(null)} />;
   return <LaunchList onSelect={setSelectedId} />;
 }
@@ -47,8 +57,10 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
   const { data: launches = [], isLoading } = useLaunches();
   const createMut = useCreateLaunch();
   const deleteMut = useDeleteLaunch();
+  const dupMut = useDuplicateLaunch();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', start_date: new Date().toISOString().split('T')[0] });
+  const [form, setForm] = useState({ name: '', description: '', start_date: todayStr() });
 
   const handleCreate = () => {
     if (!form.name.trim()) return;
@@ -58,22 +70,42 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
     });
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Lançamentos</h1>
-          <p className="text-muted-foreground text-sm mt-1">Etapas, prazos e gargalos em tempo real</p>
-        </div>
-        <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Novo lançamento</Button>
-      </div>
+  const handleDelete = async (l: any) => {
+    const ok = await confirm({
+      title: `Excluir "${l.name}"?`,
+      description: 'Todas as etapas e checagens vinculadas serão removidas.',
+      confirmText: 'Excluir', destructive: true,
+    });
+    if (ok) deleteMut.mutate(l.id, { onSuccess: () => toast.success('Lançamento excluído') });
+  };
 
-      {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        crumbs={[{ label: 'Início', to: '/' }, { label: 'Lançamentos' }]}
+        title="Lançamentos"
+        subtitle="Etapas, prazos e gargalos em tempo real"
+        actions={
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Novo lançamento</span>
+          </Button>
+        }
+      />
+
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 w-full" />)}
+        </div>
+      )}
 
       {!isLoading && launches.length === 0 && (
         <Card className="p-10 text-center">
           <Rocket className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">Nenhum lançamento criado ainda</p>
+          <p className="text-sm text-muted-foreground mb-4">Nenhum lançamento criado ainda</p>
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" /> Criar primeiro lançamento
+          </Button>
         </Card>
       )}
 
@@ -85,12 +117,22 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
                 <h3 className="font-semibold truncate">{l.name}</h3>
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{l.description || 'Sem descrição'}</p>
               </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); if (confirm(`Excluir "${l.name}"?`)) deleteMut.mutate(l.id); }}
-                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => { e.stopPropagation(); dupMut.mutate(l.id, { onSuccess: () => toast.success('Lançamento duplicado') }); }}
+                  className="text-muted-foreground hover:text-primary p-1"
+                  aria-label="Duplicar"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(l); }}
+                  className="text-muted-foreground hover:text-destructive p-1"
+                  aria-label="Excluir"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div className="mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground flex items-center gap-1.5">
               <CalIcon className="h-3.5 w-3.5" /> Início: {fmtDate(l.start_date)}
@@ -119,24 +161,25 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
 
 function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { data: launch } = useLaunch(id);
-  const { data: rawStages = [] } = useLaunchStages(id);
+  const { data: rawStages = [], isLoading } = useLaunchStages(id);
   const { currentOrg } = useOrganization();
   const { data: members = [] } = useAllOrgMembers(currentOrg?.id);
   const upsert = useUpsertStage();
   const del = useDeleteStage();
   const persistRecalc = usePersistRecalc();
+  const reorder = useReorderStages();
+  const seedDefaults = useSeedDefaultStages();
+  const confirm = useConfirm();
 
-  const [stageOpen, setStageOpen] = useState(false);
   const [editing, setEditing] = useState<LaunchStage | null>(null);
+  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', duration_days: 1, assignee_id: '', actual_end: '', status: 'pending' });
 
-  // Recalcula em memória
   const stages = useMemo(() => {
     if (!launch || rawStages.length === 0) return rawStages;
     return recalcStageDates(launch.start_date, rawStages);
   }, [launch, rawStages]);
 
-  // Auto-persiste planejamento sempre que recalcular detectar diferença
   useEffect(() => {
     if (!launch || stages.length === 0) return;
     const changed = stages.some((s, i) => s.planned_start !== rawStages[i]?.planned_start || s.planned_end !== rawStages[i]?.planned_end);
@@ -147,7 +190,7 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const openNewStage = () => {
     setEditing(null);
     setForm({ name: '', duration_days: 3, assignee_id: '', actual_end: '', status: 'pending' });
-    setStageOpen(true);
+    setCreating(true);
   };
   const openEditStage = (s: LaunchStage) => {
     setEditing(s);
@@ -155,7 +198,7 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
       name: s.name, duration_days: s.duration_days,
       assignee_id: s.assignee_id || '', actual_end: s.actual_end || '', status: s.status,
     });
-    setStageOpen(true);
+    setCreating(true);
   };
 
   const saveStage = () => {
@@ -170,81 +213,154 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
       actual_end: form.actual_end || null,
       status: form.status,
     } as any, {
-      onSuccess: () => { toast.success('Etapa salva'); setStageOpen(false); },
+      onSuccess: () => { toast.success('Etapa salva'); setCreating(false); setEditing(null); },
       onError: (e: any) => toast.error(e.message),
     });
   };
 
-  // Timeline range
+  const askDeleteStage = async (s: LaunchStage) => {
+    const ok = await confirm({
+      title: `Excluir etapa "${s.name}"?`, destructive: true, confirmText: 'Excluir',
+    });
+    if (ok) {
+      del.mutate({ id: s.id, launch_id: id });
+      setCreating(false); setEditing(null);
+    }
+  };
+
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination || result.source.index === result.destination.index) return;
+    const ids = [...stages].sort((a, b) => a.position - b.position).map((s) => s.id);
+    const [moved] = ids.splice(result.source.index, 1);
+    ids.splice(result.destination.index, 0, moved);
+    reorder.mutate({ launchId: id, orderedIds: ids }, {
+      onSuccess: () => toast.success('Ordem atualizada'),
+    });
+  };
+
+  // Timeline range + today marker
   const range = useMemo(() => {
     if (stages.length === 0 || !launch) return null;
     const start = launch.start_date;
     const ends = stages.map(s => s.planned_end || s.planned_start || launch.start_date);
     const max = ends.sort().pop()!;
     const totalDays = Math.max(daysBetween(start, max) + 1, 7);
-    return { start, totalDays };
+    const todayOffset = daysBetween(start, todayStr());
+    return { start, totalDays, todayOffset };
   }, [stages, launch]);
 
-  if (!launch) return <p className="text-sm text-muted-foreground">Carregando…</p>;
+  if (!launch) return <Skeleton className="h-32 w-full" />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold truncate">{launch.name}</h1>
-            <p className="text-muted-foreground text-xs sm:text-sm truncate">{launch.description || 'Sem descrição'} · Início {fmtDate(launch.start_date)}</p>
-          </div>
-        </div>
-        <Button size="sm" onClick={openNewStage}><Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Nova etapa</span></Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        crumbs={[
+          { label: 'Início', to: '/' },
+          { label: 'Lançamentos', to: '#' },
+        ]}
+        title={launch.name}
+        subtitle={`${launch.description || 'Sem descrição'} · Início ${fmtDate(launch.start_date)}`}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={onBack}>← Voltar</Button>
+            <Button size="sm" onClick={openNewStage}>
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nova etapa</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Lista de etapas */}
       <Card className="p-4">
         <h2 className="font-semibold mb-3">Etapas</h2>
-        {stages.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">Adicione etapas para construir a linha do tempo.</p>
-        ) : (
-          <div className="space-y-2">
-            {stages.map((s, i) => {
-              const member = members.find(m => m.id === s.assignee_id);
-              const delayed = s.actual_end && s.planned_end && s.actual_end > s.planned_end;
-              const done = s.status === 'done' || !!s.actual_end;
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => openEditStage(s)}
-                  className="flex items-center gap-3 p-3 rounded-md border bg-card hover:bg-muted/40 cursor-pointer"
-                >
-                  <span className="text-xs text-muted-foreground w-5">{i + 1}.</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm truncate">{s.name}</span>
-                      {done && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
-                      {delayed && <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> atraso</span>}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {s.duration_days}d · {fmtDate(s.planned_start)} → {fmtDate(s.planned_end)}
-                      {s.actual_end && ` · concluído ${fmtDate(s.actual_end)}`}
-                    </div>
-                  </div>
-                  {member && (
-                    <Avatar className="h-7 w-7">
-                      {member.avatar_url && <AvatarImage src={member.avatar_url} />}
-                      <AvatarFallback className="text-[10px]">{(member.full_name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); if (confirm(`Excluir etapa "${s.name}"?`)) del.mutate({ id: s.id, launch_id: id }); }}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              );
-            })}
+        {isLoading ? (
+          <div className="space-y-2"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
+        ) : stages.length === 0 ? (
+          <div className="text-center py-8 space-y-3">
+            <p className="text-sm text-muted-foreground">Adicione etapas para construir a linha do tempo.</p>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <Button size="sm" onClick={openNewStage}>
+                <Plus className="h-4 w-4 mr-2" /> Adicionar etapa
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => seedDefaults.mutate(id, {
+                onSuccess: () => toast.success('Etapas padrão criadas'),
+              })}>
+                <Sparkles className="h-4 w-4 mr-2" /> Usar template padrão
+              </Button>
+            </div>
           </div>
+        ) : (
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="stages">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
+                  {stages.map((s, i) => {
+                    const member = members.find(m => m.id === s.assignee_id);
+                    const delayed = s.actual_end && s.planned_end && s.actual_end > s.planned_end;
+                    const done = s.status === 'done' || !!s.actual_end;
+                    const overdue = !done && s.planned_end && s.planned_end < todayStr();
+                    return (
+                      <Draggable key={s.id} draggableId={s.id} index={i}>
+                        {(prov, snap) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            onClick={() => openEditStage(s)}
+                            className={cn(
+                              'flex items-center gap-3 p-3 rounded-md border bg-card hover:bg-muted/40 cursor-pointer transition-shadow',
+                              snap.isDragging && 'shadow-lg ring-2 ring-primary/40',
+                            )}
+                          >
+                            <div {...prov.dragHandleProps} className="text-muted-foreground hover:text-foreground" onClick={(e) => e.stopPropagation()}>
+                              <GripVertical className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs text-muted-foreground w-5">{i + 1}.</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sm truncate">{s.name}</span>
+                                {done && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+                                {delayed && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" /> atraso
+                                  </span>
+                                )}
+                                {overdue && !delayed && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" /> vencida
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {s.duration_days}d · {fmtDate(s.planned_start)} → {fmtDate(s.planned_end)}
+                                {s.actual_end && ` · concluído ${fmtDate(s.actual_end)}`}
+                              </div>
+                            </div>
+                            {member && (
+                              <Avatar className="h-7 w-7">
+                                {member.avatar_url && <AvatarImage src={member.avatar_url} />}
+                                <AvatarFallback className="text-[10px]">
+                                  {(member.full_name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); askDeleteStage(s); }}
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label="Excluir etapa"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
       </Card>
 
@@ -252,7 +368,7 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
       {range && (
         <Card className="p-4 overflow-x-auto">
           <h2 className="font-semibold mb-3">Linha cronológica</h2>
-          <div className="min-w-[640px]">
+          <div className="min-w-[640px] relative">
             {/* eixo */}
             <div className="relative h-6 border-b mb-2 text-[10px] text-muted-foreground">
               {Array.from({ length: Math.min(range.totalDays + 1, 60) }).map((_, i) => {
@@ -266,7 +382,18 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 );
               })}
             </div>
-            <div className="space-y-1.5">
+            {/* today line */}
+            {range.todayOffset >= 0 && range.todayOffset <= range.totalDays && (
+              <div
+                className="absolute top-0 bottom-0 w-px bg-primary z-10"
+                style={{ left: `${(range.todayOffset / range.totalDays) * 100}%` }}
+              >
+                <div className="absolute -top-1 -translate-x-1/2 text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-medium">
+                  hoje
+                </div>
+              </div>
+            )}
+            <div className="space-y-1.5 pt-2">
               {stages.map((s) => {
                 const offset = daysBetween(range.start, s.planned_start || range.start);
                 const width = Math.max(daysBetween(s.planned_start || range.start, s.planned_end || s.planned_start || range.start) + 1, 1);
@@ -276,9 +403,10 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 return (
                   <div key={s.id} className="relative h-7">
                     <div
-                      className={`absolute top-0 h-7 rounded-md ${bg} text-primary-foreground text-[11px] flex items-center px-2 truncate shadow-sm`}
+                      className={`absolute top-0 h-7 rounded-md ${bg} text-primary-foreground text-[11px] flex items-center px-2 truncate shadow-sm cursor-pointer hover:opacity-90`}
                       style={{ left: `${(offset / range.totalDays) * 100}%`, width: `${(width / range.totalDays) * 100}%`, minWidth: 80 }}
                       title={`${s.name} · ${fmtDate(s.planned_start)} → ${fmtDate(s.planned_end)}`}
+                      onClick={() => openEditStage(s)}
                     >
                       {s.name}
                     </div>
@@ -290,11 +418,14 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </Card>
       )}
 
-      {/* Stage dialog */}
-      <Dialog open={stageOpen} onOpenChange={setStageOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? 'Editar etapa' : 'Nova etapa'}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+      {/* Stage sheet */}
+      <Sheet open={creating} onOpenChange={setCreating}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{editing ? 'Editar etapa' : 'Nova etapa'}</SheetTitle>
+            {editing && <SheetDescription>Alterações no prazo recalculam etapas seguintes.</SheetDescription>}
+          </SheetHeader>
+          <div className="space-y-3 mt-4">
             <div><Label>Nome</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus /></div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -326,22 +457,22 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <div>
               <Label>Concluída em (deixe vazio se ainda não)</Label>
               <Input type="date" value={form.actual_end} onChange={e => setForm({ ...form, actual_end: e.target.value })} />
-              <p className="text-[11px] text-muted-foreground mt-1">Se posterior ao prazo, as etapas seguintes serão recalculadas.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Se posterior ao prazo, as etapas seguintes são recalculadas.</p>
             </div>
           </div>
-          <DialogFooter className="flex justify-between sm:justify-between">
+          <DialogFooter className="flex justify-between sm:justify-between mt-4">
             {editing && (
-              <Button variant="ghost" className="text-destructive" onClick={() => { if (confirm('Excluir etapa?')) { del.mutate({ id: editing.id, launch_id: id }); setStageOpen(false); } }}>
-                Excluir
+              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => askDeleteStage(editing)}>
+                <Trash2 className="h-4 w-4 mr-1" /> Excluir
               </Button>
             )}
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStageOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setCreating(false)}>Cancelar</Button>
               <Button onClick={saveStage} disabled={!form.name.trim() || upsert.isPending}>Salvar</Button>
             </div>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
