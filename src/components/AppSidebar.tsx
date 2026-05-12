@@ -195,7 +195,7 @@ export function AppSidebar() {
         )}
 
         {/* Áreas de Trabalho — projetos */}
-        {!collapsed && (
+        {!collapsed && showProjects && (
           <SidebarGroup className="py-2">
             <Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
               <div className="flex items-center justify-between pr-2">
