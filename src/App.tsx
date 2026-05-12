@@ -74,6 +74,8 @@ const App = () => (
               <Route path="/mensagens" element={<MessagesPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/salas" element={<RoomsPage />} />
+              <Route path="/calendario" element={<CalendarPage />} />
+              <Route path="/lancamentos" element={<LaunchesPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 
