@@ -63,6 +63,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <OrganizationProvider>
+          <ConfirmProvider>
           <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/cadastro" element={<PublicRoute><Signup /></PublicRoute>} />
