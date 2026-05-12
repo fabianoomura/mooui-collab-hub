@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import Dashboard from "./pages/Dashboard";
 import TableViewPage from "./pages/TableViewPage";
 import ProjectsPage from "./pages/ProjectsPage";
