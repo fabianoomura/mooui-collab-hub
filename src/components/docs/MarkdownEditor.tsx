@@ -132,6 +132,7 @@ export function MarkdownEditor({ value, onChange, placeholder }: Props) {
     { icon: TableIcon, label: 'Tabela', action: () => insertBlock(tableTemplate) },
     { icon: Minus, label: 'Divisor', action: () => insertBlock('---') },
     { icon: Link2, label: 'Link', action: () => wrap('[', '](https://)', 'texto') },
+    { icon: ImageIcon, label: 'Imagem', action: () => fileRef.current?.click() },
   ];
 
   return (
