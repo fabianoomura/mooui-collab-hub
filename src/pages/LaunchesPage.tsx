@@ -28,6 +28,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
+import { AssigneePicker } from '@/components/AssigneePicker';
 
 function useAllOrgMembers(orgId?: string) {
   return useQuery({
