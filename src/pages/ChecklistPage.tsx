@@ -22,6 +22,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
+import { AssigneePicker } from '@/components/AssigneePicker';
 
 const CATS: Record<string, { label: string; color: string }> = {
   geral: { label: 'Geral', color: 'bg-slate-500' },
