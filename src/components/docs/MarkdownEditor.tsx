@@ -4,10 +4,12 @@ import remarkGfm from 'remark-gfm';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
   List, ListOrdered, ListChecks, Quote, Code, Link2, Table as TableIcon,
-  Minus, Eye, Pencil,
+  Minus, Eye, Pencil, Image as ImageIcon, Loader2,
 } from 'lucide-react';
 
 interface Props {
@@ -20,7 +22,48 @@ type Mode = 'edit' | 'preview';
 
 export function MarkdownEditor({ value, onChange, placeholder }: Props) {
   const [mode, setMode] = useState<Mode>('edit');
+  const [uploading, setUploading] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const uploadImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Apenas imagens são aceitas');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id ?? 'anon';
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `docs/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('chat-attachments').upload(path, file, {
+        contentType: file.type, upsert: false,
+      });
+      if (error) throw error;
+      const { data: pub } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+      insertBlock(`![${file.name}](${pub.publicUrl})`);
+      toast.success('Imagem inserida');
+    } catch (e: any) {
+      toast.error('Erro ao enviar imagem: ' + (e?.message ?? ''));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
+    if (item) {
+      const f = item.getAsFile();
+      if (f) { e.preventDefault(); uploadImage(f); }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    const f = Array.from(e.dataTransfer.files).find((x) => x.type.startsWith('image/'));
+    if (f) { e.preventDefault(); uploadImage(f); }
+  };
+
 
   const wrap = (before: string, after = before, sample = '') => {
     const el = ref.current;
@@ -89,6 +132,7 @@ export function MarkdownEditor({ value, onChange, placeholder }: Props) {
     { icon: TableIcon, label: 'Tabela', action: () => insertBlock(tableTemplate) },
     { icon: Minus, label: 'Divisor', action: () => insertBlock('---') },
     { icon: Link2, label: 'Link', action: () => wrap('[', '](https://)', 'texto') },
+    { icon: ImageIcon, label: 'Imagem', action: () => fileRef.current?.click() },
   ];
 
   return (
@@ -132,14 +176,36 @@ export function MarkdownEditor({ value, onChange, placeholder }: Props) {
         </div>
       </div>
 
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) uploadImage(f);
+          e.target.value = '';
+        }}
+      />
+
       {mode === 'edit' ? (
-        <Textarea
-          ref={ref}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="min-h-[60vh] border-0 bg-transparent focus-visible:ring-0 px-0 resize-none text-base leading-relaxed placeholder:text-muted-foreground/40 font-mono text-sm"
-        />
+        <div className="relative">
+          {uploading && (
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 text-xs text-muted-foreground bg-card border rounded px-2 py-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Enviando imagem…
+            </div>
+          )}
+          <Textarea
+            ref={ref}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onPaste={handlePaste}
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            placeholder={placeholder}
+            className="min-h-[60vh] border-0 bg-transparent focus-visible:ring-0 px-0 resize-none text-base leading-relaxed placeholder:text-muted-foreground/40 font-mono text-sm"
+          />
+        </div>
       ) : (
         <div className={cn('prose-doc min-h-[60vh] text-base leading-relaxed')}>
           {value.trim() ? (
