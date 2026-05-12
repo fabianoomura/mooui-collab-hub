@@ -97,14 +97,14 @@ export default function CalendarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Calendário Anual</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Calendário Anual</h1>
           <p className="text-muted-foreground text-sm mt-1">Planejamento de lançamentos, ações e datas-chave</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="icon" onClick={() => setYear(y => y - 1)}><ChevronLeft className="h-4 w-4" /></Button>
           <span className="text-lg font-semibold w-16 text-center">{year}</span>
           <Button variant="outline" size="icon" onClick={() => setYear(y => y + 1)}><ChevronRight className="h-4 w-4" /></Button>
-          <Button onClick={() => openNew()} className="ml-2"><Plus className="h-4 w-4 mr-1" /> Novo evento</Button>
+          <Button size="sm" onClick={() => openNew()} className="ml-1"><Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Novo evento</span></Button>
         </div>
       </div>
 
