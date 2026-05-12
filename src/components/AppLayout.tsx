@@ -6,6 +6,7 @@ import { Moon, Search, Sun } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { CommandPalette } from '@/components/CommandPalette';
+import { OrgSwitcher } from '@/components/OrgSwitcher';
 
 export function AppLayout() {
   const { theme, toggleTheme } = useTheme();
@@ -16,7 +17,11 @@ export function AppLayout() {
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between border-b border-border bg-background px-4 shrink-0">
-            <SidebarTrigger />
+            <div className="flex items-center gap-2 min-w-0">
+              <SidebarTrigger />
+              <div className="h-5 w-px bg-border mx-1" />
+              <OrgSwitcher />
+            </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => {

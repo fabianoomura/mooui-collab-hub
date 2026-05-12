@@ -1,82 +1,57 @@
-# Revisão UX — pacote completo
+# Plano
 
-Aplicar padrões consistentes de UX em todos os módulos, em ordem de impacto. Cada bloco entrega valor isolado, então posso parar a qualquer momento se quiser revisar antes de continuar.
+## 1. Projetos como item fixo no menu lateral
+- Adicionar "Projetos" no grupo **Operações** da sidebar (`AppSidebar.tsx`), ícone `FolderKanban`, rota `/projetos`.
+- Manter a seção "Projetos" colapsável (lista de projetos do workspace atual) que aparece quando você está em `/projetos` ou `/tabela`.
 
-## Bloco 1 — CRM (funil)
+## 2. Tornar o switcher Brasil/Barcelona mais visível
+- Adicionar uma **barra superior** (top bar) no `AppLayout`, à direita do `SidebarTrigger`, exibindo:
+  - Bandeirinha/cor + nome da org atual
+  - Dropdown para trocar (mesmo do rodapé da sidebar)
+  - Badge "Admin"/"Membro"
+- O switcher do rodapé continua existindo (consistência), mas o do topo vira o principal.
 
-- **Painel lateral (Sheet) em vez de modal** ao clicar num negócio: editar sem perder contexto do funil; histórico de atividades visível.
-- **Drag-and-drop** entre estágios (com toast de confirmação e atualização otimista).
-- **Busca global** + filtros: por responsável, valor mínimo, data de fechamento, com Shopify (rascunho/pedido).
-- **Cards mais informativos**: avatar do responsável, dias parado no estágio, indicador de "quente" (>R$ X) ou "frio" (>14 dias parado).
-- **Estado vazio guiado** por estágio (ex.: "Arraste um lead para cá") e por funil (CTA grande quando 0 negócios).
-- **Totais no rodapé do estágio** + ticket médio.
+## 3. Garantir que TODOS os módulos filtram por org
+Auditoria + ajuste dos hooks existentes para sempre passarem `currentOrg.id`:
+- `useCRM`, `useChecklists`, `useLaunches`, `useAnnualEvents`, `useChannels` (Mensagens), `useDocPages`, `useMeetingRooms`/`useRoomBookings`, `useProjectMembers` (Equipe).
+- Onde já usa, só confirmar. Onde falta, adicionar `eq('organization_id', currentOrg.id)`.
+- Trocar a org no topo deve **invalidar queries** automaticamente (já acontece pois `currentOrg.id` está nas queryKeys).
 
-## Bloco 2 — Checagem do site
+## 4. Multi-instância por módulo (cada módulo = "lista de projetos")
+Cada módulo passa a ter **N instâncias** dentro da org, igual `/projetos` faz. Ex.: Brasil pode ter 3 CRMs ("Atacado", "Varejo", "Parceiros"), 2 Calendários, etc.
 
-- **Sidebar vira drawer (Sheet) no mobile** com botão "Trocar checagem" no header.
-- **Filtros**: pendentes, atrasadas, bloqueadas, por categoria, por responsável.
-- **Atribuir responsável e data limite inline** (popover) sem abrir modal.
-- **Reordenar itens por drag** dentro da categoria.
-- **Highlight visual** para itens atrasados (vermelho) e do dia (âmbar).
-- **Ações em massa**: marcar todos da categoria como OK / N/A.
-- **Atalhos**: tecla `space` para alternar status do item focado.
+### Modelo de dados
+Criar tabela genérica `module_instances`:
+```
+module_instances (
+  id, organization_id, module_key (text: 'crm'|'calendario'|'lancamentos'|'checagens'|'docs'),
+  name, color, icon, created_by, created_at, archived_at
+)
+```
+RLS: membros da org podem ver/criar; owner/admin pode arquivar.
 
-## Bloco 3 — Lançamentos
+Adicionar coluna `instance_id uuid` (nullable) nas tabelas de cada módulo:
+- `crm_pipelines.instance_id`
+- `annual_events.instance_id`
+- `launches.instance_id`
+- `launch_checklists.instance_id`
+- (Docs já tem hierarquia própria via `parent_id` — fica de fora desta etapa)
 
-- **Drag-reorder** das etapas (recálculo automático ao soltar).
-- **Gantt com zoom** (semana/mês) e marcador "hoje" vertical.
-- **Indicadores de gargalo**: etapa com >N dias de atraso destacada com tooltip explicativo.
-- **Estado vazio guiado** com template inicial ("Coleção padrão" 6 etapas) em 1 clique.
-- **Botão duplicar lançamento** (copia etapas).
-- **Painel lateral** ao clicar etapa (em vez de modal).
+### UX
+Cada página de módulo (`CRMPage`, `CalendarPage`, `LaunchesPage`, `ChecklistPage`) ganha:
+- Lista de instâncias (cards) ao entrar em `/crm`, `/calendario`, etc.
+- Botão "Nova instância"
+- Ao clicar em uma, navega para `/crm/:instanceId` (rota nova) e mostra o conteúdo atual
+- Breadcrumb: `Brasil › CRM › Atacado`
 
-## Bloco 4 — Calendário Anual
+### Migração
+- Criar 1 instância default por módulo em cada org existente (ex.: "Geral") e mapear todos os registros existentes para ela, para não quebrar dados.
 
-- **Filtro por categoria** (chips no topo) e busca por título.
-- **Marcador "hoje"** destacado no card do mês.
-- **Eventos multi-mês** renderizados como faixa contínua (não duplicados).
-- **Densidade ajustável**: compacto/confortável.
-- **Toggle vista mês × timeline** (linha cronológica horizontal do ano).
+## Ordem de execução
+1. Sidebar: adicionar item Projetos (rápido)
+2. Top bar com org switcher (rápido)
+3. Auditoria de filtros por org nos hooks (médio)
+4. Multi-instância: migration + tabela + alterações em CRMPage primeiro (piloto), depois replicar para os outros (maior)
 
-## Bloco 5 — Home / Dashboard
-
-- **Saudação personalizada** ("Bom dia, Marina") + data.
-- **Widget "Hoje"**: minhas tarefas, próxima reserva de sala, próxima etapa de lançamento sob minha responsabilidade.
-- **Cards mais ricos**: ao invés de só contagem, mostrar o item mais relevante (ex.: "Próximo: Coleção Outono — etapa Fotos vence amanhã").
-- **Ordem dos cards** memorizada por usuário (localStorage), drag para reordenar.
-
-## Bloco 6 — Sistema / global
-
-- **Skeletons de loading** em todas as listas/grids (substituir os "Carregando…" e spinners).
-- **Cmd+K (busca global)** que navega entre módulos, projetos, contatos, lançamentos.
-- **Breadcrumbs** no header das páginas internas (ex.: Lançamento › Coleção Outono).
-- **Toasts mais úteis**: ação "Desfazer" em operações destrutivas (excluir negócio/etapa/checagem).
-- **Microinterações**: transições suaves nos drawers, fade nos cards, hover refinado.
-- **Confirmação destrutiva** com `AlertDialog` em vez de `confirm()` nativo.
-
-## Detalhes técnicos
-
-- **Drag-and-drop**: `@dnd-kit/core` + `@dnd-kit/sortable` (já compatível, leve, acessível).
-- **Painéis laterais**: `Sheet` do shadcn (já presente).
-- **Cmd+K**: `Command` + `CommandDialog` do shadcn (já presente).
-- **Skeletons**: `Skeleton` do shadcn (já presente).
-- **Atalhos teclado**: hook `useHotkeys` simples próprio (sem nova dep).
-- **Breadcrumbs**: componente novo `PageHeader` reutilizável.
-- **Confirmação undo**: queryClient + toast.action do sonner (5s para desfazer antes do delete real).
-
-## Ordem sugerida de entrega
-
-1. **Sistema / global** primeiro (skeletons, AlertDialog, PageHeader, Cmd+K) — base para o resto.
-2. CRM (maior impacto visual).
-3. Checagem.
-4. Lançamentos.
-5. Calendário.
-6. Home.
-
-Posso entregar tudo de uma vez (será um diff grande) ou pausar entre blocos para você revisar. Recomendo entregar **Sistema + CRM** primeiro, validar o padrão, depois aplicar nos demais.
-
-## Fora de escopo
-
-- Não vou alterar lógica de negócio, schema do banco, RLS, ou edge functions.
-- Não vou trocar libs (TanStack Query, Tailwind, shadcn permanecem).
-- Não vou adicionar autenticação Cmd+K em rotas protegidas (já protegidas pelo guard).
+## Aviso
+A etapa 4 é grande. Se quiser, posso entregar **1, 2 e 3 agora** e tratar a #4 num próximo turno (com mais detalhe por módulo) — fica mais seguro do que mexer em tudo de uma vez.
