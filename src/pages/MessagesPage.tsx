@@ -592,6 +592,7 @@ export default function MessagesPage() {
               placeholder={activeDm ? `Mensagem para ${activeDm.partner?.full_name || ''}` : `Mensagem para #${activeChannel.name}`}
               onSend={handleSend}
               pending={sendMessage.isPending}
+              mentionables={orgMembers}
             />
           </>
         )}
