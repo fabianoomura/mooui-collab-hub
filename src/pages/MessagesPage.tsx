@@ -536,8 +536,15 @@ export default function MessagesPage() {
 
           {/* DMs */}
           <div className="flex items-center justify-between px-3 pt-2 pb-1">
-            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
               Mensagens diretas
+              <span className="text-[10px] text-muted-foreground/70 normal-case tracking-normal font-normal">({dms.length})</span>
+              {(() => {
+                const total = dms.reduce((s, d) => s + (unreadMap[d.id] || 0), 0);
+                return total > 0 ? (
+                  <Badge variant="default" className="h-4 min-w-4 px-1 text-[9px]">{total > 99 ? '99+' : total}</Badge>
+                ) : null;
+              })()}
             </span>
             <button
               onClick={() => setShowNewDm(true)}
