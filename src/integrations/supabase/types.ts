@@ -76,9 +76,12 @@ export type Database = {
       }
       doc_pages: {
         Row: {
+          can_delete_roles: Database["public"]["Enums"]["app_role"][]
+          can_edit_roles: Database["public"]["Enums"]["app_role"][]
           content: string | null
           created_at: string
           created_by: string
+          department_id: string | null
           icon: string | null
           id: string
           organization_id: string
@@ -89,9 +92,12 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          can_delete_roles?: Database["public"]["Enums"]["app_role"][]
+          can_edit_roles?: Database["public"]["Enums"]["app_role"][]
           content?: string | null
           created_at?: string
           created_by: string
+          department_id?: string | null
           icon?: string | null
           id?: string
           organization_id: string
@@ -102,9 +108,12 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          can_delete_roles?: Database["public"]["Enums"]["app_role"][]
+          can_edit_roles?: Database["public"]["Enums"]["app_role"][]
           content?: string | null
           created_at?: string
           created_by?: string
+          department_id?: string | null
           icon?: string | null
           id?: string
           organization_id?: string
@@ -116,6 +125,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "doc_pages_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "org_departments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "doc_pages_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
@@ -123,6 +139,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meeting_room_bookings: {
+        Row: {
+          created_at: string
+          description: string | null
+          ends_at: string
+          id: string
+          organization_id: string
+          room_id: string
+          starts_at: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          ends_at: string
+          id?: string
+          organization_id: string
+          room_id: string
+          starts_at: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string
+          id?: string
+          organization_id?: string
+          room_id?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_room_bookings_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_rooms: {
+        Row: {
+          capacity: number | null
+          color: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          capacity?: number | null
+          color?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number | null
+          color?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       message_attachments: {
         Row: {
@@ -908,6 +1007,13 @@ export type Database = {
       unread_count: {
         Args: { _channel_id: string; _user_id: string }
         Returns: number
+      }
+      user_has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
