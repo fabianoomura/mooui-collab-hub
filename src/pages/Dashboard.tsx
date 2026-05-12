@@ -1,109 +1,138 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, Clock, AlertTriangle, ListTodo, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Card } from '@/components/ui/card';
+import { Table2, MessageSquare, BookOpen, Calendar, CalendarDays, Rocket, Loader2, ArrowRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
+
+type ModuleCard = {
+  title: string;
+  description: string;
+  href: string;
+  icon: React.ElementType;
+  accent: string;
+  stat: string;
+};
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
 
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['home-stats', currentOrg?.id, user?.id],
     queryFn: async () => {
-      const { data: tasks } = await supabase.from('tasks').select('id, status, due_date');
-      const allTasks = tasks || [];
+      if (!user || !currentOrg) return null;
       const today = new Date().toISOString().split('T')[0];
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+      const year = new Date().getFullYear();
+
+      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes] = await Promise.all([
+        supabase.from('task_assignees').select('task_id').eq('user_id', user.id),
+        supabase.from('messages').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 86400000).toISOString()),
+        supabase.from('doc_pages').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
+        supabase.from('meeting_room_bookings').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).gte('starts_at', new Date().toISOString()),
+        supabase.from('annual_events').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).gte('start_date', `${year}-01-01`).lte('start_date', `${year}-12-31`),
+        supabase.from('launches').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).eq('status', 'active'),
+      ]);
+
+      let myOpenTasks = 0;
+      if (tasksRes.data?.length) {
+        const ids = tasksRes.data.map(a => a.task_id);
+        const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true }).in('id', ids).neq('status', 'done');
+        myOpenTasks = count ?? 0;
+      }
 
       return {
-        total: allTasks.length,
-        dueToday: allTasks.filter(t => t.due_date === today && t.status !== 'done').length,
-        overdue: allTasks.filter(t => t.due_date && t.due_date < today && t.status !== 'done').length,
-        completedWeek: allTasks.filter(t => t.status === 'done').length,
+        myOpenTasks,
+        recentMessages: unreadRes.count ?? 0,
+        docs: docsRes.count ?? 0,
+        upcomingBookings: bookingsRes.count ?? 0,
+        yearEvents: eventsRes.count ?? 0,
+        activeLaunches: launchesRes.count ?? 0,
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!currentOrg,
   });
 
-  const { data: myTasks } = useQuery({
-    queryKey: ['my-tasks'],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data: assignments } = await supabase
-        .from('task_assignees')
-        .select('task_id')
-        .eq('user_id', user.id);
-      if (!assignments?.length) return [];
-      const taskIds = assignments.map(a => a.task_id);
-      const { data: tasks } = await supabase
-        .from('tasks')
-        .select('id, title, status, priority, due_date')
-        .in('id', taskIds)
-        .neq('status', 'done')
-        .order('due_date', { ascending: true, nullsFirst: false });
-      return tasks || [];
+  const cards: ModuleCard[] = [
+    {
+      title: 'Monday',
+      description: 'Projetos e tarefas',
+      href: '/projetos',
+      icon: Table2,
+      accent: 'from-pink-500/15 to-pink-500/5 text-pink-500',
+      stat: stats ? `${stats.myOpenTasks} tarefa${stats.myOpenTasks === 1 ? '' : 's'} sua${stats.myOpenTasks === 1 ? '' : 's'}` : '—',
     },
-    enabled: !!user,
-  });
-
-  const cards = [
-    { label: 'Total de Tarefas', value: stats?.total ?? 0, icon: ListTodo, color: 'text-primary' },
-    { label: 'Vencem Hoje', value: stats?.dueToday ?? 0, icon: Clock, color: 'text-warning' },
-    { label: 'Atrasadas', value: stats?.overdue ?? 0, icon: AlertTriangle, color: 'text-destructive' },
-    { label: 'Concluídas', value: stats?.completedWeek ?? 0, icon: CheckCircle2, color: 'text-success' },
+    {
+      title: 'Slack',
+      description: 'Mensagens da equipe',
+      href: '/mensagens',
+      icon: MessageSquare,
+      accent: 'from-violet-500/15 to-violet-500/5 text-violet-500',
+      stat: stats ? `${stats.recentMessages} mensagens 24h` : '—',
+    },
+    {
+      title: 'Notinha',
+      description: 'Documentação',
+      href: '/docs',
+      icon: BookOpen,
+      accent: 'from-amber-500/15 to-amber-500/5 text-amber-600',
+      stat: stats ? `${stats.docs} documento${stats.docs === 1 ? '' : 's'}` : '—',
+    },
+    {
+      title: 'Reserva de Sala',
+      description: 'Salas de reunião',
+      href: '/salas',
+      icon: Calendar,
+      accent: 'from-emerald-500/15 to-emerald-500/5 text-emerald-600',
+      stat: stats ? `${stats.upcomingBookings} reserva${stats.upcomingBookings === 1 ? '' : 's'} agendada${stats.upcomingBookings === 1 ? '' : 's'}` : '—',
+    },
+    {
+      title: 'Calendário Anual',
+      description: 'Planejamento do ano',
+      href: '/calendario',
+      icon: CalendarDays,
+      accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
+      stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'} em ${new Date().getFullYear()}` : '—',
+    },
+    {
+      title: 'Lançamentos',
+      description: 'Etapas, prazos e gargalos',
+      href: '/lancamentos',
+      icon: Rocket,
+      accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
+      stat: stats ? `${stats.activeLaunches} ativo${stats.activeLaunches === 1 ? '' : 's'}` : '—',
+    },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Painel</h1>
-        <p className="text-muted-foreground text-sm mt-1">Visão geral das operações</p>
+        <h1 className="text-2xl font-bold text-foreground">Início</h1>
+        <p className="text-muted-foreground text-sm mt-1">Acesso rápido aos módulos da plataforma</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
-              <stat.icon className={`h-5 w-5 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="text-3xl font-bold">{stat.value}</div>
-              )}
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {cards.map((c) => (
+          <Link key={c.title} to={c.href} className="group">
+            <Card className="p-5 h-full hover:shadow-md transition-all hover:-translate-y-0.5 border-border/60">
+              <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${c.accent} flex items-center justify-center mb-4`}>
+                <c.icon className="h-5 w-5" />
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-foreground">{c.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/50 text-xs text-muted-foreground">
+                {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : c.stat}
+              </div>
+            </Card>
+          </Link>
         ))}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Minhas Tarefas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!myTasks?.length ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <ListTodo className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">Nenhuma tarefa atribuída a você</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {myTasks.map(task => (
-                <div key={task.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                  <span className="text-sm font-medium">{task.title}</span>
-                  {task.due_date && (
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(task.due_date).toLocaleDateString('pt-BR')}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
