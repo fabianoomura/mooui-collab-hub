@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen, Settings, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2, MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -29,10 +29,12 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 const baseNav = [
-  { title: 'Painel', url: '/', icon: LayoutDashboard },
+  { title: 'Início', url: '/', icon: LayoutDashboard },
   { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
   { title: 'Documentação', url: '/docs', icon: BookOpen },
   { title: 'Salas', url: '/salas', icon: Calendar },
+  { title: 'Calendário Anual', url: '/calendario', icon: CalendarDays },
+  { title: 'Lançamentos', url: '/lancamentos', icon: Rocket },
   { title: 'Equipe', url: '/equipe', icon: Users },
 ];
 const adminNav = { title: 'Configurações', url: '/configuracoes', icon: Settings };

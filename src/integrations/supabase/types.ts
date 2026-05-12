@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      annual_events: {
+        Row: {
+          category: string
+          color: string
+          created_at: string
+          created_by: string
+          description: string | null
+          end_date: string | null
+          id: string
+          organization_id: string
+          project_id: string | null
+          start_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          color?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          organization_id: string
+          project_id?: string | null
+          start_date: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          color?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          organization_id?: string
+          project_id?: string | null
+          start_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       channel_members: {
         Row: {
           channel_id: string
@@ -139,6 +184,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      launch_stages: {
+        Row: {
+          actual_end: string | null
+          assignee_id: string | null
+          created_at: string
+          duration_days: number
+          id: string
+          launch_id: string
+          name: string
+          planned_end: string | null
+          planned_start: string | null
+          position: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_end?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          duration_days?: number
+          id?: string
+          launch_id: string
+          name: string
+          planned_end?: string | null
+          planned_start?: string | null
+          position?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_end?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          duration_days?: number
+          id?: string
+          launch_id?: string
+          name?: string
+          planned_end?: string | null
+          planned_start?: string | null
+          position?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launch_stages_launch_id_fkey"
+            columns: ["launch_id"]
+            isOneToOne: false
+            referencedRelation: "launches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      launches: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       meeting_room_bookings: {
         Row: {
