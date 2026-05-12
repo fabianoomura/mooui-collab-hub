@@ -144,7 +144,7 @@ export default function CalendarPage() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Novo evento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? 'Editar evento' : 'Novo evento'}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Título</Label>
@@ -181,9 +181,18 @@ export default function CalendarPage() {
               <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={!form.title.trim() || createEvt.isPending}>Criar</Button>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {editingId ? (
+              <Button variant="ghost" onClick={handleDelete} className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4 mr-1" /> Excluir
+              </Button>
+            ) : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={!form.title.trim() || createEvt.isPending || updateEvt.isPending}>
+                {editingId ? 'Salvar' : 'Criar'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
