@@ -104,7 +104,7 @@ export default function CalendarPage() {
         onError: (e: any) => toast.error(e.message),
       });
     } else {
-      createEvt.mutate({ ...payload, project_id: null }, {
+      createEvt.mutate({ ...payload, project_id: null, instance_id: activeInstance ?? null } as any, {
         onSuccess: () => { toast.success('Evento criado'); setOpen(false); },
         onError: (e: any) => toast.error(e.message),
       });
