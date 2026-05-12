@@ -601,7 +601,7 @@ export default function MessagesPage() {
                 )}
                 <h1 className="font-semibold truncate">{headerLabel}</h1>
                 {activeChannel.description && !activeDm && (
-                  <span className="text-sm text-muted-foreground truncate">— {activeChannel.description}</span>
+                  <span className="hidden sm:inline text-sm text-muted-foreground truncate">— {activeChannel.description}</span>
                 )}
               </div>
               {!activeDm && (activeChannel.created_by === user?.id || isAdmin) && (
