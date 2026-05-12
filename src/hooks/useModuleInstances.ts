@@ -95,7 +95,7 @@ export function useRenameModuleInstance() {
   const { currentOrg } = useOrganization();
   return useMutation({
     mutationFn: async ({ id, name, color }: { id: string; name?: string; color?: string }) => {
-      const patch: Record<string, unknown> = {};
+      const patch: { name?: string; color?: string } = {};
       if (name !== undefined) patch.name = name;
       if (color !== undefined) patch.color = color;
       const { error } = await supabase.from('module_instances').update(patch).eq('id', id);

@@ -62,7 +62,7 @@ export function useActiveInstance(moduleKey: ModuleKey) {
 }
 
 export function ModuleInstanceBar({ moduleKey, value, onChange }: Props) {
-  const { instances, isLoading } = useModuleInstances(moduleKey);
+  const { data: instances = [], isLoading } = useModuleInstances(moduleKey);
   const create = useCreateModuleInstance();
   const archive = useArchiveModuleInstance();
   const rename = useRenameModuleInstance();
