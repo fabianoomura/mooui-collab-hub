@@ -327,11 +327,16 @@ export default function MessagesPage() {
   const allChannelIds = [...channels.map(c => c.id), ...dms.map(d => d.id)];
   const { data: unreadMap = {} } = useUnreadCounts(allChannelIds);
 
-  // Auto-select first channel
+  // Auto-select first channel only on desktop (mobile shows the list first)
+  const didAutoSelect = useRef(false);
   useEffect(() => {
-    if (!activeChannelId && channels.length > 0) {
+    if (didAutoSelect.current) return;
+    if (channels.length === 0) return;
+    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+    if (isDesktop && !activeChannelId) {
       setActiveChannelId(channels[0].id);
     }
+    didAutoSelect.current = true;
   }, [channels, activeChannelId]);
 
   // Mark as read when opening a channel
@@ -480,7 +485,16 @@ export default function MessagesPage() {
         <ScrollArea className="flex-1">
           {/* Channels */}
           <div className="flex items-center justify-between px-3 pt-3 pb-1">
-            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Canais</span>
+            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+              Canais
+              <span className="text-[10px] text-muted-foreground/70 normal-case tracking-normal font-normal">({channels.length})</span>
+              {(() => {
+                const total = channels.reduce((s, c) => s + (unreadMap[c.id] || 0), 0);
+                return total > 0 ? (
+                  <Badge variant="default" className="h-4 min-w-4 px-1 text-[9px]">{total > 99 ? '99+' : total}</Badge>
+                ) : null;
+              })()}
+            </span>
             <button
               onClick={() => setShowNewChannel(true)}
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -522,8 +536,15 @@ export default function MessagesPage() {
 
           {/* DMs */}
           <div className="flex items-center justify-between px-3 pt-2 pb-1">
-            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
               Mensagens diretas
+              <span className="text-[10px] text-muted-foreground/70 normal-case tracking-normal font-normal">({dms.length})</span>
+              {(() => {
+                const total = dms.reduce((s, d) => s + (unreadMap[d.id] || 0), 0);
+                return total > 0 ? (
+                  <Badge variant="default" className="h-4 min-w-4 px-1 text-[9px]">{total > 99 ? '99+' : total}</Badge>
+                ) : null;
+              })()}
             </span>
             <button
               onClick={() => setShowNewDm(true)}
