@@ -642,6 +642,7 @@ export default function MessagesPage() {
             placeholder="Responder na thread"
             onSend={handleSendThreadReply}
             pending={sendMessage.isPending}
+            mentionables={orgMembers}
           />
         </aside>
       )}
