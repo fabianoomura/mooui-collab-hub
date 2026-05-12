@@ -157,6 +157,62 @@ export default function CRMPage() {
         onChange={setActiveInstance}
       />
 
+      {/* Filtro por responsável + rendimento */}
+      {members.length > 0 && (
+        <Card className="p-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground mr-1">Responsável:</span>
+            <button
+              onClick={() => setOwnerFilter(null)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                ownerFilter === null
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border hover:bg-muted/50 text-muted-foreground'
+              }`}
+            >
+              Todos
+            </button>
+            {members.map((m) => {
+              const s = ownerStats.get(m.id);
+              const active = ownerFilter === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setOwnerFilter(active ? null : m.id)}
+                  className={`text-xs px-2 py-1 rounded-full border transition-colors flex items-center gap-1.5 ${
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-border hover:bg-muted/50'
+                  }`}
+                  title={s ? `${s.count} negócio(s) · ${fmtBRL(s.total)}` : 'Sem negócios'}
+                >
+                  <Avatar className="h-5 w-5">
+                    {m.avatar_url && <AvatarImage src={m.avatar_url} />}
+                    <AvatarFallback className="text-[9px]">
+                      {(m.full_name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate max-w-[100px]">{(m.full_name || 'Sem nome').split(' ')[0]}</span>
+                  {s && <span className="opacity-70">· {s.count}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {ownerFilter && (() => {
+            const m = members.find((x) => x.id === ownerFilter);
+            const s = ownerStats.get(ownerFilter) ?? { count: 0, total: 0, won: 0, lost: 0, open: 0 };
+            return (
+              <div className="mt-3 pt-3 border-t grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <Stat label={`${m?.full_name?.split(' ')[0] || 'Pessoa'} · negócios`} value={String(s.count)} />
+                <Stat label="Em aberto" value={fmtBRL(s.open)} />
+                <Stat label="Ganhos" value={fmtBRL(s.won)} accent="text-emerald-600" />
+                <Stat label="Perdidos" value={fmtBRL(s.lost)} accent="text-destructive" />
+              </div>
+            );
+          })()}
+        </Card>
+      )}
+
       {pipesLoading ? (
         <div className="flex gap-2"><Skeleton className="h-9 w-32" /><Skeleton className="h-9 w-32" /></div>
       ) : (
