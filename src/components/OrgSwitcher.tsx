@@ -32,7 +32,7 @@ export function OrgSwitcher({ className }: Props) {
         >
           <div
             className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0"
-            style={{ backgroundColor: currentOrg.color }}
+            style={{ backgroundColor: currentOrg.color || 'hsl(var(--primary))' }}
           >
             {initial}
           </div>
