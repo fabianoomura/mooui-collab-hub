@@ -139,22 +139,68 @@ function MessageItem({ msg, isMine, onDelete, onOpenThread, showThreadAction }: 
   );
 }
 
+interface MentionUser {
+  id: string;
+  full_name: string | null;
+}
+
 interface ComposerProps {
   placeholder: string;
   onSend: (content: string, files: File[]) => void;
   pending?: boolean;
+  mentionables?: MentionUser[];
 }
 
-function Composer({ placeholder, onSend, pending }: ComposerProps) {
+function Composer({ placeholder, onSend, pending, mentionables = [] }: ComposerProps) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Mention popup state
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionStart, setMentionStart] = useState(0);
+  const [mentionIndex, setMentionIndex] = useState(0);
+
+  const filtered = mentionables
+    .filter((u) => u.full_name)
+    .filter((u) => u.full_name!.toLowerCase().includes(mentionQuery.toLowerCase()))
+    .slice(0, 6);
+
+  const updateMention = (value: string, caret: number) => {
+    const upTo = value.slice(0, caret);
+    const m = upTo.match(/(?:^|\s)@([\wÀ-ÿ.-]*)$/);
+    if (m) {
+      setMentionOpen(true);
+      setMentionQuery(m[1]);
+      setMentionStart(caret - m[1].length - 1);
+      setMentionIndex(0);
+    } else {
+      setMentionOpen(false);
+    }
+  };
+
+  const insertMention = (u: MentionUser) => {
+    const name = (u.full_name || '').split(' ')[0];
+    const before = text.slice(0, mentionStart);
+    const after = text.slice(mentionStart + 1 + mentionQuery.length);
+    const next = `${before}@${name} ${after}`;
+    setText(next);
+    setMentionOpen(false);
+    requestAnimationFrame(() => {
+      const pos = before.length + name.length + 2;
+      taRef.current?.focus();
+      taRef.current?.setSelectionRange(pos, pos);
+    });
+  };
 
   const send = () => {
     if (!text.trim() && files.length === 0) return;
     onSend(text.trim() || '📎', files);
     setText('');
     setFiles([]);
+    setMentionOpen(false);
   };
 
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,7 +217,7 @@ function Composer({ placeholder, onSend, pending }: ComposerProps) {
   };
 
   return (
-    <div className="p-3 border-t border-border">
+    <div className="p-3 border-t border-border relative">
       {files.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {files.map((f, i) => (
@@ -190,15 +236,53 @@ function Composer({ placeholder, onSend, pending }: ComposerProps) {
           ))}
         </div>
       )}
+
+      {mentionOpen && filtered.length > 0 && (
+        <div className="absolute bottom-full left-3 mb-1 w-64 rounded-md border border-border bg-popover shadow-lg z-50 overflow-hidden">
+          <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+            Mencionar pessoa
+          </div>
+          {filtered.map((u, i) => (
+            <button
+              key={u.id}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); insertMention(u); }}
+              onMouseEnter={() => setMentionIndex(i)}
+              className={cn(
+                'w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors',
+                i === mentionIndex ? 'bg-accent' : 'hover:bg-accent/50'
+              )}
+            >
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
+                  {getInitials(u.full_name)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate">{u.full_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex items-end gap-2">
         <input ref={fileRef} type="file" multiple className="hidden" onChange={pick} />
         <Button variant="outline" size="icon" onClick={() => fileRef.current?.click()} aria-label="Anexar">
           <Paperclip className="h-4 w-4" />
         </Button>
         <Textarea
+          ref={taRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            updateMention(e.target.value, e.target.selectionStart ?? e.target.value.length);
+          }}
           onKeyDown={(e) => {
+            if (mentionOpen && filtered.length > 0) {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex((i) => (i + 1) % filtered.length); return; }
+              if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex((i) => (i - 1 + filtered.length) % filtered.length); return; }
+              if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filtered[mentionIndex]); return; }
+              if (e.key === 'Escape') { e.preventDefault(); setMentionOpen(false); return; }
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               send();
@@ -508,6 +592,7 @@ export default function MessagesPage() {
               placeholder={activeDm ? `Mensagem para ${activeDm.partner?.full_name || ''}` : `Mensagem para #${activeChannel.name}`}
               onSend={handleSend}
               pending={sendMessage.isPending}
+              mentionables={orgMembers}
             />
           </>
         )}
@@ -557,6 +642,7 @@ export default function MessagesPage() {
             placeholder="Responder na thread"
             onSend={handleSendThreadReply}
             pending={sendMessage.isPending}
+            mentionables={orgMembers}
           />
         </aside>
       )}
