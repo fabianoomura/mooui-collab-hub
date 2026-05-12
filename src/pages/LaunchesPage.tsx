@@ -190,14 +190,14 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>
-          <div>
-            <h1 className="text-2xl font-bold">{launch.name}</h1>
-            <p className="text-muted-foreground text-sm">{launch.description || 'Sem descrição'} · Início {fmtDate(launch.start_date)}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">{launch.name}</h1>
+            <p className="text-muted-foreground text-xs sm:text-sm truncate">{launch.description || 'Sem descrição'} · Início {fmtDate(launch.start_date)}</p>
           </div>
         </div>
-        <Button onClick={openNewStage}><Plus className="h-4 w-4 mr-1" /> Nova etapa</Button>
+        <Button size="sm" onClick={openNewStage}><Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Nova etapa</span></Button>
       </div>
 
       {/* Lista de etapas */}
