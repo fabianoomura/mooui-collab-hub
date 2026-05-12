@@ -327,11 +327,16 @@ export default function MessagesPage() {
   const allChannelIds = [...channels.map(c => c.id), ...dms.map(d => d.id)];
   const { data: unreadMap = {} } = useUnreadCounts(allChannelIds);
 
-  // Auto-select first channel
+  // Auto-select first channel only on desktop (mobile shows the list first)
+  const didAutoSelect = useRef(false);
   useEffect(() => {
-    if (!activeChannelId && channels.length > 0) {
+    if (didAutoSelect.current) return;
+    if (channels.length === 0) return;
+    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+    if (isDesktop && !activeChannelId) {
       setActiveChannelId(channels[0].id);
     }
+    didAutoSelect.current = true;
   }, [channels, activeChannelId]);
 
   // Mark as read when opening a channel
