@@ -848,12 +848,12 @@ export default function TableViewPage() {
                     <div className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-2">Elemento</span>
-                      {visibleColumns.has('due_date') && <span className="px-2 py-2 text-center">Data Ação</span>}
-                      {visibleColumns.has('priority') && <span className="px-2 py-2 text-center">Prioridade</span>}
-                      {visibleColumns.has('status') && <span className="px-2 py-2 text-center">Status</span>}
-                      {visibleColumns.has('assignee') && <span className="px-2 py-2 text-center">Responsável</span>}
-                      {visibleColumns.has('created_at') && <span className="px-2 py-2 text-center">Abertura</span>}
-                      {visibleColumns.has('ticket') && <span className="px-2 py-2 text-center">Nº Ticket</span>}
+                      {visibleColumns.has('due_date') && <FixedColHeader label="Data Ação" onHide={() => toggleColumn('due_date')} />}
+                      {visibleColumns.has('priority') && <FixedColHeader label="Prioridade" onHide={() => toggleColumn('priority')} />}
+                      {visibleColumns.has('status') && <FixedColHeader label="Status" onHide={() => toggleColumn('status')} />}
+                      {visibleColumns.has('assignee') && <FixedColHeader label="Responsável" onHide={() => toggleColumn('assignee')} />}
+                      {visibleColumns.has('created_at') && <FixedColHeader label="Abertura" onHide={() => toggleColumn('created_at')} />}
+                      {visibleColumns.has('ticket') && <FixedColHeader label="Nº Ticket" onHide={() => toggleColumn('ticket')} />}
                       {dynamicColumns.map(col => (
                         <span key={col.id} className="px-2 py-2 text-center flex items-center justify-center gap-1 group">
                           {col.name}
