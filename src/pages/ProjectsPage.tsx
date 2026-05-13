@@ -56,7 +56,11 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
-            <Card key={project.id} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card
+              key={project.id}
+              onClick={() => navigate(`/tabela?projeto=${project.id}`)}
+              className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
