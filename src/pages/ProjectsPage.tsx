@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, FolderKanban, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function ProjectsPage() {
+  const navigate = useNavigate();
   const { currentOrg } = useOrganization();
   const { data: projects, isLoading } = useProjectsByOrg(currentOrg?.id);
   const createProject = useCreateProject();
@@ -54,7 +56,11 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
-            <Card key={project.id} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card
+              key={project.id}
+              onClick={() => navigate(`/tabela?projeto=${project.id}`)}
+              className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
