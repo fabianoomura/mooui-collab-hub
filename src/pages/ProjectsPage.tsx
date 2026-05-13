@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, FolderKanban, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function ProjectsPage() {
+  const navigate = useNavigate();
   const { currentOrg } = useOrganization();
   const { data: projects, isLoading } = useProjectsByOrg(currentOrg?.id);
   const createProject = useCreateProject();
