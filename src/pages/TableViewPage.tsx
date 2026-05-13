@@ -484,6 +484,21 @@ function HideColumnsPopover({ visible, onToggle }: { visible: Set<FixedColumnKey
   );
 }
 
+function FixedColHeader({ label, onHide }: { label: string; onHide: () => void }) {
+  return (
+    <span className="px-2 py-2 text-center flex items-center justify-center gap-1 group">
+      {label}
+      <button
+        onClick={onHide}
+        title="Ocultar coluna"
+        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
 // Task row component
 function TaskRow({
   task, parentTask, groupColor, gridCols, visibleColumns, profilesMap, isSubtask,
