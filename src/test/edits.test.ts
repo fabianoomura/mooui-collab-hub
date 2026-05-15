@@ -122,33 +122,7 @@ describe("Edits & saves: all modules", () => {
     expect(upd.data!.name).toBe(`lan-${tag}-x`);
   });
 
-  it("CRM: create deal, edit (move stage / value), save", async () => {
-    const { data: pipes } = await c.from("crm_pipelines").select("id")
-      .eq("organization_id", ORG_ID).limit(1);
-    if (!pipes?.length) {
-      console.warn("Sem pipeline CRM — pulando");
-      return;
-    }
-    const pipelineId = pipes[0].id;
-    const { data: stages } = await c.from("crm_stages").select("id").eq("pipeline_id", pipelineId).order("position");
-    expect(stages && stages.length >= 1).toBe(true);
-
-    const ins = await c.from("crm_deals").insert({
-      organization_id: ORG_ID, created_by: userId,
-      pipeline_id: pipelineId, stage_id: stages![0].id,
-      title: `deal-${tag}`, value_cents: 10000, currency: "BRL", status: "open",
-    }).select().single();
-    expect(ins.error).toBeNull();
-    cleanup.push({ table: "crm_deals", id: ins.data!.id });
-
-    const targetStage = stages!.length > 1 ? stages![1].id : stages![0].id;
-    const upd = await c.from("crm_deals")
-      .update({ title: `deal-${tag}-x`, value_cents: 25000, stage_id: targetStage })
-      .eq("id", ins.data!.id).select().single();
-    expect(upd.error).toBeNull();
-    expect(upd.data!.value_cents).toBe(25000);
-    expect(upd.data!.stage_id).toBe(targetStage);
-  });
+  // CRM removido — teste descontinuado.
 
   it("Channels: create, rename, save", async () => {
     const ins = await c.from("channels").insert({

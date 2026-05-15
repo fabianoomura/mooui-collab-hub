@@ -21,7 +21,7 @@ const ROUTES = [
   { label: 'Calendário', href: '/calendario', icon: CalendarDays, kw: 'eventos ano' },
   { label: 'Lançamentos', href: '/lancamentos', icon: Rocket, kw: 'launches etapas' },
   { label: 'Checagem Site', href: '/checagens', icon: ClipboardCheck, kw: 'checklist' },
-  { label: 'CRM', href: '/crm', icon: Briefcase, kw: 'vendas funil atacado arquiteto' },
+  { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },
   { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios' },
   { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings' },
 ];
@@ -87,19 +87,6 @@ export function CommandPalette() {
                 <CommandItem key={l.id} value={`lancamento ${l.name}`} onSelect={() => go('/lancamentos')}>
                   <Rocket className="h-4 w-4 mr-2 text-muted-foreground" />
                   {l.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </>
-        )}
-        {deals.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="Negócios">
-              {deals.map((d: any) => (
-                <CommandItem key={d.id} value={`negocio ${d.title}`} onSelect={() => go('/crm')}>
-                  <Briefcase className="h-4 w-4 mr-2 text-muted-foreground" />
-                  {d.title}
                 </CommandItem>
               ))}
             </CommandGroup>

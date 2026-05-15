@@ -100,13 +100,13 @@ export function PersonalPanel() {
         .order('created_at', { ascending: false }).limit(5);
       const mySent = mySentData || [];
 
-      // 7) Meus negócios CRM em aberto
-      const { data: myDealsData } = await supabase
-        .from('crm_deals')
-        .select('id, title, value_cents, updated_at, pipeline_id, stage_id')
-        .eq('organization_id', currentOrg.id).eq('owner_id', user.id).eq('status', 'open')
+      // 7) Meus tickets de TI em aberto
+      const { data: myTicketsData } = await supabase
+        .from('tickets')
+        .select('id, title, priority, status, updated_at')
+        .eq('organization_id', currentOrg.id).eq('created_by', user.id).in('status', ['open', 'in_progress'])
         .order('updated_at', { ascending: false }).limit(5);
-      const myDeals = myDealsData || [];
+      const myTickets = myTicketsData || [];
 
       // ---- Build derived sets ----
       const overdue = [
@@ -171,8 +171,7 @@ export function PersonalPanel() {
         agenda: groupByDay(upcoming),
         sentMessages: mySent,
         sentCount: sentCount ?? 0,
-        myDeals,
-        myDealsTotal: myDeals.reduce((s, d) => s + (d.value_cents || 0), 0),
+        myTickets,
         completedToday: myTasks.filter((t) => t.status === 'done').length, // 0 here (filtered out)
       };
     },
@@ -324,28 +323,26 @@ export function PersonalPanel() {
           )}
         </Card>
 
-        {/* CRM */}
+        {/* Tickets de TI */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3">
             <Briefcase className="h-4 w-4 text-indigo-600" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide">Seus negócios</h2>
-            <Badge variant="secondary" className="ml-auto">{fmtBRL(data.myDealsTotal)}</Badge>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">Seus tickets</h2>
+            <Badge variant="secondary" className="ml-auto">{data.myTickets.length}</Badge>
           </div>
-          {data.myDeals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum negócio em aberto.</p>
+          {data.myTickets.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum ticket em aberto.</p>
           ) : (
             <div className="space-y-1">
-              {data.myDeals.map((d: any) => (
+              {data.myTickets.map((t: any) => (
                 <Link
-                  key={d.id} to="/crm"
+                  key={t.id} to="/tickets"
                   className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate group-hover:text-primary">{d.title}</p>
+                    <p className="text-sm font-medium truncate group-hover:text-primary">{t.title}</p>
                   </div>
-                  <span className="text-xs font-semibold text-primary shrink-0">
-                    {fmtBRL(d.value_cents)}
-                  </span>
+                  <Badge variant="outline" className="text-[10px] shrink-0 capitalize">{t.priority}</Badge>
                 </Link>
               ))}
             </div>

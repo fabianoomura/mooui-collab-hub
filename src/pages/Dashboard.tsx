@@ -47,14 +47,14 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0];
       const year = new Date().getFullYear();
 
-      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, dealsRes, checklistsRes] = await Promise.all([
+      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, ticketsRes, checklistsRes] = await Promise.all([
         supabase.from('task_assignees').select('task_id').eq('user_id', user.id),
         supabase.from('messages').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 86400000).toISOString()),
         supabase.from('doc_pages').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
         supabase.from('meeting_room_bookings').select('id, starts_at, title', { count: 'exact' }).eq('organization_id', currentOrg.id).gte('starts_at', new Date().toISOString()).order('starts_at').limit(1),
         supabase.from('annual_events').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).gte('start_date', `${year}-01-01`).lte('start_date', `${year}-12-31`),
         supabase.from('launches').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).eq('status', 'active'),
-        supabase.from('crm_deals').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).eq('status', 'open'),
+        supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['open', 'in_progress']),
         supabase.from('launch_checklists').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
       ]);
 
@@ -92,7 +92,7 @@ export default function Dashboard() {
         nextBooking,
         yearEvents: eventsRes.count ?? 0,
         activeLaunches: launchesRes.count ?? 0,
-        openDeals: dealsRes.count ?? 0,
+        openTickets: ticketsRes.count ?? 0,
         checklists: checklistsRes.count ?? 0,
         nextStage: nextStage?.[0] ?? null,
       };
@@ -115,8 +115,8 @@ export default function Dashboard() {
       stat: stats ? `${stats.activeLaunches} ativo${stats.activeLaunches === 1 ? '' : 's'}` : '—' },
     { title: 'Checagem Site', description: 'Checklist de lançamento no site', href: '/checagens', icon: ClipboardCheck, accent: 'from-teal-500/15 to-teal-500/5 text-teal-600',
       stat: stats ? `${stats.checklists} checagem${stats.checklists === 1 ? '' : 's'}` : '—' },
-    { title: 'CRM', description: 'Atacado e arquitetos', href: '/crm', icon: Briefcase, accent: 'from-indigo-500/15 to-indigo-500/5 text-indigo-600',
-      stat: stats ? `${stats.openDeals} negócio${stats.openDeals === 1 ? '' : 's'} aberto${stats.openDeals === 1 ? '' : 's'}` : '—' },
+    { title: 'Tickets de TI', description: 'Bugs e suporte', href: '/tickets', icon: Briefcase, accent: 'from-indigo-500/15 to-indigo-500/5 text-indigo-600',
+      stat: stats ? `${stats.openTickets} aberto${stats.openTickets === 1 ? '' : 's'}` : '—' },
   ];
 
   const fmtTime = (iso?: string) => iso

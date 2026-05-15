@@ -59,7 +59,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { title: 'Calendário Anual', url: '/calendario', icon: CalendarDays },
       { title: 'Lançamentos', url: '/lancamentos', icon: Rocket },
       { title: 'Checagem Site', url: '/checagens', icon: ClipboardCheck },
-      { title: 'CRM', url: '/crm', icon: Briefcase },
+      { title: 'Tickets de TI', url: '/tickets', icon: Briefcase },
     ],
   },
 ];
