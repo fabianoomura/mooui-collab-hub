@@ -332,7 +332,7 @@ export default function MessagesPage() {
   useEffect(() => {
     if (didAutoSelect.current) return;
     if (channels.length === 0) return;
-    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
     if (isDesktop && !activeChannelId) {
       setActiveChannelId(channels[0].id);
     }
@@ -473,8 +473,8 @@ export default function MessagesPage() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'w-full md:w-60 border-r border-border bg-muted/30 flex-col shrink-0',
-          showChatOnMobile ? 'hidden md:flex' : 'flex'
+          'w-full lg:w-72 border-r border-border bg-muted/30 flex-col shrink-0',
+          showChatOnMobile ? 'hidden lg:flex' : 'flex'
         )}
       >
         <div className="p-3 border-b border-border">
@@ -592,7 +592,7 @@ export default function MessagesPage() {
       {/* Messages area */}
       <div className={cn(
         'flex-1 flex-col min-w-0',
-        showChatOnMobile ? 'flex' : 'hidden md:flex'
+        showChatOnMobile ? 'flex' : 'hidden lg:flex'
       )}>
         {!activeChannel ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground p-4 text-center text-sm">
@@ -604,7 +604,7 @@ export default function MessagesPage() {
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <button
                   onClick={() => setActiveChannelId(null)}
-                  className="md:hidden -ml-1 p-1 text-muted-foreground hover:text-foreground"
+                  className="lg:hidden -ml-1 p-1 text-muted-foreground hover:text-foreground"
                   aria-label="Voltar"
                 >
                   <ArrowLeft className="h-5 w-5" />

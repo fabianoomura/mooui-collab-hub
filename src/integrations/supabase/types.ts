@@ -195,271 +195,6 @@ export type Database = {
         }
         Relationships: []
       }
-      crm_contacts: {
-        Row: {
-          address: string | null
-          company: string | null
-          created_at: string
-          created_by: string
-          document: string | null
-          email: string | null
-          id: string
-          kind: string
-          name: string
-          notes: string | null
-          organization_id: string
-          phone: string | null
-          updated_at: string
-        }
-        Insert: {
-          address?: string | null
-          company?: string | null
-          created_at?: string
-          created_by: string
-          document?: string | null
-          email?: string | null
-          id?: string
-          kind?: string
-          name: string
-          notes?: string | null
-          organization_id: string
-          phone?: string | null
-          updated_at?: string
-        }
-        Update: {
-          address?: string | null
-          company?: string | null
-          created_at?: string
-          created_by?: string
-          document?: string | null
-          email?: string | null
-          id?: string
-          kind?: string
-          name?: string
-          notes?: string | null
-          organization_id?: string
-          phone?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      crm_deal_activities: {
-        Row: {
-          content: string | null
-          created_at: string
-          deal_id: string
-          id: string
-          kind: string
-          user_id: string
-        }
-        Insert: {
-          content?: string | null
-          created_at?: string
-          deal_id: string
-          id?: string
-          kind?: string
-          user_id: string
-        }
-        Update: {
-          content?: string | null
-          created_at?: string
-          deal_id?: string
-          id?: string
-          kind?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_deal_activities_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "crm_deals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_deals: {
-        Row: {
-          abandoned_at: string | null
-          contact_id: string | null
-          created_at: string
-          created_by: string
-          currency: string
-          expected_close_date: string | null
-          id: string
-          notes: string | null
-          organization_id: string
-          owner_id: string | null
-          pipeline_id: string
-          position: number
-          shopify_checkout_token: string | null
-          shopify_checkout_url: string | null
-          shopify_customer_email: string | null
-          shopify_draft_order_id: string | null
-          shopify_draft_order_name: string | null
-          shopify_draft_order_url: string | null
-          shopify_order_number: string | null
-          stage_id: string
-          status: string
-          title: string
-          updated_at: string
-          value_cents: number
-        }
-        Insert: {
-          abandoned_at?: string | null
-          contact_id?: string | null
-          created_at?: string
-          created_by: string
-          currency?: string
-          expected_close_date?: string | null
-          id?: string
-          notes?: string | null
-          organization_id: string
-          owner_id?: string | null
-          pipeline_id: string
-          position?: number
-          shopify_checkout_token?: string | null
-          shopify_checkout_url?: string | null
-          shopify_customer_email?: string | null
-          shopify_draft_order_id?: string | null
-          shopify_draft_order_name?: string | null
-          shopify_draft_order_url?: string | null
-          shopify_order_number?: string | null
-          stage_id: string
-          status?: string
-          title: string
-          updated_at?: string
-          value_cents?: number
-        }
-        Update: {
-          abandoned_at?: string | null
-          contact_id?: string | null
-          created_at?: string
-          created_by?: string
-          currency?: string
-          expected_close_date?: string | null
-          id?: string
-          notes?: string | null
-          organization_id?: string
-          owner_id?: string | null
-          pipeline_id?: string
-          position?: number
-          shopify_checkout_token?: string | null
-          shopify_checkout_url?: string | null
-          shopify_customer_email?: string | null
-          shopify_draft_order_id?: string | null
-          shopify_draft_order_name?: string | null
-          shopify_draft_order_url?: string | null
-          shopify_order_number?: string | null
-          stage_id?: string
-          status?: string
-          title?: string
-          updated_at?: string
-          value_cents?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_deals_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "crm_contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crm_deals_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "crm_pipelines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crm_deals_stage_id_fkey"
-            columns: ["stage_id"]
-            isOneToOne: false
-            referencedRelation: "crm_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_pipelines: {
-        Row: {
-          created_at: string
-          id: string
-          instance_id: string | null
-          kind: string
-          name: string
-          organization_id: string
-          position: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          instance_id?: string | null
-          kind?: string
-          name: string
-          organization_id: string
-          position?: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          instance_id?: string | null
-          kind?: string
-          name?: string
-          organization_id?: string
-          position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_pipelines_instance_id_fkey"
-            columns: ["instance_id"]
-            isOneToOne: false
-            referencedRelation: "module_instances"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      crm_stages: {
-        Row: {
-          color: string
-          created_at: string
-          id: string
-          is_lost: boolean
-          is_won: boolean
-          name: string
-          pipeline_id: string
-          position: number
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          id?: string
-          is_lost?: boolean
-          is_won?: boolean
-          name: string
-          pipeline_id: string
-          position?: number
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          id?: string
-          is_lost?: boolean
-          is_won?: boolean
-          name?: string
-          pipeline_id?: string
-          position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_stages_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "crm_pipelines"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       doc_pages: {
         Row: {
           can_delete_roles: Database["public"]["Enums"]["app_role"][]
@@ -1592,6 +1327,124 @@ export type Database = {
           },
         ]
       }
+      ticket_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_attachments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_comments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          organization_id: string
+          priority: string
+          resolved_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          organization_id: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          organization_id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1634,6 +1487,7 @@ export type Database = {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
       }
+      is_it_support: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
@@ -1669,7 +1523,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "manager" | "member"
+      app_role: "admin" | "manager" | "member" | "it_support"
       project_status: "active" | "archived"
       task_priority: "low" | "medium" | "high" | "critical"
       task_status: "backlog" | "todo" | "in_progress" | "in_review" | "done"
@@ -1800,7 +1654,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "member"],
+      app_role: ["admin", "manager", "member", "it_support"],
       project_status: ["active", "archived"],
       task_priority: ["low", "medium", "high", "critical"],
       task_status: ["backlog", "todo", "in_progress", "in_review", "done"],

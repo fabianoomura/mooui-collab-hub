@@ -21,7 +21,7 @@ const ROUTES = [
   { label: 'Calendário', href: '/calendario', icon: CalendarDays, kw: 'eventos ano' },
   { label: 'Lançamentos', href: '/lancamentos', icon: Rocket, kw: 'launches etapas' },
   { label: 'Checagem Site', href: '/checagens', icon: ClipboardCheck, kw: 'checklist' },
-  { label: 'CRM', href: '/crm', icon: Briefcase, kw: 'vendas funil atacado arquiteto' },
+  { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },
   { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios' },
   { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings' },
 ];
@@ -53,17 +53,6 @@ export function CommandPalette() {
     enabled: !!currentOrg && open,
   });
 
-  const { data: deals = [] } = useQuery({
-    queryKey: ['cmdk-deals', currentOrg?.id],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data } = await supabase.from('crm_deals').select('id, title')
-        .eq('organization_id', currentOrg.id).eq('status', 'open').limit(20);
-      return data ?? [];
-    },
-    enabled: !!currentOrg && open,
-  });
-
   const go = (path: string) => { setOpen(false); navigate(path); };
 
   return (
@@ -87,19 +76,6 @@ export function CommandPalette() {
                 <CommandItem key={l.id} value={`lancamento ${l.name}`} onSelect={() => go('/lancamentos')}>
                   <Rocket className="h-4 w-4 mr-2 text-muted-foreground" />
                   {l.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </>
-        )}
-        {deals.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="Negócios">
-              {deals.map((d: any) => (
-                <CommandItem key={d.id} value={`negocio ${d.title}`} onSelect={() => go('/crm')}>
-                  <Briefcase className="h-4 w-4 mr-2 text-muted-foreground" />
-                  {d.title}
                 </CommandItem>
               ))}
             </CommandGroup>
