@@ -53,17 +53,6 @@ export function CommandPalette() {
     enabled: !!currentOrg && open,
   });
 
-  const { data: deals = [] } = useQuery({
-    queryKey: ['cmdk-deals', currentOrg?.id],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data } = await supabase.from('crm_deals').select('id, title')
-        .eq('organization_id', currentOrg.id).eq('status', 'open').limit(20);
-      return data ?? [];
-    },
-    enabled: !!currentOrg && open,
-  });
-
   const go = (path: string) => { setOpen(false); navigate(path); };
 
   return (
