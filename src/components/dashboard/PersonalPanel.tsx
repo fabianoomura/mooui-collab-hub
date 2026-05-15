@@ -342,7 +342,7 @@ export function PersonalPanel() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate group-hover:text-primary">{t.title}</p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] shrink-0 capitalize">{t.priority}</Badge>
+                  <Badge variant="outline" className="text-[10px] shrink-0">{({ low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' } as Record<string,string>)[t.priority] ?? t.priority}</Badge>
                 </Link>
               ))}
             </div>
