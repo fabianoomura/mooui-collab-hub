@@ -135,7 +135,7 @@ export function useOrgMembersFull(orgId?: string) {
       (roles ?? []).forEach((r: any) => {
         const cur = roleMap.get(r.user_id);
         // priority: admin > manager > member
-        const order = { admin: 3, manager: 2, member: 1 } as Record<string, number>;
+        const order = { admin: 5, director: 4, manager: 3, operator: 2, member: 1 } as Record<string, number>;
         if (!cur || order[r.role] > order[cur]) roleMap.set(r.user_id, r.role);
       });
 
