@@ -84,8 +84,10 @@ export default function DocsPage() {
 
   // Group pages by department
   const grouped = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q)) : pages;
     const byDept = new Map<string, DocPage[]>();
-    pages.forEach((p) => {
+    filtered.forEach((p) => {
       const k = p.department_id ?? '__none__';
       if (!byDept.has(k)) byDept.set(k, []);
       byDept.get(k)!.push(p);
@@ -93,11 +95,12 @@ export default function DocsPage() {
     byDept.forEach((arr) => arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR')));
     const groups = departments
       .map((d) => ({ id: d.id, name: d.name, color: d.color, pages: byDept.get(d.id) ?? [] }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      .filter((g) => !q || g.pages.length > 0);
     const orphan = byDept.get('__none__') ?? [];
     if (orphan.length) groups.push({ id: '__none__', name: 'Sem setor', color: '#9CA3AF', pages: orphan });
     return groups;
-  }, [pages, departments]);
+  }, [pages, departments, search]);
 
   useEffect(() => {
     if (!selectedId && pages.length > 0) setSelectedId(pages[0].id);
