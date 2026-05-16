@@ -186,11 +186,16 @@ export default function CalendarPage() {
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-44 w-full" />)}
         </div>
       ) : (
-        <Tabs defaultValue="grid" className="w-full">
-          <TabsList className="grid w-full max-w-xs grid-cols-2">
+        <Tabs defaultValue="agenda" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="agenda" className="gap-1.5"><CalendarRange className="h-3.5 w-3.5" /> Próximos 30d</TabsTrigger>
             <TabsTrigger value="grid" className="gap-1.5"><LayoutGrid className="h-3.5 w-3.5" /> Grade</TabsTrigger>
-            <TabsTrigger value="timeline" className="gap-1.5"><GanttChart className="h-3.5 w-3.5" /> Linha do tempo</TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-1.5"><GanttChart className="h-3.5 w-3.5" /> Linha</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="agenda" className="mt-4">
+            <AgendaView events={filtered} onEventClick={openEdit} onNew={() => openNew()} />
+          </TabsContent>
 
           <TabsContent value="grid" className="mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
