@@ -89,15 +89,30 @@ export default function RoomsPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="h-4 w-4" /></Button>
-          <span className="text-sm font-medium">
-            {format(weekStart, "d 'de' MMM", { locale: ptBR })} – {format(addDays(weekStart, 6), "d 'de' MMM yyyy", { locale: ptBR })}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={() => view === 'week' ? setWeekStart(addDays(weekStart, -7)) : setDay(addDays(day, -1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-0">
+            {view === 'week'
+              ? `${format(weekStart, "d 'de' MMM", { locale: ptBR })} – ${format(addDays(weekStart, 6), "d 'de' MMM yyyy", { locale: ptBR })}`
+              : format(day, "EEEE, d 'de' MMM", { locale: ptBR })}
           </span>
-          <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
+          <Button variant="ghost" size="icon" onClick={() => view === 'week' ? setWeekStart(addDays(weekStart, 7)) : setDay(addDays(day, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+            setDay(startOfDay(new Date()));
+          }}>Hoje</Button>
         </div>
+        <Tabs value={view} onValueChange={(v) => setView(v as 'week' | 'day')}>
+          <TabsList className="h-8">
+            <TabsTrigger value="day" className="text-xs px-3">Dia</TabsTrigger>
+            <TabsTrigger value="week" className="text-xs px-3">Semana</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {rooms.length === 0 ? (
@@ -106,7 +121,7 @@ export default function RoomsPage() {
           <p className="mb-3">Nenhuma sala cadastrada ainda.</p>
           {isAdmin && <Button onClick={() => setShowManage(true)}>Cadastrar primeira sala</Button>}
         </div>
-      ) : (
+      ) : view === 'week' ? (
         <div className="border rounded-lg overflow-x-auto bg-card">
           <div className="min-w-[700px]">
             <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
@@ -152,6 +167,43 @@ export default function RoomsPage() {
               </div>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="border rounded-lg bg-card overflow-hidden">
+          {HOURS.map(h => {
+            const slotStart = new Date(day); slotStart.setHours(h, 0, 0, 0);
+            const slotEnd = new Date(day); slotEnd.setHours(h + 1, 0, 0, 0);
+            const cellBookings = bookings.filter(b => {
+              const s = new Date(b.starts_at);
+              return s < slotEnd && new Date(b.ends_at) > slotStart && isSameDay(s, day) && s.getHours() === h;
+            });
+            return (
+              <div key={h} className="grid grid-cols-[48px_1fr] border-b last:border-b-0 min-h-[56px]">
+                <div className="text-[10px] text-muted-foreground p-1 text-right pr-2 border-r pt-1.5">{h}:00</div>
+                <div
+                  className="p-1.5 cursor-pointer hover:bg-accent/30 space-y-1"
+                  onClick={() => { setPresetStart(slotStart); setPresetRoom(roomId === '__all__' ? undefined : roomId); setShowBooking(true); }}
+                >
+                  {cellBookings.length === 0 && <div className="h-full" />}
+                  {cellBookings.map(b => (
+                    <BookingBlock
+                      key={b.id} booking={b}
+                      room={roomMap[b.room_id]}
+                      profile={profileMap[b.user_id]}
+                      canDelete={isAdmin || b.user_id === user?.id}
+                      onDelete={() => {
+                        if (!confirm('Excluir esta reserva?')) return;
+                        delBooking.mutate(b.id, {
+                          onSuccess: () => toast.success('Reserva excluída'),
+                          onError: () => toast.error('Sem permissão'),
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
