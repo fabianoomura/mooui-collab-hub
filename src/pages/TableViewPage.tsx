@@ -15,6 +15,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
 import { LabelEditorDialog, type LabelOption } from '@/components/table/LabelEditor';
+import { PromptDialog } from '@/components/PromptDialog';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
@@ -771,14 +772,28 @@ export default function TableViewPage() {
   const toggleColumn = useCallback((col: FixedColumnKey) => { setVisibleColumns(prev => { const next = new Set(prev); if (next.has(col)) next.delete(col); else next.add(col); return next; }); }, []);
   const setSelectedProject = (id: string) => setSearchParams({ projeto: id });
 
+  type PromptState = { title: string; label?: string; defaultValue?: string; placeholder?: string; confirmLabel?: string; onSubmit: (v: string) => void } | null;
+  const [promptState, setPromptState] = useState<PromptState>(null);
+
   const handleCreateProject = () => {
-    const name = prompt('Nome do projeto:');
-    if (name?.trim()) createProject.mutate({ name: name.trim() }, { onSuccess: (project) => { setSelectedProject(project.id); toast.success('Projeto criado!'); } });
+    setPromptState({
+      title: 'Novo projeto', label: 'Nome', placeholder: 'Ex.: Lançamento Q1', confirmLabel: 'Criar',
+      onSubmit: (name) => {
+        createProject.mutate({ name }, { onSuccess: (project) => { setSelectedProject(project.id); toast.success('Projeto criado!'); } });
+        setPromptState(null);
+      },
+    });
   };
 
   const handleQuickAdd = (status: TaskStatus = 'todo', parentId?: string) => {
-    const title = prompt(parentId ? 'Título do subelemento:' : 'Título da tarefa:');
-    if (title?.trim()) addTask.mutate({ title: title.trim(), status, priority: 'medium', parent_task_id: parentId }, { onSuccess: () => toast.success(parentId ? 'Subelemento criado!' : 'Tarefa criada!') });
+    setPromptState({
+      title: parentId ? 'Novo subelemento' : 'Nova tarefa',
+      label: 'Título', placeholder: parentId ? 'Título do subelemento' : 'Título da tarefa', confirmLabel: 'Criar',
+      onSubmit: (title) => {
+        addTask.mutate({ title, status, priority: 'medium', parent_task_id: parentId }, { onSuccess: () => toast.success(parentId ? 'Subelemento criado!' : 'Tarefa criada!') });
+        setPromptState(null);
+      },
+    });
   };
 
   const handleInlineUpdate = (taskId: string, updates: Record<string, unknown>) => { updateTask.mutate({ taskId, updates }); };
@@ -789,10 +804,13 @@ export default function TableViewPage() {
   };
 
   const handleRenameColumn = (col: ProjectColumn) => {
-    const newName = prompt('Novo nome:', col.name);
-    if (newName?.trim() && newName.trim() !== col.name) {
-      updateColumn.mutate({ columnId: col.id, updates: { name: newName.trim() } });
-    }
+    setPromptState({
+      title: 'Renomear coluna', label: 'Novo nome', defaultValue: col.name, confirmLabel: 'Salvar',
+      onSubmit: (newName) => {
+        if (newName !== col.name) updateColumn.mutate({ columnId: col.id, updates: { name: newName } });
+        setPromptState(null);
+      },
+    });
   };
 
   const handleDeleteColumn = (col: ProjectColumn) => {
@@ -1001,6 +1019,16 @@ export default function TableViewPage() {
         labels={priorityLabelsConfig}
         onSave={handleSavePriorityLabels}
         title="Editar etiquetas de Prioridade"
+      />
+      <PromptDialog
+        open={!!promptState}
+        title={promptState?.title || ''}
+        label={promptState?.label}
+        defaultValue={promptState?.defaultValue}
+        placeholder={promptState?.placeholder}
+        confirmLabel={promptState?.confirmLabel}
+        onCancel={() => setPromptState(null)}
+        onSubmit={(v) => promptState?.onSubmit(v)}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Timer, Loader2, Calendar } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PromptDialog } from '@/components/PromptDialog';
 
 export default function SprintsPage() {
   const { user } = useAuth();
@@ -48,10 +49,9 @@ export default function SprintsPage() {
     },
   });
 
-  const handleCreate = () => {
-    const name = prompt('Nome da sprint:');
-    if (name?.trim()) createSprint.mutate(name.trim());
-  };
+  const [showNew, setShowNew] = useState(false);
+
+  const handleCreate = () => setShowNew(true);
 
   return (
     <div className="space-y-6">
@@ -125,6 +125,16 @@ export default function SprintsPage() {
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={showNew}
+        title="Nova sprint"
+        label="Nome"
+        placeholder="Ex.: Sprint 1"
+        confirmLabel="Criar"
+        onCancel={() => setShowNew(false)}
+        onSubmit={(name) => { createSprint.mutate(name); setShowNew(false); }}
+      />
     </div>
   );
 }
