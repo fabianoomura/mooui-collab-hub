@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -66,6 +68,7 @@ export default function DocsPage() {
   const [icon, setIcon] = useState('📄');
   const [showNew, setShowNew] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const selected = pages.find((p) => p.id === selectedId);
 
@@ -145,83 +148,99 @@ export default function DocsPage() {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Selecione uma organização</div>;
   }
 
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-3 border-b">
+        <h2 className="text-sm font-semibold">Documentação</h2>
+        <Button size="sm" variant="ghost" onClick={() => { setShowNew(true); setSidebarOpen(false); }}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-1">
+          {grouped.length === 0 || pages.length === 0 ? (
+            <button
+              onClick={() => { setShowNew(true); setSidebarOpen(false); }}
+              className="w-full text-left text-sm text-muted-foreground p-3 rounded-md hover:bg-accent flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" /> Criar primeira página
+            </button>
+          ) : grouped.map((g) => {
+            const isOpen = !collapsed.has(g.id);
+            return (
+              <div key={g.id}>
+                <button
+                  onClick={() => toggleGroup(g.id)}
+                  className="w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                >
+                  {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  <Folder className="h-3.5 w-3.5" style={{ color: g.color }} />
+                  <span className="font-semibold">{g.name}</span>
+                  <span className="ml-auto text-[10px]">{g.pages.length}</span>
+                </button>
+                {isOpen && (
+                  <div className="ml-2">
+                    {g.pages.map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={() => { setSelectedId(p.id); setSidebarOpen(false); }}
+                        className={cn(
+                          'group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
+                          selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
+                        )}
+                      >
+                        <span className="text-base leading-none">{p.icon || '📄'}</span>
+                        <span className="truncate flex-1">{p.title || 'Sem título'}</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button onClick={(e) => e.stopPropagation()}
+                              className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background">
+                              <MoreHorizontal className="h-3 w-3" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => handleDelete(p.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ))}
+                    {g.pages.length === 0 && (
+                      <div className="px-2 py-1 text-xs text-muted-foreground italic">Sem páginas</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      <aside className="w-72 border-r bg-card flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h2 className="text-sm font-semibold">Documentação</h2>
-          <Button size="sm" variant="ghost" onClick={() => setShowNew(true)}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {grouped.length === 0 || pages.length === 0 ? (
-              <button
-                onClick={() => setShowNew(true)}
-                className="w-full text-left text-sm text-muted-foreground p-3 rounded-md hover:bg-accent flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" /> Criar primeira página
-              </button>
-            ) : grouped.map((g) => {
-              const isOpen = !collapsed.has(g.id);
-              return (
-                <div key={g.id}>
-                  <button
-                    onClick={() => toggleGroup(g.id)}
-                    className="w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                  >
-                    {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    <Folder className="h-3.5 w-3.5" style={{ color: g.color }} />
-                    <span className="font-semibold">{g.name}</span>
-                    <span className="ml-auto text-[10px]">{g.pages.length}</span>
-                  </button>
-                  {isOpen && (
-                    <div className="ml-2">
-                      {g.pages.map((p) => (
-                        <div
-                          key={p.id}
-                          onClick={() => setSelectedId(p.id)}
-                          className={cn(
-                            'group flex items-center gap-1.5 rounded-md px-2 py-1 text-sm cursor-pointer hover:bg-accent',
-                            selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
-                          )}
-                        >
-                          <span className="text-base leading-none">{p.icon || '📄'}</span>
-                          <span className="truncate flex-1">{p.title || 'Sem título'}</span>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button onClick={(e) => e.stopPropagation()}
-                                className="opacity-0 group-hover:opacity-100 h-5 w-5 flex items-center justify-center rounded hover:bg-background">
-                                <MoreHorizontal className="h-3 w-3" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => handleDelete(p.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      ))}
-                      {g.pages.length === 0 && (
-                        <div className="px-2 py-1 text-xs text-muted-foreground italic">Sem páginas</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
+      <aside className="hidden md:flex w-72 border-r bg-card flex-col">
+        {sidebarContent}
       </aside>
-
-      <main className="flex-1 overflow-auto">
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="p-0 w-[85vw] max-w-xs">{sidebarContent}</SheetContent>
+      </Sheet>
+      <main className="flex-1 overflow-auto min-w-0">
+        <div className="md:hidden sticky top-0 z-10 flex items-center gap-2 px-3 py-2 border-b bg-background/95 backdrop-blur">
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setSidebarOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+          <span className="text-sm font-medium truncate">
+            {selected ? `${selected.icon || '📄'} ${selected.title || 'Sem título'}` : 'Documentação'}
+          </span>
+        </div>
         {selected ? (
-          <div className="max-w-3xl mx-auto px-6 sm:px-12 py-8 sm:py-12">
+          <div className="max-w-3xl mx-auto px-4 sm:px-12 py-6 sm:py-12">
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <IconPicker value={icon} onChange={setIcon} />
               <div className="flex-1 min-w-[200px] flex flex-wrap gap-x-4 gap-y-1">
@@ -248,7 +267,7 @@ export default function DocsPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Sem título"
-              className="text-3xl sm:text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
+              className="text-2xl sm:text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
             />
             <MarkdownEditor
               value={content}
