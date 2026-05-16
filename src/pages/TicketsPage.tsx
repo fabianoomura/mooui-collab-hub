@@ -178,6 +178,55 @@ export default function TicketsPage() {
         </Button>
       </div>
 
+      {/* Busca + filtros */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por título ou descrição…"
+            className="pl-8 h-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={scope} onValueChange={(v) => setScope(v as any)}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="mine">Meus tickets</SelectItem>
+              <SelectItem value="assigned">Atribuídos a mim</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer prioridade</SelectItem>
+              {(Object.keys(priorityLabels) as TicketPriority[]).map(k => (
+                <SelectItem key={k} value={k}>{priorityLabels[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer categoria</SelectItem>
+              {(Object.keys(categoryLabels) as TicketCategory[]).map(k => (
+                <SelectItem key={k} value={k}>{categoryLabels[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {activeChips > 0 && (
+            <Button
+              variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
+              onClick={() => { setSearch(''); setPriorityFilter('all'); setCategoryFilter('all'); setScope('all'); }}
+            >
+              <X className="h-3.5 w-3.5 mr-1" />Limpar
+            </Button>
+          )}
+        </div>
+      </div>
+
       <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="all">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
