@@ -2,9 +2,11 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { useProjectTasks, type KanbanColumn, type TaskWithAssignees, type TaskStatus } from '@/hooks/useProjectData';
 import { KanbanCard } from './KanbanCard';
 import { TaskDetailModal } from './TaskDetailModal';
-import { useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 const statusColors: Record<TaskStatus, string> = {
   backlog: 'bg-muted-foreground/20',
@@ -24,9 +26,10 @@ const statusDotColors: Record<TaskStatus, string> = {
 
 interface Props {
   projectId: string | undefined;
+  search?: string;
 }
 
-export function KanbanBoard({ projectId }: Props) {
+export function KanbanBoard({ projectId, search = '' }: Props) {
   const { columns, isLoading, moveTask, addTask, updateTask } = useProjectTasks(projectId);
   const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
 
@@ -39,15 +42,22 @@ export function KanbanBoard({ projectId }: Props) {
     });
   };
 
-  const handleQuickAdd = (status: TaskStatus) => {
-    const title = prompt('Título da tarefa:');
-    if (title?.trim()) {
-      addTask.mutate(
-        { title: title.trim(), status, priority: 'medium' },
-        { onSuccess: () => toast.success('Tarefa criada!') }
-      );
-    }
+  const handleQuickAdd = (status: TaskStatus, title: string) => {
+    if (!title.trim()) return;
+    addTask.mutate(
+      { title: title.trim(), status, priority: 'medium' },
+      { onSuccess: () => toast.success('Tarefa criada!') }
+    );
   };
+
+  const q = search.trim().toLowerCase();
+  const filteredColumns = useMemo(() => {
+    if (!q) return columns;
+    return columns.map((c) => ({
+      ...c,
+      tasks: c.tasks.filter((t) => (t.title || '').toLowerCase().includes(q)),
+    }));
+  }, [columns, q]);
 
   if (!projectId) {
     return (
@@ -69,14 +79,15 @@ export function KanbanBoard({ projectId }: Props) {
     <div className="h-full">
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((column) => (
+          {filteredColumns.map((column) => (
             <KanbanColumnView
               key={column.id}
               column={column}
               statusColor={statusColors[column.id]}
               dotColor={statusDotColors[column.id]}
               onCardClick={setSelectedTask}
-              onQuickAdd={() => handleQuickAdd(column.id)}
+              onQuickAdd={(title) => handleQuickAdd(column.id, title)}
+              isFiltered={!!q}
             />
           ))}
         </div>
@@ -98,14 +109,26 @@ export function KanbanBoard({ projectId }: Props) {
 }
 
 function KanbanColumnView({
-  column, statusColor, dotColor, onCardClick, onQuickAdd,
+  column, statusColor, dotColor, onCardClick, onQuickAdd, isFiltered,
 }: {
   column: KanbanColumn;
   statusColor: string;
   dotColor: string;
   onCardClick: (task: TaskWithAssignees) => void;
-  onQuickAdd: () => void;
+  onQuickAdd: (title: string) => void;
+  isFiltered: boolean;
 }) {
+  const [composing, setComposing] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const submit = () => {
+    const t = draft.trim();
+    if (!t) { setComposing(false); return; }
+    onQuickAdd(t);
+    setDraft('');
+    setComposing(false);
+  };
+
   return (
     <div className="flex-shrink-0 w-72">
       <div className={`rounded-lg px-3 py-2 mb-3 flex items-center justify-between ${statusColor}`}>
@@ -116,7 +139,11 @@ function KanbanColumnView({
             {column.tasks.length}
           </span>
         </div>
-        <button onClick={onQuickAdd} className="text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          onClick={() => setComposing(true)}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Adicionar tarefa"
+        >
           <Plus className="h-4 w-4" />
         </button>
       </div>
@@ -145,6 +172,40 @@ function KanbanColumnView({
               </Draggable>
             ))}
             {provided.placeholder}
+
+            {composing && (
+              <div className="rounded-md border bg-card p-2 space-y-2">
+                <Input
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); submit(); }
+                    if (e.key === 'Escape') { setComposing(false); setDraft(''); }
+                  }}
+                  placeholder="Título da tarefa…"
+                  className="h-8 text-sm"
+                />
+                <div className="flex items-center gap-1">
+                  <Button size="sm" className="h-7 px-2" onClick={submit} disabled={!draft.trim()}>
+                    Adicionar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2"
+                    onClick={() => { setComposing(false); setDraft(''); }}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!composing && column.tasks.length === 0 && (
+              <button
+                onClick={() => setComposing(true)}
+                className="w-full text-left text-xs text-muted-foreground italic px-2 py-3 rounded hover:bg-accent/40"
+              >
+                {isFiltered ? 'Nenhuma tarefa corresponde à busca' : '+ Adicionar tarefa'}
+              </button>
+            )}
           </div>
         )}
       </Droppable>
