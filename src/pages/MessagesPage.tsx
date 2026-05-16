@@ -763,32 +763,46 @@ export default function MessagesPage() {
       </Dialog>
 
       {/* New DM dialog */}
-      <Dialog open={showNewDm} onOpenChange={setShowNewDm}>
-        <DialogContent>
+      <Dialog open={showNewDm} onOpenChange={(o) => { setShowNewDm(o); if (!o) setDmSearch(''); }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Nova conversa</DialogTitle>
           </DialogHeader>
-          <div className="space-y-1 max-h-80 overflow-y-auto">
-            {orgMembers.length === 0 && (
+          <Input
+            placeholder="Buscar pessoa…"
+            value={dmSearch}
+            onChange={(e) => setDmSearch(e.target.value)}
+            autoFocus
+          />
+          <div className="space-y-1 max-h-80 overflow-y-auto -mx-2 px-2">
+            {reachable.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Não há outros membros nesta organização.
+                Não há outros membros disponíveis.
               </p>
             )}
-            {orgMembers.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => handleStartDm(m.id)}
-                disabled={openDm.isPending}
-                className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left disabled:opacity-50"
-              >
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary/15 text-primary text-xs">
-                    {getInitials(m.full_name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm">{m.full_name || 'Usuário'}</span>
-              </button>
-            ))}
+            {reachable
+              .filter(m => !dmSearch.trim() || (m.full_name || '').toLowerCase().includes(dmSearch.toLowerCase()))
+              .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+              .map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => handleStartDm(m.id)}
+                  disabled={openDm.isPending}
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left disabled:opacity-50"
+                >
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className="bg-primary/15 text-primary text-xs">
+                      {getInitials(m.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm truncate">{m.full_name || 'Usuário'}</div>
+                    {m.orgs.length > 0 && (
+                      <div className="text-[11px] text-muted-foreground truncate">{m.orgs.join(' • ')}</div>
+                    )}
+                  </div>
+                </button>
+              ))}
           </div>
         </DialogContent>
       </Dialog>
