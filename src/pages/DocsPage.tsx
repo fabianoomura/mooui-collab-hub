@@ -151,7 +151,13 @@ export default function DocsPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      <aside className="w-72 border-r bg-card flex flex-col">
+      <aside className="hidden md:flex w-72 border-r bg-card flex-col">
+        {sidebarContent}
+      </aside>
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="p-0 w-[85vw] max-w-xs">{sidebarContent}</SheetContent>
+      </Sheet>
+      <aside className="hidden w-72 border-r bg-card flex-col" style={{display:'none'}}>
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h2 className="text-sm font-semibold">Documentação</h2>
           <Button size="sm" variant="ghost" onClick={() => setShowNew(true)}>
