@@ -109,7 +109,7 @@ export interface MemberRow {
   avatar_url: string | null;
   department: string | null;
   position: string | null;
-  app_role: 'admin' | 'manager' | 'member';
+  app_role: 'admin' | 'manager' | 'member' | 'director' | 'operator';
 }
 
 export function useOrgMembersFull(orgId?: string) {
@@ -185,7 +185,7 @@ export function useUpdateOrgRole() {
 export function useUpdateAppRole() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { user_id: string; role: 'admin' | 'manager' | 'member' }) => {
+    mutationFn: async (input: { user_id: string; role: 'admin' | 'manager' | 'member' | 'director' | 'operator' }) => {
       // wipe previous roles then insert new
       const { error: delErr } = await supabase.from('user_roles').delete().eq('user_id', input.user_id);
       if (delErr) throw delErr;
