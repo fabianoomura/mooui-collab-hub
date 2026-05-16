@@ -109,7 +109,7 @@ export interface MemberRow {
   avatar_url: string | null;
   department: string | null;
   position: string | null;
-  app_role: 'admin' | 'manager' | 'member';
+  app_role: 'admin' | 'manager' | 'member' | 'director' | 'operator';
 }
 
 export function useOrgMembersFull(orgId?: string) {
@@ -135,7 +135,7 @@ export function useOrgMembersFull(orgId?: string) {
       (roles ?? []).forEach((r: any) => {
         const cur = roleMap.get(r.user_id);
         // priority: admin > manager > member
-        const order = { admin: 3, manager: 2, member: 1 } as Record<string, number>;
+        const order = { admin: 5, director: 4, manager: 3, operator: 2, member: 1 } as Record<string, number>;
         if (!cur || order[r.role] > order[cur]) roleMap.set(r.user_id, r.role);
       });
 
@@ -185,7 +185,7 @@ export function useUpdateOrgRole() {
 export function useUpdateAppRole() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { user_id: string; role: 'admin' | 'manager' | 'member' }) => {
+    mutationFn: async (input: { user_id: string; role: 'admin' | 'manager' | 'member' | 'director' | 'operator' }) => {
       // wipe previous roles then insert new
       const { error: delErr } = await supabase.from('user_roles').delete().eq('user_id', input.user_id);
       if (delErr) throw delErr;
@@ -208,6 +208,65 @@ export function useRemoveOrgMember() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['org-members-full'] }),
+  });
+}
+
+// Department members (manager / operator multi-setor)
+export interface DepartmentMemberRow {
+  id: string;
+  department_id: string;
+  user_id: string;
+  role: 'manager' | 'operator';
+}
+
+export function useDepartmentMembers(orgId?: string) {
+  return useQuery({
+    queryKey: ['department-members', orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data: depts, error: e1 } = await supabase
+        .from('org_departments').select('id').eq('organization_id', orgId!);
+      if (e1) throw e1;
+      const ids = (depts ?? []).map((d: any) => d.id);
+      if (ids.length === 0) return [] as DepartmentMemberRow[];
+      const { data, error } = await supabase
+        .from('department_members').select('id, department_id, user_id, role').in('department_id', ids);
+      if (error) throw error;
+      return (data ?? []) as DepartmentMemberRow[];
+    },
+  });
+}
+
+export function useAddDepartmentMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { department_id: string; user_id: string; role: 'manager' | 'operator' }) => {
+      const { error } = await supabase.from('department_members').insert(input);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['department-members'] }),
+  });
+}
+
+export function useUpdateDepartmentMemberRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; role: 'manager' | 'operator' }) => {
+      const { error } = await supabase.from('department_members').update({ role: input.role }).eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['department-members'] }),
+  });
+}
+
+export function useRemoveDepartmentMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('department_members').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['department-members'] }),
   });
 }
 
