@@ -1020,6 +1020,16 @@ export default function TableViewPage() {
         onSave={handleSavePriorityLabels}
         title="Editar etiquetas de Prioridade"
       />
+      <PromptDialog
+        open={!!promptState}
+        title={promptState?.title || ''}
+        label={promptState?.label}
+        defaultValue={promptState?.defaultValue}
+        placeholder={promptState?.placeholder}
+        confirmLabel={promptState?.confirmLabel}
+        onCancel={() => setPromptState(null)}
+        onSubmit={(v) => promptState?.onSubmit(v)}
+      />
     </div>
   );
 }
