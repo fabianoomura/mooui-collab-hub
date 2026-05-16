@@ -93,26 +93,33 @@ export default function TicketsPage() {
     [profiles],
   );
 
-  // IT support members for assignee dropdown
+  // Membros do setor de TI (gerentes + operadores) + admins/diretores
   const { data: itMembers = [] } = useQuery({
     queryKey: ['it-support-members', currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg) return [];
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .in('role', ['it_support', 'admin']);
-      const ids = [...new Set((roles || []).map((r: any) => r.user_id))];
-      if (ids.length === 0) return [];
-      const { data: members } = await supabase
-        .from('organization_members')
-        .select('user_id')
-        .eq('organization_id', currentOrg.id)
-        .in('user_id', ids);
-      const orgIds = (members || []).map((m: any) => m.user_id);
-      if (orgIds.length === 0) return [];
+      const ids = new Set<string>();
+      // 1) Membros do dept TI
+      const { data: deptIds } = await supabase.rpc('get_dept_member_ids', {
+        _org_id: currentOrg.id, _dept_name: 'TI',
+      });
+      (deptIds || []).forEach((r: any) => ids.add(r.user_id));
+      // 2) Admins/diretores da org
+      const { data: admins } = await supabase
+        .from('organization_members').select('user_id')
+        .eq('organization_id', currentOrg.id).eq('role', 'admin');
+      (admins || []).forEach((m: any) => ids.add(m.user_id));
+      const { data: directors } = await supabase
+        .from('user_roles').select('user_id').eq('role', 'director');
+      const orgUserIds = new Set((admins || []).map((m: any) => m.user_id));
+      const { data: orgMembers } = await supabase
+        .from('organization_members').select('user_id')
+        .eq('organization_id', currentOrg.id);
+      (orgMembers || []).forEach((m: any) => orgUserIds.add(m.user_id));
+      (directors || []).forEach((r: any) => { if (orgUserIds.has(r.user_id)) ids.add(r.user_id); });
+      if (ids.size === 0) return [];
       const { data: profs } = await supabase
-        .from('profiles').select('id, full_name').in('id', orgIds);
+        .from('profiles').select('id, full_name').in('id', [...ids]);
       return profs || [];
     },
     enabled: !!currentOrg && isIT,
