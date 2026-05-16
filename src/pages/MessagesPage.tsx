@@ -308,7 +308,9 @@ export default function MessagesPage() {
   const { data: channels = [], isLoading: loadingChannels } = useChannels(currentOrg?.id);
   const { data: dms = [] } = useDmChannels(currentOrg?.id);
   const { data: orgMembers = [] } = useOrgMembers(currentOrg?.id);
+  const { data: reachable = [] } = useReachableMembers();
 
+  const [dmSearch, setDmSearch] = useState('');
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
   const [showNewChannel, setShowNewChannel] = useState(false);
