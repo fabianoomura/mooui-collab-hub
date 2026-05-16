@@ -428,3 +428,157 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
     </div>
   );
 }
+
+/* ----- Equipes de setor (gerentes/operadores multi-setor) ----- */
+function DepartmentTeamsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
+  const { data: departments = [] } = useDepartments(orgId);
+  const { data: members = [] } = useOrgMembersFull(orgId);
+  const { data: deptMembers = [] } = useDepartmentMembers(orgId);
+  const addMember = useAddDepartmentMember();
+  const updateRole = useUpdateDepartmentMemberRole();
+  const removeMember = useRemoveDepartmentMember();
+
+  const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [addUser, setAddUser] = useState('');
+  const [addRole, setAddRole] = useState<'manager' | 'operator'>('operator');
+
+  const activeDept = selectedDept ?? departments[0]?.id ?? null;
+  const rows = deptMembers.filter((dm) => dm.department_id === activeDept);
+  const memberMap = new Map(members.map((m) => [m.user_id, m]));
+  const available = members.filter((m) => !rows.some((r) => r.user_id === m.user_id));
+
+  return (
+    <div className="grid md:grid-cols-[240px_1fr] gap-4">
+      <aside className="border rounded-lg p-2 max-h-[60vh] overflow-y-auto">
+        <p className="px-2 py-1.5 text-xs uppercase text-muted-foreground font-medium">Setores</p>
+        <ul className="space-y-0.5">
+          {departments.map((d) => (
+            <li key={d.id}>
+              <button
+                onClick={() => setSelectedDept(d.id)}
+                className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 ${activeDept === d.id ? 'bg-accent' : 'hover:bg-accent/50'}`}
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+                {d.name}
+                <Badge variant="secondary" className="ml-auto text-[10px]">
+                  {deptMembers.filter((dm) => dm.department_id === d.id).length}
+                </Badge>
+              </button>
+            </li>
+          ))}
+          {departments.length === 0 && <li className="text-xs text-muted-foreground p-2 text-center">Nenhum setor</li>}
+        </ul>
+      </aside>
+
+      <section className="border rounded-lg p-4">
+        {!activeDept ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Crie um setor primeiro.</p>
+        ) : (
+          <>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-1">{departments.find((d) => d.id === activeDept)?.name}</h3>
+              <p className="text-xs text-muted-foreground">Gerentes podem coordenar o setor. Operadores atuam nele. Uma pessoa pode estar em vários setores.</p>
+            </div>
+
+            {canEdit && (
+              <div className="flex flex-col sm:flex-row gap-2 mb-4 p-3 bg-muted/30 rounded-md">
+                <Select value={addUser} onValueChange={setAddUser}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Selecionar pessoa" /></SelectTrigger>
+                  <SelectContent>
+                    {available.map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>{m.full_name || m.user_id.slice(0, 8)}</SelectItem>
+                    ))}
+                    {available.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Todos já adicionados</div>}
+                  </SelectContent>
+                </Select>
+                <Select value={addRole} onValueChange={(v: 'manager' | 'operator') => setAddRole(v)}>
+                  <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manager">Gerente</SelectItem>
+                    <SelectItem value="operator">Operador</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  disabled={!addUser || !activeDept}
+                  onClick={() => {
+                    if (!addUser || !activeDept) return;
+                    addMember.mutate(
+                      { department_id: activeDept, user_id: addUser, role: addRole },
+                      {
+                        onSuccess: () => { toast.success('Adicionado'); setAddUser(''); },
+                        onError: (e: any) => toast.error(e?.message ?? 'Erro'),
+                      },
+                    );
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Adicionar
+                </Button>
+              </div>
+            )}
+
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-medium">Pessoa</th>
+                    <th className="px-3 py-2 font-medium">Papel no setor</th>
+                    <th className="px-3 py-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const p = memberMap.get(r.user_id);
+                    const initials = (p?.full_name ?? '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+                    return (
+                      <tr key={r.id} className="border-t">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7">
+                              {p?.avatar_url && <AvatarImage src={p.avatar_url} alt="" />}
+                              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                            </Avatar>
+                            <span>{p?.full_name || 'Sem nome'}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Select
+                            disabled={!canEdit}
+                            value={r.role}
+                            onValueChange={(v: 'manager' | 'operator') => updateRole.mutate({ id: r.id, role: v }, {
+                              onSuccess: () => toast.success('Atualizado'),
+                              onError: () => toast.error('Erro'),
+                            })}
+                          >
+                            <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="manager">Gerente</SelectItem>
+                              <SelectItem value="operator">Operador</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-3 py-2">
+                          {canEdit && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                              onClick={() => removeMember.mutate(r.id, {
+                                onSuccess: () => toast.success('Removido'),
+                                onError: () => toast.error('Erro'),
+                              })}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {rows.length === 0 && (
+                    <tr><td colSpan={3} className="px-3 py-6 text-center text-muted-foreground text-sm">Nenhuma pessoa atribuída</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
