@@ -38,18 +38,20 @@ export interface TicketComment {
 
 export function useIsITSupport() {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
   return useQuery({
-    queryKey: ['is-it-support', user?.id],
+    queryKey: ['is-it-support', user?.id, currentOrg?.id],
     queryFn: async () => {
-      if (!user) return false;
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', ['it_support', 'admin']);
-      return (data?.length ?? 0) > 0;
+      if (!user || !currentOrg) return false;
+      // Admin/diretor sempre é considerado TI; senão verifica se é membro do dept TI
+      const { data: roles } = await supabase
+        .from('user_roles').select('role').eq('user_id', user.id)
+        .in('role', ['admin', 'director', 'it_support']);
+      if ((roles?.length ?? 0) > 0) return true;
+      const ids = await getITMemberIds(currentOrg.id);
+      return ids.includes(user.id);
     },
-    enabled: !!user,
+    enabled: !!user && !!currentOrg,
   });
 }
 
