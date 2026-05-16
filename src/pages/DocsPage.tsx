@@ -203,7 +203,7 @@ export default function DocsPage() {
             </button>
             )
           ) : grouped.map((g) => {
-            const isOpen = !collapsed.has(g.id);
+            const isOpen = !!search || !collapsed.has(g.id);
             return (
               <div key={g.id}>
                 <button
