@@ -474,3 +474,110 @@ function TimelineView({
     </Card>
   );
 }
+
+function AgendaView({
+  events, onEventClick, onNew,
+}: {
+  events: AnnualEvent[];
+  onEventClick: (e: AnnualEvent) => void;
+  onNew: () => void;
+}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const horizon = new Date(today);
+  horizon.setDate(horizon.getDate() + 30);
+
+  const upcoming = useMemo(() => {
+    return events
+      .map(e => {
+        const start = new Date(e.start_date + 'T00:00:00');
+        const end = e.end_date ? new Date(e.end_date + 'T00:00:00') : start;
+        return { e, start, end };
+      })
+      .filter(({ start, end }) => end >= today && start <= horizon)
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [events]);
+
+  // Group by day key (yyyy-mm-dd of the effective day in the window)
+  const groups = useMemo(() => {
+    const map = new Map<string, { date: Date; items: typeof upcoming }>();
+    upcoming.forEach(item => {
+      const effective = item.start < today ? today : item.start;
+      const key = effective.toISOString().split('T')[0];
+      if (!map.has(key)) map.set(key, { date: effective, items: [] });
+      map.get(key)!.items.push(item);
+    });
+    return Array.from(map.values());
+  }, [upcoming]);
+
+  if (upcoming.length === 0) {
+    return (
+      <Card className="p-10 text-center">
+        <CalendarRange className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+        <p className="text-sm text-muted-foreground mb-3">Nada nos próximos 30 dias</p>
+        <Button size="sm" onClick={onNew}><Plus className="h-4 w-4 mr-1" /> Novo evento</Button>
+      </Card>
+    );
+  }
+
+  const dayLabel = (d: Date) => {
+    const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+    if (diff === 0) return 'Hoje';
+    if (diff === 1) return 'Amanhã';
+    return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' });
+  };
+
+  return (
+    <div className="space-y-3">
+      {groups.map(({ date, items }) => {
+        const key = date.toISOString().split('T')[0];
+        const isToday = key === today.toISOString().split('T')[0];
+        return (
+          <Card key={key} className={cn('p-4', isToday && 'ring-1 ring-primary/40 bg-primary/[0.02]')}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center justify-center w-12 h-12 rounded-md bg-muted/60 shrink-0">
+                  <span className="text-[10px] uppercase text-muted-foreground">
+                    {date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                  </span>
+                  <span className="text-base font-semibold leading-none">{date.getDate()}</span>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold capitalize">{dayLabel(date)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {items.length} evento{items.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {items.map(({ e, start, end }) => {
+                const isRange = e.end_date && end.getTime() !== start.getTime();
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => onEventClick(e)}
+                    className="w-full flex items-start gap-3 p-2.5 rounded-md hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <div className="h-2.5 w-2.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: e.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{e.title}</div>
+                      {e.description && (
+                        <div className="text-xs text-muted-foreground line-clamp-1">{e.description}</div>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground shrink-0 text-right">
+                      {isRange
+                        ? `até ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`
+                        : start.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
