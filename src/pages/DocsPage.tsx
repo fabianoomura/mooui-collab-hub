@@ -149,6 +149,80 @@ export default function DocsPage() {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Selecione uma organização</div>;
   }
 
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-3 border-b">
+        <h2 className="text-sm font-semibold">Documentação</h2>
+        <Button size="sm" variant="ghost" onClick={() => { setShowNew(true); setSidebarOpen(false); }}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-1">
+          {grouped.length === 0 || pages.length === 0 ? (
+            <button
+              onClick={() => { setShowNew(true); setSidebarOpen(false); }}
+              className="w-full text-left text-sm text-muted-foreground p-3 rounded-md hover:bg-accent flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" /> Criar primeira página
+            </button>
+          ) : grouped.map((g) => {
+            const isOpen = !collapsed.has(g.id);
+            return (
+              <div key={g.id}>
+                <button
+                  onClick={() => toggleGroup(g.id)}
+                  className="w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                >
+                  {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  <Folder className="h-3.5 w-3.5" style={{ color: g.color }} />
+                  <span className="font-semibold">{g.name}</span>
+                  <span className="ml-auto text-[10px]">{g.pages.length}</span>
+                </button>
+                {isOpen && (
+                  <div className="ml-2">
+                    {g.pages.map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={() => { setSelectedId(p.id); setSidebarOpen(false); }}
+                        className={cn(
+                          'group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
+                          selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
+                        )}
+                      >
+                        <span className="text-base leading-none">{p.icon || '📄'}</span>
+                        <span className="truncate flex-1">{p.title || 'Sem título'}</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button onClick={(e) => e.stopPropagation()}
+                              className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background">
+                              <MoreHorizontal className="h-3 w-3" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => handleDelete(p.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ))}
+                    {g.pages.length === 0 && (
+                      <div className="px-2 py-1 text-xs text-muted-foreground italic">Sem páginas</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
       <aside className="hidden md:flex w-72 border-r bg-card flex-col">
