@@ -79,6 +79,9 @@ export default function SettingsPage() {
             <TabsContent value="departments" className="mt-6">
               <DepartmentsTab orgId={currentOrg.id} canEdit={isAdmin} />
             </TabsContent>
+            <TabsContent value="teams" className="mt-6">
+              <DepartmentTeamsTab orgId={currentOrg.id} canEdit={isAdmin} />
+            </TabsContent>
             <TabsContent value="permissions" className="mt-6">
               <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 <PermissionsTab orgId={currentOrg.id} canEdit={isAdmin} />
