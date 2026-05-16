@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Timer, Loader2, Calendar } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PromptDialog } from '@/components/PromptDialog';
 
 export default function SprintsPage() {
   const { user } = useAuth();
