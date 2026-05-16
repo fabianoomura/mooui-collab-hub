@@ -268,7 +268,7 @@ export default function DocsPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Sem título"
-              className="text-3xl sm:text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
+              className="text-2xl sm:text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
             />
             <MarkdownEditor
               value={content}
