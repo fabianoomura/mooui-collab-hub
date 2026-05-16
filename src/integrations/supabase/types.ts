@@ -1504,6 +1504,12 @@ export type Database = {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
       }
+      get_dept_member_ids: {
+        Args: { _dept_name: string; _org_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       get_or_create_dm: {
         Args: { _org_id: string; _other_user_id: string }
         Returns: string
