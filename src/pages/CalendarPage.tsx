@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Search, LayoutGrid, GanttChart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Search, LayoutGrid, GanttChart, CalendarRange } from 'lucide-react';
 import {
   useAnnualEvents, useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent,
 } from '@/hooks/useAnnualEvents';
