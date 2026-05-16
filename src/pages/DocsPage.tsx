@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
+import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 import {
@@ -69,6 +69,8 @@ export default function DocsPage() {
   const [showNew, setShowNew] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   const selected = pages.find((p) => p.id === selectedId);
 
@@ -82,8 +84,10 @@ export default function DocsPage() {
 
   // Group pages by department
   const grouped = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q)) : pages;
     const byDept = new Map<string, DocPage[]>();
-    pages.forEach((p) => {
+    filtered.forEach((p) => {
       const k = p.department_id ?? '__none__';
       if (!byDept.has(k)) byDept.set(k, []);
       byDept.get(k)!.push(p);
@@ -91,11 +95,12 @@ export default function DocsPage() {
     byDept.forEach((arr) => arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR')));
     const groups = departments
       .map((d) => ({ id: d.id, name: d.name, color: d.color, pages: byDept.get(d.id) ?? [] }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      .filter((g) => !q || g.pages.length > 0);
     const orphan = byDept.get('__none__') ?? [];
     if (orphan.length) groups.push({ id: '__none__', name: 'Sem setor', color: '#9CA3AF', pages: orphan });
     return groups;
-  }, [pages, departments]);
+  }, [pages, departments, search]);
 
   useEffect(() => {
     if (!selectedId && pages.length > 0) setSelectedId(pages[0].id);
@@ -112,10 +117,18 @@ export default function DocsPage() {
   // autosave
   useEffect(() => {
     if (!selected) return;
-    if (title === selected.title && content === (selected.content || '') && icon === (selected.icon || '📄')) return;
+    if (title === selected.title && content === (selected.content || '') && icon === (selected.icon || '📄')) {
+      setSaveState('idle');
+      return;
+    }
+    setSaveState('saving');
     const t = setTimeout(() => {
       updatePage.mutate({ id: selected.id, title, content, icon }, {
-        onError: () => toast.error('Sem permissão para editar este documento'),
+        onSuccess: () => {
+          setSaveState('saved');
+          setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500);
+        },
+        onError: () => { setSaveState('idle'); toast.error('Sem permissão para editar este documento'); },
       });
     }, 700);
     return () => clearTimeout(t);
@@ -156,17 +169,41 @@ export default function DocsPage() {
           <Plus className="h-4 w-4" />
         </Button>
       </div>
+      <div className="px-3 py-2 border-b">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar páginas…"
+            className="h-8 pl-7 pr-7 text-sm"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Limpar"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
           {grouped.length === 0 || pages.length === 0 ? (
+            search ? (
+              <p className="text-xs text-muted-foreground p-3">Nenhuma página corresponde a "{search}"</p>
+            ) : (
             <button
               onClick={() => { setShowNew(true); setSidebarOpen(false); }}
               className="w-full text-left text-sm text-muted-foreground p-3 rounded-md hover:bg-accent flex items-center gap-2"
             >
               <Plus className="h-4 w-4" /> Criar primeira página
             </button>
+            )
           ) : grouped.map((g) => {
-            const isOpen = !collapsed.has(g.id);
+            const isOpen = !!search || !collapsed.has(g.id);
             return (
               <div key={g.id}>
                 <button
@@ -258,11 +295,23 @@ export default function DocsPage() {
                 })}
               />
             </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Criado em {format(new Date(selected.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-              {' · '}
-              Atualizado {formatDistanceToNow(new Date(selected.updated_at), { addSuffix: true, locale: ptBR })}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-4">
+              <span>
+                Criado em {format(new Date(selected.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                {' · '}
+                Atualizado {formatDistanceToNow(new Date(selected.updated_at), { addSuffix: true, locale: ptBR })}
+              </span>
+              {saveState === 'saving' && (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
+                </span>
+              )}
+              {saveState === 'saved' && (
+                <span className="inline-flex items-center gap-1 text-green-600">
+                  <Check className="h-3 w-3" /> Salvo
+                </span>
+              )}
+            </div>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
