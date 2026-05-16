@@ -49,10 +49,9 @@ export default function SprintsPage() {
     },
   });
 
-  const handleCreate = () => {
-    const name = prompt('Nome da sprint:');
-    if (name?.trim()) createSprint.mutate(name.trim());
-  };
+  const [showNew, setShowNew] = useState(false);
+
+  const handleCreate = () => setShowNew(true);
 
   return (
     <div className="space-y-6">
