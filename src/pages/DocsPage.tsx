@@ -69,7 +69,6 @@ export default function DocsPage() {
   const [showNew, setShowNew] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isMobile = useIsMobile();
 
   const selected = pages.find((p) => p.id === selectedId);
 
