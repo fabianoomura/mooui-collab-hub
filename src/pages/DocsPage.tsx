@@ -69,6 +69,8 @@ export default function DocsPage() {
   const [showNew, setShowNew] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   const selected = pages.find((p) => p.id === selectedId);
 
