@@ -406,16 +406,18 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
                     <Select
                       disabled={!canEdit}
                       value={m.app_role}
-                      onValueChange={(v: 'admin' | 'manager' | 'member') => updateAppRole.mutate({ user_id: m.user_id, role: v }, {
+                      onValueChange={(v: any) => updateAppRole.mutate({ user_id: m.user_id, role: v }, {
                         onSuccess: () => toast.success('Permissão atualizada'),
                         onError: () => toast.error('Erro — apenas admins do sistema podem alterar'),
                       })}
                     >
                       <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="member">Member</SelectItem>
+                        <SelectItem value="admin">Admin (Master)</SelectItem>
+                        <SelectItem value="director">Diretor</SelectItem>
+                        <SelectItem value="manager">Gerente</SelectItem>
+                        <SelectItem value="operator">Operador</SelectItem>
+                        <SelectItem value="member">Membro</SelectItem>
                       </SelectContent>
                     </Select>
                   </td>
