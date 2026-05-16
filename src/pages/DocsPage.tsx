@@ -295,11 +295,23 @@ export default function DocsPage() {
                 })}
               />
             </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Criado em {format(new Date(selected.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-              {' · '}
-              Atualizado {formatDistanceToNow(new Date(selected.updated_at), { addSuffix: true, locale: ptBR })}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-4">
+              <span>
+                Criado em {format(new Date(selected.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                {' · '}
+                Atualizado {formatDistanceToNow(new Date(selected.updated_at), { addSuffix: true, locale: ptBR })}
+              </span>
+              {saveState === 'saving' && (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Salvando…
+                </span>
+              )}
+              {saveState === 'saved' && (
+                <span className="inline-flex items-center gap-1 text-green-600">
+                  <Check className="h-3 w-3" /> Salvo
+                </span>
+              )}
+            </div>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
