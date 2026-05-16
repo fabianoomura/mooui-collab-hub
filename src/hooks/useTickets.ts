@@ -2,6 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { notifyUser } from '@/hooks/useNotifications';
+
+async function getITMemberIds(orgId: string): Promise<string[]> {
+  const { data } = await supabase.rpc('get_dept_member_ids', { _org_id: orgId, _dept_name: 'TI' });
+  return (data || []).map((r: any) => r.user_id);
+}
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
