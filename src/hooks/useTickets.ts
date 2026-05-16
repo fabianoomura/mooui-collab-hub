@@ -2,6 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { notifyUser } from '@/hooks/useNotifications';
+
+async function getITMemberIds(orgId: string): Promise<string[]> {
+  const { data } = await supabase.rpc('get_dept_member_ids', { _org_id: orgId, _dept_name: 'TI' });
+  return (data || []).map((r: any) => r.user_id);
+}
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -32,18 +38,20 @@ export interface TicketComment {
 
 export function useIsITSupport() {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
   return useQuery({
-    queryKey: ['is-it-support', user?.id],
+    queryKey: ['is-it-support', user?.id, currentOrg?.id],
     queryFn: async () => {
-      if (!user) return false;
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', ['it_support', 'admin']);
-      return (data?.length ?? 0) > 0;
+      if (!user || !currentOrg) return false;
+      // Admin/diretor sempre é considerado TI; senão verifica se é membro do dept TI
+      const { data: roles } = await supabase
+        .from('user_roles').select('role').eq('user_id', user.id)
+        .in('role', ['admin', 'director', 'it_support']);
+      if ((roles?.length ?? 0) > 0) return true;
+      const ids = await getITMemberIds(currentOrg.id);
+      return ids.includes(user.id);
     },
-    enabled: !!user,
+    enabled: !!user && !!currentOrg,
   });
 }
 
@@ -104,6 +112,21 @@ export function useCreateTicket() {
         status: 'open',
       }).select().single();
       if (error) throw error;
+      // Notifica equipe de TI (exceto o próprio autor)
+      try {
+        const itIds = await getITMemberIds(currentOrg.id);
+        await Promise.all(
+          itIds.filter(id => id !== user.id).map(id =>
+            notifyUser({
+              userId: id,
+              type: 'ticket_new',
+              title: `Novo ticket: ${input.title}`,
+              message: `Prioridade ${input.priority} • categoria ${input.category}`,
+              link: '/tickets',
+            })
+          )
+        );
+      } catch (e) { console.warn('ticket notify failed', e); }
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
@@ -111,6 +134,7 @@ export function useCreateTicket() {
 }
 
 export function useUpdateTicket() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Ticket> & { id: string }) => {
@@ -118,8 +142,32 @@ export function useUpdateTicket() {
       if (patch.status === 'resolved' && !patch.resolved_at) {
         update.resolved_at = new Date().toISOString();
       }
+      // Buscar estado anterior para detectar mudanças
+      const { data: before } = await supabase.from('tickets')
+        .select('title, created_by, assigned_to, status').eq('id', id).single();
       const { error } = await supabase.from('tickets').update(update).eq('id', id);
       if (error) throw error;
+      try {
+        // Notifica novo responsável
+        if (patch.assigned_to && before && patch.assigned_to !== before.assigned_to && patch.assigned_to !== user?.id) {
+          await notifyUser({
+            userId: patch.assigned_to,
+            type: 'ticket_assigned',
+            title: `Ticket atribuído a você: ${before.title}`,
+            link: '/tickets',
+          });
+        }
+        // Notifica autor sobre mudança de status
+        if (patch.status && before && patch.status !== before.status && before.created_by !== user?.id) {
+          await notifyUser({
+            userId: before.created_by,
+            type: 'ticket_status',
+            title: `Seu ticket mudou para "${patch.status}"`,
+            message: before.title,
+            link: '/tickets',
+          });
+        }
+      } catch (e) { console.warn('ticket update notify failed', e); }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
   });
@@ -148,6 +196,23 @@ export function useAddTicketComment() {
         content,
       });
       if (error) throw error;
+      // Notifica o autor e o responsável (exceto o próprio comentarista)
+      try {
+        const { data: t } = await supabase.from('tickets')
+          .select('title, created_by, assigned_to').eq('id', ticketId).single();
+        if (t) {
+          const targets = new Set<string>();
+          if (t.created_by !== user.id) targets.add(t.created_by);
+          if (t.assigned_to && t.assigned_to !== user.id) targets.add(t.assigned_to);
+          await Promise.all([...targets].map(id => notifyUser({
+            userId: id,
+            type: 'ticket_comment',
+            title: `Novo comentário em "${t.title}"`,
+            message: content.slice(0, 80),
+            link: '/tickets',
+          })));
+        }
+      } catch (e) { console.warn('comment notify failed', e); }
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['ticket-comments', vars.ticketId] });
