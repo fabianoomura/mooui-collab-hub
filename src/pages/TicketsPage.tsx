@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, ArrowLeft } from 'lucide-react';
+import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, ArrowLeft, Search, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +66,10 @@ export default function TicketsPage() {
   const [filter, setFilter] = useState<'all' | TicketStatus>('all');
   const [showNew, setShowNew] = useState(false);
   const [openTicket, setOpenTicket] = useState<Ticket | null>(null);
+  const [search, setSearch] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | TicketPriority>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | TicketCategory>('all');
+  const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
 
   // New ticket form
   const [nTitle, setNTitle] = useState('');
@@ -125,14 +129,24 @@ export default function TicketsPage() {
     enabled: !!currentOrg && isIT,
   });
 
-  const filtered = tickets.filter(t => filter === 'all' ? true : t.status === filter);
+  const q = search.trim().toLowerCase();
+  const baseFiltered = tickets.filter(t => {
+    if (scope === 'mine' && t.created_by !== user?.id) return false;
+    if (scope === 'assigned' && t.assigned_to !== user?.id) return false;
+    if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+    if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+    if (q && !(t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const filtered = baseFiltered.filter(t => filter === 'all' ? true : t.status === filter);
   const counts = {
-    all: tickets.length,
-    open: tickets.filter(t => t.status === 'open').length,
-    in_progress: tickets.filter(t => t.status === 'in_progress').length,
-    resolved: tickets.filter(t => t.status === 'resolved').length,
-    closed: tickets.filter(t => t.status === 'closed').length,
+    all: baseFiltered.length,
+    open: baseFiltered.filter(t => t.status === 'open').length,
+    in_progress: baseFiltered.filter(t => t.status === 'in_progress').length,
+    resolved: baseFiltered.filter(t => t.status === 'resolved').length,
+    closed: baseFiltered.filter(t => t.status === 'closed').length,
   };
+  const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -162,6 +176,55 @@ export default function TicketsPage() {
           <Plus className="h-4 w-4 mr-1.5" />
           Novo ticket
         </Button>
+      </div>
+
+      {/* Busca + filtros */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por título ou descrição…"
+            className="pl-8 h-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={scope} onValueChange={(v) => setScope(v as any)}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="mine">Meus tickets</SelectItem>
+              <SelectItem value="assigned">Atribuídos a mim</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer prioridade</SelectItem>
+              {(Object.keys(priorityLabels) as TicketPriority[]).map(k => (
+                <SelectItem key={k} value={k}>{priorityLabels[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer categoria</SelectItem>
+              {(Object.keys(categoryLabels) as TicketCategory[]).map(k => (
+                <SelectItem key={k} value={k}>{categoryLabels[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {activeChips > 0 && (
+            <Button
+              variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
+              onClick={() => { setSearch(''); setPriorityFilter('all'); setCategoryFilter('all'); setScope('all'); }}
+            >
+              <X className="h-3.5 w-3.5 mr-1" />Limpar
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
