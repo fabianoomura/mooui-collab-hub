@@ -125,6 +125,16 @@ export default function SprintsPage() {
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={showNew}
+        title="Nova sprint"
+        label="Nome"
+        placeholder="Ex.: Sprint 1"
+        confirmLabel="Criar"
+        onCancel={() => setShowNew(false)}
+        onSubmit={(name) => { createSprint.mutate(name); setShowNew(false); }}
+      />
     </div>
   );
 }
