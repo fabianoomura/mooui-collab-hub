@@ -23,15 +23,23 @@ const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 8h..19h
 export default function RoomsPage() {
   const { currentOrg, isAdmin } = useOrganization();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { data: rooms = [] } = useMeetingRooms(currentOrg?.id);
   const [roomId, setRoomId] = useState<string>('__all__');
+  const [view, setView] = useState<'week' | 'day'>(isMobile ? 'day' : 'week');
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [day, setDay] = useState<Date>(startOfDay(new Date()));
   const [showManage, setShowManage] = useState(false);
   const [showBooking, setShowBooking] = useState(false);
   const [presetStart, setPresetStart] = useState<Date | undefined>();
   const [presetRoom, setPresetRoom] = useState<string | undefined>();
 
-  const range = useMemo(() => ({ from: weekStart, to: addDays(weekStart, 7) }), [weekStart]);
+  const range = useMemo(
+    () => view === 'week'
+      ? { from: weekStart, to: addDays(weekStart, 7) }
+      : { from: day, to: addDays(day, 1) },
+    [view, weekStart, day],
+  );
   const { data: bookings = [] } = useRoomBookings(currentOrg?.id, roomId === '__all__' ? undefined : roomId, range);
   const delBooking = useDeleteBooking();
 
