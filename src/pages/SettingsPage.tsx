@@ -13,6 +13,10 @@ import {
   useUpdateAppRole,
   useRemoveOrgMember,
   useCreateOrgUser,
+  useDepartmentMembers,
+  useAddDepartmentMember,
+  useUpdateDepartmentMemberRole,
+  useRemoveDepartmentMember,
 } from '@/hooks/useOrgSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
