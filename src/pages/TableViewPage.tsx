@@ -15,6 +15,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
 import { LabelEditorDialog, type LabelOption } from '@/components/table/LabelEditor';
+import { PromptDialog } from '@/components/PromptDialog';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
