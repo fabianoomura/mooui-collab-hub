@@ -382,18 +382,30 @@ function TicketDetail({
               </div>
               <div>
                 <Label className="text-xs">Atribuir a</Label>
-                <Select
-                  value={ticket.assigned_to || 'none'}
-                  onValueChange={(v) => onUpdate({ assigned_to: v === 'none' ? null : v })}
-                >
-                  <SelectTrigger><SelectValue placeholder="Ninguém" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Ninguém</SelectItem>
-                    {itMembers.map(m => (
-                      <SelectItem key={m.id} value={m.id}>{m.full_name || 'Sem nome'}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1.5">
+                  <Select
+                    value={ticket.assigned_to || 'none'}
+                    onValueChange={(v) => onUpdate({ assigned_to: v === 'none' ? null : v })}
+                  >
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Ninguém" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ninguém</SelectItem>
+                      {itMembers.map(m => (
+                        <SelectItem key={m.id} value={m.id}>{m.full_name || 'Sem nome'}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {user && ticket.assigned_to !== user.id && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onUpdate({ assigned_to: user.id, status: ticket.status === 'open' ? 'in_progress' : ticket.status })}
+                      title="Pegar pra mim"
+                    >
+                      Pegar
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <Label className="text-xs">Prioridade</Label>
