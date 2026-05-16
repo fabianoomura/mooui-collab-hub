@@ -134,6 +134,7 @@ export function useCreateTicket() {
 }
 
 export function useUpdateTicket() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Ticket> & { id: string }) => {
@@ -141,8 +142,32 @@ export function useUpdateTicket() {
       if (patch.status === 'resolved' && !patch.resolved_at) {
         update.resolved_at = new Date().toISOString();
       }
+      // Buscar estado anterior para detectar mudanças
+      const { data: before } = await supabase.from('tickets')
+        .select('title, created_by, assigned_to, status').eq('id', id).single();
       const { error } = await supabase.from('tickets').update(update).eq('id', id);
       if (error) throw error;
+      try {
+        // Notifica novo responsável
+        if (patch.assigned_to && before && patch.assigned_to !== before.assigned_to && patch.assigned_to !== user?.id) {
+          await notifyUser({
+            userId: patch.assigned_to,
+            type: 'ticket_assigned',
+            title: `Ticket atribuído a você: ${before.title}`,
+            link: '/tickets',
+          });
+        }
+        // Notifica autor sobre mudança de status
+        if (patch.status && before && patch.status !== before.status && before.created_by !== user?.id) {
+          await notifyUser({
+            userId: before.created_by,
+            type: 'ticket_status',
+            title: `Seu ticket mudou para "${patch.status}"`,
+            message: before.title,
+            link: '/tickets',
+          });
+        }
+      } catch (e) { console.warn('ticket update notify failed', e); }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
   });
