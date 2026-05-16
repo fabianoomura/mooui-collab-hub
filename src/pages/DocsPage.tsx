@@ -231,9 +231,17 @@ export default function DocsPage() {
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="p-0 w-[85vw] max-w-xs">{sidebarContent}</SheetContent>
       </Sheet>
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto min-w-0">
+        <div className="md:hidden sticky top-0 z-10 flex items-center gap-2 px-3 py-2 border-b bg-background/95 backdrop-blur">
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setSidebarOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+          <span className="text-sm font-medium truncate">
+            {selected ? `${selected.icon || '📄'} ${selected.title || 'Sem título'}` : 'Documentação'}
+          </span>
+        </div>
         {selected ? (
-          <div className="max-w-3xl mx-auto px-6 sm:px-12 py-8 sm:py-12">
+          <div className="max-w-3xl mx-auto px-4 sm:px-12 py-6 sm:py-12">
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <IconPicker value={icon} onChange={setIcon} />
               <div className="flex-1 min-w-[200px] flex flex-wrap gap-x-4 gap-y-1">
