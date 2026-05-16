@@ -62,6 +62,7 @@ export default function SettingsPage() {
           <TabsTrigger value="profile"><UserIcon className="h-4 w-4 mr-2" />Meu perfil</TabsTrigger>
           {isAdmin && <TabsTrigger value="users"><UsersIcon className="h-4 w-4 mr-2" />Usuários</TabsTrigger>}
           {isAdmin && <TabsTrigger value="departments"><Building2 className="h-4 w-4 mr-2" />Setores & Cargos</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="teams"><UsersIcon className="h-4 w-4 mr-2" />Equipes de setor</TabsTrigger>}
           {isAdmin && <TabsTrigger value="permissions"><Shield className="h-4 w-4 mr-2" />Permissões</TabsTrigger>}
         </TabsList>
 
