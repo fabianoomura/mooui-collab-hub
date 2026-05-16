@@ -8,6 +8,7 @@ import {
   useChannels,
   useDmChannels,
   useOrgMembers,
+  useReachableMembers,
   useOpenDm,
   useCreateChannel,
   useDeleteChannel,
