@@ -195,6 +195,38 @@ export type Database = {
         }
         Relationships: []
       }
+      department_members: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "org_departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doc_pages: {
         Row: {
           can_delete_roles: Database["public"]["Enums"]["app_role"][]
@@ -1485,6 +1517,10 @@ export type Database = {
       }
       is_channel_member: {
         Args: { _channel_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_dept_manager: {
+        Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
       is_it_support: { Args: { _user_id: string }; Returns: boolean }
