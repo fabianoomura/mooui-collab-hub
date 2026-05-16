@@ -307,37 +307,70 @@ function ColumnHeaderMenu({ column, onRename, onDelete }: { column: ProjectColum
 // Add column button with type picker
 function AddColumnButton({ onAdd }: { onAdd: (name: string, type: ColumnType) => void }) {
   const [open, setOpen] = useState(false);
+  const [pickedType, setPickedType] = useState<ColumnType | null>(null);
+  const [name, setName] = useState('');
   const types: ColumnType[] = ['status', 'texto', 'pessoas', 'cronograma', 'data', 'tags', 'numeros'];
 
-  const handleSelect = (type: ColumnType) => {
-    const name = prompt(`Nome da coluna (${columnTypeLabels[type]}):`);
-    if (name?.trim()) {
-      onAdd(name.trim(), type);
-      setOpen(false);
-    }
+  const reset = () => { setPickedType(null); setName(''); };
+
+  const submit = () => {
+    const n = name.trim();
+    if (!n || !pickedType) return;
+    onAdd(n, pickedType);
+    reset();
+    setOpen(false);
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <PopoverTrigger asChild>
         <button className="px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors flex items-center justify-center" title="Adicionar Coluna">
           <Plus className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-2" align="start">
-        <p className="text-xs font-semibold text-muted-foreground mb-2 px-2">Adicionar Coluna</p>
-        {types.map(type => {
-          const Icon = columnTypeIcons[type];
-          return (
-            <button
-              key={type}
-              className="w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent flex items-center gap-2"
-              onClick={() => handleSelect(type)}
-            >
-              <Icon className="h-3.5 w-3.5" /> {columnTypeLabels[type]}
-            </button>
-          );
-        })}
+      <PopoverContent className="w-56 p-2" align="start" onClick={(e) => e.stopPropagation()}>
+        {!pickedType ? (
+          <>
+            <p className="text-xs font-semibold text-muted-foreground mb-2 px-2">Adicionar Coluna</p>
+            {types.map(type => {
+              const Icon = columnTypeIcons[type];
+              return (
+                <button
+                  key={type}
+                  className="w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent flex items-center gap-2"
+                  onClick={() => setPickedType(type)}
+                >
+                  <Icon className="h-3.5 w-3.5" /> {columnTypeLabels[type]}
+                </button>
+              );
+            })}
+          </>
+        ) : (
+          <div className="space-y-2 p-1">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Nome ({columnTypeLabels[pickedType]})
+            </p>
+            <Input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); submit(); }
+                if (e.key === 'Escape') { reset(); }
+              }}
+              placeholder="Nome da coluna…"
+              className="h-8 text-xs"
+            />
+            <div className="flex items-center gap-1">
+              <Button size="sm" className="h-7 px-2 text-xs" onClick={submit} disabled={!name.trim()}>
+                Adicionar
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={reset}>
+                Voltar
+              </Button>
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
