@@ -196,6 +196,23 @@ export function useAddTicketComment() {
         content,
       });
       if (error) throw error;
+      // Notifica o autor e o responsável (exceto o próprio comentarista)
+      try {
+        const { data: t } = await supabase.from('tickets')
+          .select('title, created_by, assigned_to').eq('id', ticketId).single();
+        if (t) {
+          const targets = new Set<string>();
+          if (t.created_by !== user.id) targets.add(t.created_by);
+          if (t.assigned_to && t.assigned_to !== user.id) targets.add(t.assigned_to);
+          await Promise.all([...targets].map(id => notifyUser({
+            userId: id,
+            type: 'ticket_comment',
+            title: `Novo comentário em "${t.title}"`,
+            message: content.slice(0, 80),
+            link: '/tickets',
+          })));
+        }
+      } catch (e) { console.warn('comment notify failed', e); }
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['ticket-comments', vars.ticketId] });
