@@ -169,15 +169,39 @@ export default function DocsPage() {
           <Plus className="h-4 w-4" />
         </Button>
       </div>
+      <div className="px-3 py-2 border-b">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar páginas…"
+            className="h-8 pl-7 pr-7 text-sm"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Limpar"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
           {grouped.length === 0 || pages.length === 0 ? (
+            search ? (
+              <p className="text-xs text-muted-foreground p-3">Nenhuma página corresponde a "{search}"</p>
+            ) : (
             <button
               onClick={() => { setShowNew(true); setSidebarOpen(false); }}
               className="w-full text-left text-sm text-muted-foreground p-3 rounded-md hover:bg-accent flex items-center gap-2"
             >
               <Plus className="h-4 w-4" /> Criar primeira página
             </button>
+            )
           ) : grouped.map((g) => {
             const isOpen = !collapsed.has(g.id);
             return (
