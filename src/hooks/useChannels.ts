@@ -117,6 +117,41 @@ export function useOrgMembers(orgId: string | undefined) {
   });
 }
 
+// Todos os colegas alcançáveis (qualquer org que eu participo), com label da org
+export function useReachableMembers() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['reachable-members', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data: mine } = await supabase
+        .from('organization_members').select('organization_id').eq('user_id', user.id);
+      const orgIds = (mine || []).map((m: any) => m.organization_id);
+      if (orgIds.length === 0) return [];
+      const { data: peers } = await supabase
+        .from('organization_members').select('user_id, organization_id').in('organization_id', orgIds);
+      const { data: orgs } = await supabase
+        .from('organizations').select('id, name').in('id', orgIds);
+      const orgName = new Map((orgs || []).map((o: any) => [o.id, o.name]));
+      const byUser = new Map<string, Set<string>>();
+      (peers || []).forEach((p: any) => {
+        if (p.user_id === user.id) return;
+        if (!byUser.has(p.user_id)) byUser.set(p.user_id, new Set());
+        byUser.get(p.user_id)!.add(orgName.get(p.organization_id) || '');
+      });
+      const ids = [...byUser.keys()];
+      if (ids.length === 0) return [];
+      const { data: profiles } = await supabase
+        .from('profiles').select('id, full_name, avatar_url').in('id', ids);
+      return (profiles || []).map((p: any) => ({
+        ...p,
+        orgs: [...(byUser.get(p.id) || [])].filter(Boolean),
+      })) as Array<{ id: string; full_name: string | null; avatar_url: string | null; orgs: string[] }>;
+    },
+    enabled: !!user,
+  });
+}
+
 export function useOpenDm() {
   const queryClient = useQueryClient();
   return useMutation({
