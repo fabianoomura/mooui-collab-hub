@@ -117,10 +117,18 @@ export default function DocsPage() {
   // autosave
   useEffect(() => {
     if (!selected) return;
-    if (title === selected.title && content === (selected.content || '') && icon === (selected.icon || '📄')) return;
+    if (title === selected.title && content === (selected.content || '') && icon === (selected.icon || '📄')) {
+      setSaveState('idle');
+      return;
+    }
+    setSaveState('saving');
     const t = setTimeout(() => {
       updatePage.mutate({ id: selected.id, title, content, icon }, {
-        onError: () => toast.error('Sem permissão para editar este documento'),
+        onSuccess: () => {
+          setSaveState('saved');
+          setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 1500);
+        },
+        onError: () => { setSaveState('idle'); toast.error('Sem permissão para editar este documento'); },
       });
     }, 700);
     return () => clearTimeout(t);
