@@ -112,6 +112,21 @@ export function useCreateTicket() {
         status: 'open',
       }).select().single();
       if (error) throw error;
+      // Notifica equipe de TI (exceto o próprio autor)
+      try {
+        const itIds = await getITMemberIds(currentOrg.id);
+        await Promise.all(
+          itIds.filter(id => id !== user.id).map(id =>
+            notifyUser({
+              userId: id,
+              type: 'ticket_new',
+              title: `Novo ticket: ${input.title}`,
+              message: `Prioridade ${input.priority} • categoria ${input.category}`,
+              link: '/tickets',
+            })
+          )
+        );
+      } catch (e) { console.warn('ticket notify failed', e); }
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
