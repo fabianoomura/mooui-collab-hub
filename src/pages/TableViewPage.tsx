@@ -646,6 +646,7 @@ function TaskRow({
 export default function TableViewPage() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
+  const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectFromUrl = searchParams.get('projeto');
 
