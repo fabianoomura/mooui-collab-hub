@@ -17,6 +17,7 @@ import { BookingDialog } from '@/components/rooms/BookingDialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 8h..19h
 
@@ -25,6 +26,7 @@ export default function RoomsPage() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { data: rooms = [] } = useMeetingRooms(currentOrg?.id);
+  const confirm = useConfirm();
   const [roomId, setRoomId] = useState<string>('__all__');
   const [view, setView] = useState<'week' | 'day'>(isMobile ? 'day' : 'week');
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -152,8 +154,9 @@ export default function RoomsPage() {
                           room={roomMap[b.room_id]}
                           profile={profileMap[b.user_id]}
                           canDelete={isAdmin || b.user_id === user?.id}
-                          onDelete={() => {
-                            if (!confirm('Excluir esta reserva?')) return;
+                          onDelete={async () => {
+                            const ok = await confirm({ title: 'Excluir esta reserva?', destructive: true, confirmText: 'Excluir' });
+                            if (!ok) return;
                             delBooking.mutate(b.id, {
                               onSuccess: () => toast.success('Reserva excluída'),
                               onError: () => toast.error('Sem permissão'),
@@ -191,8 +194,9 @@ export default function RoomsPage() {
                       room={roomMap[b.room_id]}
                       profile={profileMap[b.user_id]}
                       canDelete={isAdmin || b.user_id === user?.id}
-                      onDelete={() => {
-                        if (!confirm('Excluir esta reserva?')) return;
+                      onDelete={async () => {
+                        const ok = await confirm({ title: 'Excluir esta reserva?', destructive: true, confirmText: 'Excluir' });
+                        if (!ok) return;
                         delBooking.mutate(b.id, {
                           onSuccess: () => toast.success('Reserva excluída'),
                           onError: () => toast.error('Sem permissão'),

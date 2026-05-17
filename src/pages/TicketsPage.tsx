@@ -24,6 +24,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 
 const priorityColors: Record<TicketPriority, string> = {
@@ -62,6 +63,7 @@ export default function TicketsPage() {
   const createMut = useCreateTicket();
   const updateMut = useUpdateTicket();
   const deleteMut = useDeleteTicket();
+  const confirm = useConfirm();
 
   const [filter, setFilter] = useState<'all' | TicketStatus>('all');
   const [showNew, setShowNew] = useState(false);
@@ -349,8 +351,9 @@ export default function TicketsPage() {
               toast.success('Atualizado');
             },
           })}
-          onDelete={() => {
-            if (!confirm('Excluir este ticket?')) return;
+          onDelete={async () => {
+            const ok = await confirm({ title: 'Excluir este ticket?', destructive: true, confirmText: 'Excluir' });
+            if (!ok) return;
             deleteMut.mutate(openTicket.id, {
               onSuccess: () => { toast.success('Ticket excluído'); setOpenTicket(null); },
             });

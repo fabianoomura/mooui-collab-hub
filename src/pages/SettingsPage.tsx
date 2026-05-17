@@ -33,6 +33,7 @@ import {
 import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProfileTab } from '@/components/settings/ProfileTab';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function SettingsPage() {
   const { currentOrg, isAdmin } = useOrganization();
@@ -102,6 +103,7 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const updateProfile = useUpdateMemberProfile();
   const updateOrgRole = useUpdateOrgRole();
   const removeMember = useRemoveOrgMember();
+  const confirm = useConfirm();
   const createUser = useCreateOrgUser();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -200,8 +202,13 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                   <td className="px-4 py-2">
                     {canEdit && (
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          if (!confirm(`Remover ${m.full_name || 'usuário'} da organização?`)) return;
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Remover ${m.full_name || 'usuário'} da organização?`,
+                            destructive: true,
+                            confirmText: 'Remover',
+                          });
+                          if (!ok) return;
                           removeMember.mutate({ organization_id: orgId, user_id: m.user_id }, {
                             onSuccess: () => toast.success('Removido'),
                             onError: () => toast.error('Erro ao remover'),

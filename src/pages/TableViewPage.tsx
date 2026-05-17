@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
 import { LabelEditorDialog, type LabelOption } from '@/components/table/LabelEditor';
 import { PromptDialog } from '@/components/PromptDialog';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
@@ -645,6 +646,7 @@ function TaskRow({
 export default function TableViewPage() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
+  const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectFromUrl = searchParams.get('projeto');
 
@@ -813,8 +815,9 @@ export default function TableViewPage() {
     });
   };
 
-  const handleDeleteColumn = (col: ProjectColumn) => {
-    if (confirm(`Excluir coluna "${col.name}"?`)) {
+  const handleDeleteColumn = async (col: ProjectColumn) => {
+    const ok = await confirm({ title: `Excluir coluna "${col.name}"?`, destructive: true, confirmText: 'Excluir' });
+    if (ok) {
       deleteColumn.mutate(col.id, { onSuccess: () => toast.success('Coluna excluída!') });
     }
   };

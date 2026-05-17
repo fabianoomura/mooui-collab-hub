@@ -7,6 +7,7 @@ import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useProjectsByOrg, useCreateProject, useDeleteProject } from '@/hooks/useProjectData';
+import { useConfirm } from '@/components/ConfirmDialog';
 import {
   Sidebar,
   SidebarContent,
@@ -75,6 +76,7 @@ export function AppSidebar() {
   const deleteProject = useDeleteProject();
   const navigate = useNavigate();
   const location = useLocation();
+  const confirm = useConfirm();
   const showProjects = location.pathname.startsWith('/tabela') || location.pathname.startsWith('/projetos');
 
   const [showNewProject, setShowNewProject] = useState(false);
@@ -111,8 +113,14 @@ export function AppSidebar() {
     );
   };
 
-  const handleDeleteProject = (projectId: string, projectName: string) => {
-    if (!confirm(`Tem certeza que deseja arquivar "${projectName}"?`)) return;
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    const ok = await confirm({
+      title: `Arquivar "${projectName}"?`,
+      description: 'Você pode restaurar este projeto depois.',
+      destructive: true,
+      confirmText: 'Arquivar',
+    });
+    if (!ok) return;
     deleteProject.mutate(projectId, {
       onSuccess: () => {
         toast.success('Projeto arquivado!');

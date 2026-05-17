@@ -23,6 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { NewPageDialog } from '@/components/docs/NewPageDialog';
 import { PagePermissions } from '@/components/docs/PagePermissions';
 import { IconPicker } from '@/components/docs/IconPicker';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ProfileLite { id: string; full_name: string | null; avatar_url: string | null; }
@@ -61,6 +62,7 @@ export default function DocsPage() {
   const createPage = useCreateDocPage();
   const updatePage = useUpdateDocPage();
   const deletePage = useDeleteDocPage();
+  const confirm = useConfirm();
 
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [title, setTitle] = useState('');
@@ -149,8 +151,9 @@ export default function DocsPage() {
     );
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm('Excluir esta página?')) return;
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({ title: 'Excluir esta página?', destructive: true, confirmText: 'Excluir' });
+    if (!ok) return;
     deletePage.mutate(id, {
       onSuccess: () => { toast.success('Página excluída'); if (selectedId === id) setSelectedId(undefined); },
       onError: () => toast.error('Sem permissão para excluir'),
