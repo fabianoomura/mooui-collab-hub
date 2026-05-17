@@ -151,8 +151,9 @@ export default function DocsPage() {
     );
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm('Excluir esta página?')) return;
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({ title: 'Excluir esta página?', destructive: true, confirmText: 'Excluir' });
+    if (!ok) return;
     deletePage.mutate(id, {
       onSuccess: () => { toast.success('Página excluída'); if (selectedId === id) setSelectedId(undefined); },
       onError: () => toast.error('Sem permissão para excluir'),
