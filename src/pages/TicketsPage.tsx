@@ -351,8 +351,9 @@ export default function TicketsPage() {
               toast.success('Atualizado');
             },
           })}
-          onDelete={() => {
-            if (!confirm('Excluir este ticket?')) return;
+          onDelete={async () => {
+            const ok = await confirm({ title: 'Excluir este ticket?', destructive: true, confirmText: 'Excluir' });
+            if (!ok) return;
             deleteMut.mutate(openTicket.id, {
               onSuccess: () => { toast.success('Ticket excluído'); setOpenTicket(null); },
             });
