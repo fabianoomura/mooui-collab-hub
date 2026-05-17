@@ -8,6 +8,7 @@ import {
   useMeetingRooms, useCreateMeetingRoom, useDeleteMeetingRoom, useUpdateMeetingRoom,
 } from '@/hooks/useMeetingRooms';
 import { toast } from 'sonner';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const COLORS = ['#D6336C', '#7C3AED', '#2563EB', '#059669', '#EA580C', '#DC2626'];
 
