@@ -17,6 +17,7 @@ export function ManageRoomsDialog({ open, onOpenChange, orgId }: { open: boolean
   const create = useCreateMeetingRoom();
   const del = useDeleteMeetingRoom();
   const upd = useUpdateMeetingRoom();
+  const confirm = useConfirm();
   const [name, setName] = useState('');
   const [capacity, setCapacity] = useState(4);
   const [color, setColor] = useState(COLORS[0]);
