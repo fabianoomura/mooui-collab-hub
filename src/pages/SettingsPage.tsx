@@ -33,6 +33,7 @@ import {
 import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProfileTab } from '@/components/settings/ProfileTab';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function SettingsPage() {
   const { currentOrg, isAdmin } = useOrganization();
