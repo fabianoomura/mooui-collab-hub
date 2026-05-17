@@ -24,6 +24,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 
 const priorityColors: Record<TicketPriority, string> = {
