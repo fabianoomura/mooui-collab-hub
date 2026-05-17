@@ -26,6 +26,7 @@ export default function RoomsPage() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { data: rooms = [] } = useMeetingRooms(currentOrg?.id);
+  const confirm = useConfirm();
   const [roomId, setRoomId] = useState<string>('__all__');
   const [view, setView] = useState<'week' | 'day'>(isMobile ? 'day' : 'week');
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
