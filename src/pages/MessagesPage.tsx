@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { notifyUser } from '@/hooks/useNotifications';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 function formatBytes(n: number) {
   if (n < 1024) return `${n} B`;
