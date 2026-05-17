@@ -63,7 +63,10 @@ export function ManageRoomsDialog({ open, onOpenChange, orgId }: { open: boolean
               }} />
               <span className="text-xs text-muted-foreground">{r.capacity} pess.</span>
               <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
-                onClick={() => { if (confirm(`Excluir "${r.name}"?`)) del.mutate(r.id); }}>
+                onClick={async () => {
+                  const ok = await confirm({ title: `Excluir "${r.name}"?`, destructive: true, confirmText: 'Excluir' });
+                  if (ok) del.mutate(r.id);
+                }}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </li>
