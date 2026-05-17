@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
 import { LabelEditorDialog, type LabelOption } from '@/components/table/LabelEditor';
 import { PromptDialog } from '@/components/PromptDialog';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
