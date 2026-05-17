@@ -410,8 +410,14 @@ export default function MessagesPage() {
     );
   };
 
-  const handleDeleteChannel = (id: string, name: string) => {
-    if (!confirm(`Excluir #${name}? Todas as mensagens serão perdidas.`)) return;
+  const handleDeleteChannel = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: `Excluir #${name}?`,
+      description: 'Todas as mensagens serão perdidas.',
+      destructive: true,
+      confirmText: 'Excluir',
+    });
+    if (!ok) return;
     deleteChannel.mutate(id, {
       onSuccess: () => toast.success('Canal excluído'),
       onError: () => toast.error('Erro ao excluir canal'),
