@@ -154,8 +154,9 @@ export default function RoomsPage() {
                           room={roomMap[b.room_id]}
                           profile={profileMap[b.user_id]}
                           canDelete={isAdmin || b.user_id === user?.id}
-                          onDelete={() => {
-                            if (!confirm('Excluir esta reserva?')) return;
+                          onDelete={async () => {
+                            const ok = await confirm({ title: 'Excluir esta reserva?', destructive: true, confirmText: 'Excluir' });
+                            if (!ok) return;
                             delBooking.mutate(b.id, {
                               onSuccess: () => toast.success('Reserva excluída'),
                               onError: () => toast.error('Sem permissão'),
