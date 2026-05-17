@@ -815,8 +815,9 @@ export default function TableViewPage() {
     });
   };
 
-  const handleDeleteColumn = (col: ProjectColumn) => {
-    if (confirm(`Excluir coluna "${col.name}"?`)) {
+  const handleDeleteColumn = async (col: ProjectColumn) => {
+    const ok = await confirm({ title: `Excluir coluna "${col.name}"?`, destructive: true, confirmText: 'Excluir' });
+    if (ok) {
       deleteColumn.mutate(col.id, { onSuccess: () => toast.success('Coluna excluída!') });
     }
   };
