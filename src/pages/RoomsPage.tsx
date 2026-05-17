@@ -17,6 +17,7 @@ import { BookingDialog } from '@/components/rooms/BookingDialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 8h..19h
 
