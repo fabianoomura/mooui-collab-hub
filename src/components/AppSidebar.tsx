@@ -7,6 +7,7 @@ import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useProjectsByOrg, useCreateProject, useDeleteProject } from '@/hooks/useProjectData';
+import { useConfirm } from '@/components/ConfirmDialog';
 import {
   Sidebar,
   SidebarContent,
