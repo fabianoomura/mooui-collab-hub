@@ -323,6 +323,7 @@ export default function MessagesPage() {
 
   const createChannel = useCreateChannel();
   const deleteChannel = useDeleteChannel();
+  const confirm = useConfirm();
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
   const markRead = useMarkChannelRead();
