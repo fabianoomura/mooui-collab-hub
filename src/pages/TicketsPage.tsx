@@ -63,6 +63,7 @@ export default function TicketsPage() {
   const createMut = useCreateTicket();
   const updateMut = useUpdateTicket();
   const deleteMut = useDeleteTicket();
+  const confirm = useConfirm();
 
   const [filter, setFilter] = useState<'all' | TicketStatus>('all');
   const [showNew, setShowNew] = useState(false);
