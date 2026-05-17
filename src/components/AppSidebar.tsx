@@ -76,6 +76,7 @@ export function AppSidebar() {
   const deleteProject = useDeleteProject();
   const navigate = useNavigate();
   const location = useLocation();
+  const confirm = useConfirm();
   const showProjects = location.pathname.startsWith('/tabela') || location.pathname.startsWith('/projetos');
 
   const [showNewProject, setShowNewProject] = useState(false);
