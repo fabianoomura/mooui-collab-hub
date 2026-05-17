@@ -113,8 +113,14 @@ export function AppSidebar() {
     );
   };
 
-  const handleDeleteProject = (projectId: string, projectName: string) => {
-    if (!confirm(`Tem certeza que deseja arquivar "${projectName}"?`)) return;
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    const ok = await confirm({
+      title: `Arquivar "${projectName}"?`,
+      description: 'Você pode restaurar este projeto depois.',
+      destructive: true,
+      confirmText: 'Arquivar',
+    });
+    if (!ok) return;
     deleteProject.mutate(projectId, {
       onSuccess: () => {
         toast.success('Projeto arquivado!');
