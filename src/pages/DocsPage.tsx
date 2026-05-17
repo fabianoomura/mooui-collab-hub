@@ -62,6 +62,7 @@ export default function DocsPage() {
   const createPage = useCreateDocPage();
   const updatePage = useUpdateDocPage();
   const deletePage = useDeleteDocPage();
+  const confirm = useConfirm();
 
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [title, setTitle] = useState('');
