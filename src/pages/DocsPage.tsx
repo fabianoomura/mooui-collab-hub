@@ -23,6 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { NewPageDialog } from '@/components/docs/NewPageDialog';
 import { PagePermissions } from '@/components/docs/PagePermissions';
 import { IconPicker } from '@/components/docs/IconPicker';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ProfileLite { id: string; full_name: string | null; avatar_url: string | null; }
