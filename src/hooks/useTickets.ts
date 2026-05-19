@@ -197,7 +197,10 @@ export function useUpdateTicket() {
         }
       } catch (e) { console.warn('ticket update notify failed', e); }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['tickets'] });
+      qc.invalidateQueries({ queryKey: ['ticket-activity', vars.id] });
+    },
   });
 }
 
