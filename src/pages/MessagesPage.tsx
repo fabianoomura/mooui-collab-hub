@@ -761,6 +761,9 @@ export default function MessagesPage() {
               msg={threadParent}
               isMine={threadParent.user_id === user?.id}
               onDelete={() => deleteMessage.mutate(threadParent.id)}
+              reactions={getReactions(threadParent.id)}
+              onToggleReaction={handleToggleReaction(threadParent.id)}
+              onEdit={handleEditMessage(threadParent.id)}
             />
             <div className="border-t border-border pt-3 -mx-4 px-4 space-y-3">
               {threadMessages.length === 0 && (
@@ -772,6 +775,9 @@ export default function MessagesPage() {
                   msg={m}
                   isMine={m.user_id === user?.id}
                   onDelete={() => deleteMessage.mutate(m.id)}
+                  reactions={getReactions(m.id)}
+                  onToggleReaction={handleToggleReaction(m.id)}
+                  onEdit={handleEditMessage(m.id)}
                 />
               ))}
             </div>
