@@ -120,7 +120,7 @@ export default function DocsPage() {
 
   const grouped = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q)) : pages;
+    const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q) || (p.content || '').toLowerCase().includes(q)) : pages;
     const byDept = new Map<string, DocPage[]>();
     filtered.forEach((p) => {
       // When searching, show all matches at top level (flat); otherwise only root pages here
