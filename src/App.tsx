@@ -18,6 +18,7 @@ import RoomsPage from "./pages/RoomsPage";
 import CalendarPage from "./pages/CalendarPage";
 import LaunchesPage from "./pages/LaunchesPage";
 import TicketsPage from "./pages/TicketsPage";
+import OrdersPage from "./pages/OrdersPage";
 import ChecklistPage from "./pages/ChecklistPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
