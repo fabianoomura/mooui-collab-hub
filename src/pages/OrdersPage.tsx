@@ -495,6 +495,7 @@ function OrderDetail({
   currentUserId?: string;
 }) {
   const { data: comments = [] } = useOrderComments(order.id);
+  const { data: activity = [] } = useOrderActivity(order.id);
   const addComment = useAddOrderComment();
   const [newComment, setNewComment] = useState('');
   const [notes, setNotes] = useState(order.notes || '');
@@ -503,15 +504,20 @@ function OrderDetail({
   const assignee = order.assigned_to ? (profileMap.get(order.assigned_to) as any) : null;
   const isFinal = FINAL_STATUSES.includes(order.status);
 
-  const commentUserIds = useMemo(() => [...new Set(comments.map(c => c.user_id))], [comments]);
+  const extraUserIds = useMemo(() => {
+    const s = new Set<string>();
+    comments.forEach(c => s.add(c.user_id));
+    activity.forEach(a => { if (a.user_id) s.add(a.user_id); });
+    return [...s];
+  }, [comments, activity]);
   const { data: commentProfiles = [] } = useQuery({
-    queryKey: ['order-comment-profiles', commentUserIds.sort().join(',')],
+    queryKey: ['order-extra-profiles', extraUserIds.sort().join(',')],
     queryFn: async () => {
-      if (!commentUserIds.length) return [];
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', commentUserIds);
+      if (!extraUserIds.length) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', extraUserIds);
       return data || [];
     },
-    enabled: commentUserIds.length > 0,
+    enabled: extraUserIds.length > 0,
   });
   const cmtMap = useMemo(() => new Map(commentProfiles.map((p: any) => [p.id, p])), [commentProfiles]);
 
