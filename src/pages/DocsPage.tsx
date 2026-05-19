@@ -140,12 +140,12 @@ export default function DocsPage() {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
-  const handleCreate = (input: { title: string; icon: string; department_id: string | null }) => {
+  const handleCreate = (input: { title: string; icon: string; department_id: string | null; content?: string }) => {
     if (!currentOrg) return;
     createPage.mutate(
       { organization_id: currentOrg.id, ...input },
       {
-        onSuccess: (p) => { setSelectedId(p.id); setShowNew(false); toast.success('Página criada'); },
+        onSuccess: (p) => { setSelectedId(p.id); setShowNew(false); toast.success(input.content ? 'Página importada' : 'Página criada'); },
         onError: () => toast.error('Erro ao criar página'),
       }
     );
