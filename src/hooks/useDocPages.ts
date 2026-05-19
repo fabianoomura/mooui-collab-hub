@@ -60,6 +60,7 @@ export function useCreateDocPage() {
           department_id: input.department_id ?? null,
           title: input.title ?? 'Sem título',
           icon: input.icon ?? '📄',
+          content: input.content ?? null,
           created_by: uid,
           can_edit_roles: input.can_edit_roles ?? ['admin', 'manager', 'member'],
           can_delete_roles: input.can_delete_roles ?? ['admin'],
