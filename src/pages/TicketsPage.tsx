@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
+import { TicketFilesTab } from '@/components/tickets/TicketFilesTab';
 
 const priorityColors: Record<TicketPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
@@ -555,6 +556,7 @@ function TicketDetail({
           <Tabs defaultValue="comments">
             <TabsList>
               <TabsTrigger value="comments">Comentários ({comments.length})</TabsTrigger>
+              <TabsTrigger value="files">Anexos</TabsTrigger>
               <TabsTrigger value="activity">Atividade</TabsTrigger>
             </TabsList>
             <TabsContent value="comments" className="mt-3">
@@ -600,6 +602,9 @@ function TicketDetail({
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+            </TabsContent>
+            <TabsContent value="files" className="mt-3">
+              <TicketFilesTab ticketId={ticket.id} />
             </TabsContent>
             <TabsContent value="activity" className="mt-3">
               <ActivityTimeline ticketId={ticket.id} itMembers={itMembers} authorName={authorName} authorId={ticket.created_by} />
