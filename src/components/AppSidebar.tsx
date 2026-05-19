@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,6 +60,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { title: 'Calendário Anual', url: '/calendario', icon: CalendarDays },
       { title: 'Produção', url: '/lancamentos', icon: Rocket },
       { title: 'Check Lançamentos', url: '/checagens', icon: ClipboardCheck },
+      { title: 'Pedidos', url: '/pedidos', icon: Package },
       { title: 'Tickets de TI', url: '/tickets', icon: Briefcase },
     ],
   },

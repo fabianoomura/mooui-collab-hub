@@ -841,6 +841,157 @@ export type Database = {
         }
         Relationships: []
       }
+      order_activity: {
+        Row: {
+          action: string
+          created_at: string
+          from_value: string | null
+          id: string
+          order_id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          order_id: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          order_id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_activity_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_code_seq: {
+        Row: {
+          last_value: number
+          organization_id: string
+        }
+        Insert: {
+          last_value?: number
+          organization_id: string
+        }
+        Update: {
+          last_value?: number
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      order_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          order_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          order_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_comments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          assigned_to: string | null
+          closed_at: string | null
+          code: string | null
+          created_at: string
+          created_by: string
+          customer_name: string | null
+          description: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          priority: Database["public"]["Enums"]["order_priority"]
+          problem_type: Database["public"]["Enums"]["order_problem"]
+          shopify_order: string | null
+          source: Database["public"]["Enums"]["order_source"]
+          status: Database["public"]["Enums"]["order_status"]
+          title: string
+          totvs_order: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          code?: string | null
+          created_at?: string
+          created_by: string
+          customer_name?: string | null
+          description?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          priority?: Database["public"]["Enums"]["order_priority"]
+          problem_type?: Database["public"]["Enums"]["order_problem"]
+          shopify_order?: string | null
+          source?: Database["public"]["Enums"]["order_source"]
+          status?: Database["public"]["Enums"]["order_status"]
+          title: string
+          totvs_order?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string
+          customer_name?: string | null
+          description?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          priority?: Database["public"]["Enums"]["order_priority"]
+          problem_type?: Database["public"]["Enums"]["order_problem"]
+          shopify_order?: string | null
+          source?: Database["public"]["Enums"]["order_source"]
+          status?: Database["public"]["Enums"]["order_status"]
+          title?: string
+          totvs_order?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       org_departments: {
         Row: {
           color: string
@@ -1821,6 +1972,24 @@ export type Database = {
         | "it_support"
         | "director"
         | "operator"
+      order_priority: "low" | "medium" | "high" | "urgent"
+      order_problem:
+        | "furo_estoque"
+        | "aguardando_itens"
+        | "aguardar_envio"
+        | "presente"
+        | "troca"
+        | "devolucao"
+        | "endereco"
+        | "outro"
+      order_source: "expedicao" | "atendimento" | "marketing" | "outro"
+      order_status:
+        | "open"
+        | "in_progress"
+        | "waiting"
+        | "sent"
+        | "done"
+        | "cancelled"
       project_status: "active" | "archived"
       task_priority: "low" | "medium" | "high" | "critical"
       task_status: "backlog" | "todo" | "in_progress" | "in_review" | "done"
@@ -1958,6 +2127,26 @@ export const Constants = {
         "it_support",
         "director",
         "operator",
+      ],
+      order_priority: ["low", "medium", "high", "urgent"],
+      order_problem: [
+        "furo_estoque",
+        "aguardando_itens",
+        "aguardar_envio",
+        "presente",
+        "troca",
+        "devolucao",
+        "endereco",
+        "outro",
+      ],
+      order_source: ["expedicao", "atendimento", "marketing", "outro"],
+      order_status: [
+        "open",
+        "in_progress",
+        "waiting",
+        "sent",
+        "done",
+        "cancelled",
       ],
       project_status: ["active", "archived"],
       task_priority: ["low", "medium", "high", "critical"],
