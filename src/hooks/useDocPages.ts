@@ -45,6 +45,7 @@ export function useCreateDocPage() {
       department_id?: string | null;
       title?: string;
       icon?: string;
+      content?: string;
       can_edit_roles?: AppRole[];
       can_delete_roles?: AppRole[];
     }) => {
