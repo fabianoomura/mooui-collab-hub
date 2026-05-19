@@ -569,30 +569,25 @@ function OrderDetail({
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <div className="flex items-start gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose} className="md:hidden -ml-2">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                {order.code && (
-                  <span className="text-[11px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {order.code}
-                  </span>
-                )}
-                <DialogTitle className="text-base truncate">{order.title}</DialogTitle>
-              </div>
-              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
-                <Badge variant="outline" className="text-[10px]">{problemLabels[order.problem_type]}</Badge>
-                <Badge variant="outline" className={cn('text-[10px]', statusColors[order.status])}>
-                  {statusLabels[order.status]}
-                </Badge>
-                <Badge variant="outline" className={cn('text-[10px]', priorityColors[order.priority])}>
-                  {priorityLabels[order.priority]}
-                </Badge>
-                <span>•</span>
-                <span>{sourceLabels[order.source]}</span>
-              </div>
+          <div className="flex-1 min-w-0 pr-8">
+            <div className="flex items-center gap-2 flex-wrap">
+              {order.code && (
+                <span className="text-[11px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  {order.code}
+                </span>
+              )}
+              <DialogTitle className="text-base truncate">{order.title}</DialogTitle>
+            </div>
+            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+              <Badge variant="outline" className="text-[10px]">{problemLabels[order.problem_type]}</Badge>
+              <Badge variant="outline" className={cn('text-[10px]', statusColors[order.status])}>
+                {statusLabels[order.status]}
+              </Badge>
+              <Badge variant="outline" className={cn('text-[10px]', priorityColors[order.priority])}>
+                {priorityLabels[order.priority]}
+              </Badge>
+              <span>•</span>
+              <span>{sourceLabels[order.source]}</span>
             </div>
           </div>
         </DialogHeader>
