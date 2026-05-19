@@ -683,6 +683,19 @@ function OrderDetail({
 
           <div className="space-y-3">
             <div>
+              <Label className="text-[11px] text-muted-foreground">Responsável pela tratativa</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <AssigneePicker
+                  value={order.assigned_to}
+                  onChange={(id) => onUpdate({ assigned_to: id })}
+                  size="md"
+                />
+                <span className="text-sm truncate">
+                  {assignee?.full_name || <span className="text-muted-foreground">Não atribuído</span>}
+                </span>
+              </div>
+            </div>
+            <div>
               <Label className="text-[11px] text-muted-foreground">Status</Label>
               <Select value={order.status} onValueChange={(v) => onStatus(v as OrderStatus)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
