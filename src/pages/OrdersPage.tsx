@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowLeft } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowLeft, ArrowUpDown, History } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -8,10 +8,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import {
   useOrders, useCreateOrder, useUpdateOrder, useDeleteOrder,
-  useOrderComments, useAddOrderComment,
+  useOrderComments, useAddOrderComment, useOrderActivity,
   type Order, type OrderStatus, type OrderPriority, type OrderProblem, type OrderSource,
   FINAL_STATUSES,
 } from '@/hooks/useOrders';
+import { AssigneePicker } from '@/components/AssigneePicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
