@@ -214,6 +214,40 @@ export default function DocsPage() {
     });
   };
 
+  const slug = (s: string) => (s || 'sem-titulo').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'sem-titulo';
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const exportPageMd = (p: DocPage) => {
+    const md = `# ${p.title || 'Sem título'}\n\n${p.content || ''}`;
+    downloadBlob(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${slug(p.title)}.md`);
+  };
+
+  const exportPageWithChildren = async (root: DocPage) => {
+    const zip = new JSZip();
+    const walk = (node: DocPage, folder: JSZip) => {
+      const md = `# ${node.title || 'Sem título'}\n\n${node.content || ''}`;
+      const children = childrenMap.get(node.id) || [];
+      if (children.length > 0) {
+        const sub = folder.folder(slug(node.title))!;
+        sub.file('index.md', md);
+        children.forEach((c) => walk(c, sub));
+      } else {
+        folder.file(`${slug(node.title)}.md`, md);
+      }
+    };
+    walk(root, zip);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, `${slug(root.title)}.zip`);
+    toast.success('Exportado com sub-páginas');
+  };
+
+
   if (!currentOrg) {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Selecione uma organização</div>;
   }
