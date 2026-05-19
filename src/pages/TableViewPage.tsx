@@ -838,7 +838,7 @@ export default function TableViewPage() {
   // Grid template: color bar + title + fixed columns + dynamic columns + add-column spacer
   const gridCols = useMemo(() => {
     const cols = ['3px', '1fr'];
-    if (visibleColumns.has('due_date')) cols.push('110px');
+    if (visibleColumns.has('due_date')) cols.push('180px');
     if (visibleColumns.has('priority')) cols.push('100px');
     if (visibleColumns.has('status')) cols.push('120px');
     if (visibleColumns.has('assignee')) cols.push('100px');
