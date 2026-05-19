@@ -35,6 +35,11 @@ import { toast } from 'sonner';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { useConfirm } from '@/components/ConfirmDialog';
 
+type AppRole = 'admin' | 'manager' | 'member' | 'director' | 'operator';
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export default function SettingsPage() {
   const { currentOrg, isAdmin } = useOrganization();
 
@@ -49,10 +54,10 @@ export default function SettingsPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
             <SettingsIcon className="h-5 w-5 text-primary" />
           </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Configurações</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">{currentOrg.name}</p>
-        </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold">Configurações</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">{currentOrg.name}</p>
+          </div>
         </div>
       </div>
 
@@ -122,7 +127,7 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
       { ...form, organization_id: orgId, department: form.department || undefined, position: form.position || undefined },
       {
         onSuccess: () => { toast.success('Usuário criado!'); setShowCreate(false); setForm({ email: '', password: '', full_name: '', department: '', position: '', org_role: 'member' }); },
-        onError: (e: any) => toast.error(e?.message ?? 'Erro ao criar usuário'),
+        onError: (error: unknown) => toast.error(getErrorMessage(error, 'Erro ao criar usuário')),
       }
     );
   };
