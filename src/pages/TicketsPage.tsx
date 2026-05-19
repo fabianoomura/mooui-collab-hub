@@ -726,13 +726,17 @@ function ManageKanban({
                         )}
                         <h4 className="text-sm font-medium leading-snug">{t.title}</h4>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
-                      >
-                        {priorityLabels[t.priority]}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge
+                          variant="outline"
+                          className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
+                        >
+                          {priorityLabels[t.priority]}
+                        </Badge>
+                        <SlaBadge ticket={t} compact />
+                      </div>
                     </div>
+                    <div className="mt-1.5"><TicketLabelChips ticketId={t.id} max={3} /></div>
                     <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] text-muted-foreground truncate flex-1 min-w-0">
                         {author?.full_name || 'Usuário'} • {formatDistanceToNow(new Date(t.created_at), { addSuffix: true, locale: ptBR })}
