@@ -307,6 +307,11 @@ export default function TicketsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 flex-wrap">
+                      {t.code && (
+                        <span className="text-[10px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {t.code}
+                        </span>
+                      )}
                       <h3 className="font-medium truncate flex-1 min-w-0">{t.title}</h3>
                       <Badge className={cn('text-[10px]', priorityColors[t.priority])} variant="outline">
                         {priorityLabels[t.priority]}
