@@ -551,54 +551,60 @@ function TicketDetail({
             </div>
           )}
 
-          {/* Comments */}
-          <div>
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
-              Comentários ({comments.length})
-            </h3>
-            <div className="space-y-2">
-              {comments.length === 0 && (
-                <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
-              )}
-              {comments.map((c) => {
-                const p = cMap.get(c.user_id) as any;
-                return (
-                  <div key={c.id} className="flex gap-2">
-                    <Avatar className="h-7 w-7 shrink-0">
-                      <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
-                        {getInitials(p?.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium">{p?.full_name || 'Usuário'}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
-                        </span>
+          {/* Tabs: Comentários / Atividade */}
+          <Tabs defaultValue="comments">
+            <TabsList>
+              <TabsTrigger value="comments">Comentários ({comments.length})</TabsTrigger>
+              <TabsTrigger value="activity">Atividade</TabsTrigger>
+            </TabsList>
+            <TabsContent value="comments" className="mt-3">
+              <div className="space-y-2">
+                {comments.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
+                )}
+                {comments.map((c) => {
+                  const p = cMap.get(c.user_id) as any;
+                  return (
+                    <div key={c.id} className="flex gap-2">
+                      <Avatar className="h-7 w-7 shrink-0">
+                        <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
+                          {getInitials(p?.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-medium">{p?.full_name || 'Usuário'}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            <div className="flex gap-2 mt-3">
-              <Textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Adicionar comentário…"
-                rows={2}
-                className="resize-none"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-                }}
-              />
-              <Button onClick={send} disabled={!text.trim() || addComment.isPending} size="icon">
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+              <div className="flex gap-2 mt-3">
+                <Textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Adicionar comentário…"
+                  rows={2}
+                  className="resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+                  }}
+                />
+                <Button onClick={send} disabled={!text.trim() || addComment.isPending} size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="activity" className="mt-3">
+              <ActivityTimeline ticketId={ticket.id} itMembers={itMembers} authorName={authorName} authorId={ticket.created_by} />
+            </TabsContent>
+          </Tabs>
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
