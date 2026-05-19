@@ -1485,6 +1485,96 @@ export type Database = {
           },
         ]
       }
+      ticket_label_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          label_id: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label_id: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_label_assignments_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_labels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_label_assignments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_labels: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      ticket_sla_config: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          priority: string
+          resolve_hours: number
+          response_hours: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          priority: string
+          resolve_hours?: number
+          response_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          priority?: string
+          resolve_hours?: number
+          response_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tickets: {
         Row: {
           assigned_to: string | null

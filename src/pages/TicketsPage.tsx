@@ -27,6 +27,9 @@ import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { TicketFilesTab } from '@/components/tickets/TicketFilesTab';
+import { SlaBadge, useSlaBreached } from '@/components/tickets/SlaBadge';
+import { TicketLabelChips, TicketLabelPicker } from '@/components/tickets/TicketLabelPicker';
+import { useTicketLabelAssignments, useTicketLabels } from '@/hooks/useTicketLabels';
 
 const priorityColors: Record<TicketPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
@@ -74,6 +77,11 @@ export default function TicketsPage() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | TicketPriority>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | TicketCategory>('all');
   const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
+  const [slaFilter, setSlaFilter] = useState<'all' | 'breached'>('all');
+  const [labelFilter, setLabelFilter] = useState<string>('all');
+  const { labels: orgLabels } = useTicketLabels();
+  const { data: labelAssignments = [] } = useTicketLabelAssignments();
+  const isBreached = useSlaBreached();
 
   // Quando a visão muda, ajusta o scope default
   useEffect(() => {
@@ -141,11 +149,22 @@ export default function TicketsPage() {
   });
 
   const q = search.trim().toLowerCase();
+  const ticketLabelMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    labelAssignments.forEach(a => {
+      const arr = m.get(a.ticket_id) || [];
+      arr.push(a.label_id);
+      m.set(a.ticket_id, arr);
+    });
+    return m;
+  }, [labelAssignments]);
   const baseFiltered = tickets.filter(t => {
     if (scope === 'mine' && t.created_by !== user?.id) return false;
     if (scope === 'assigned' && t.assigned_to !== user?.id) return false;
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
     if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+    if (slaFilter === 'breached' && !isBreached(t)) return false;
+    if (labelFilter !== 'all' && !(ticketLabelMap.get(t.id) || []).includes(labelFilter)) return false;
     if (q && !(t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))) return false;
     return true;
   });
@@ -157,7 +176,7 @@ export default function TicketsPage() {
     resolved: baseFiltered.filter(t => t.status === 'resolved').length,
     closed: baseFiltered.filter(t => t.status === 'closed').length,
   };
-  const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0);
+  const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0) + (slaFilter !== 'all' ? 1 : 0) + (labelFilter !== 'all' ? 1 : 0);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -248,10 +267,32 @@ export default function TicketsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={slaFilter} onValueChange={(v) => setSlaFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">SLA: qualquer</SelectItem>
+              <SelectItem value="breached">SLA estourado</SelectItem>
+            </SelectContent>
+          </Select>
+          {orgLabels.length > 0 && (
+            <Select value={labelFilter} onValueChange={setLabelFilter}>
+              <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Qualquer label</SelectItem>
+                {orgLabels.map(l => (
+                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {activeChips > 0 && (
             <Button
               variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
-              onClick={() => { setSearch(''); setPriorityFilter('all'); setCategoryFilter('all'); setScope(view === 'mine' ? 'mine' : 'all'); }}
+              onClick={() => {
+                setSearch(''); setPriorityFilter('all'); setCategoryFilter('all');
+                setScope(view === 'mine' ? 'mine' : 'all');
+                setSlaFilter('all'); setLabelFilter('all');
+              }}
             >
               <X className="h-3.5 w-3.5 mr-1" />Limpar
             </Button>
@@ -320,7 +361,9 @@ export default function TicketsPage() {
                       <Badge className={cn('text-[10px]', statusColors[t.status])} variant="outline">
                         {statusLabels[t.status]}
                       </Badge>
+                      <SlaBadge ticket={t} />
                     </div>
+                    <div className="mt-1"><TicketLabelChips ticketId={t.id} /></div>
                     {t.description && (
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{t.description}</p>
                     )}
@@ -477,7 +520,7 @@ function TicketDetail({
 
         <div className="space-y-4">
           {/* Meta */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Badge variant="outline" className={cn('text-[10px]', statusColors[ticket.status])}>
               {statusLabels[ticket.status]}
             </Badge>
@@ -485,7 +528,11 @@ function TicketDetail({
               Prioridade: {priorityLabels[ticket.priority]}
             </Badge>
             <Badge variant="outline" className="text-[10px]">{categoryLabels[ticket.category]}</Badge>
+            <SlaBadge ticket={ticket} />
+            <div className="flex-1" />
+            <TicketLabelPicker ticketId={ticket.id} />
           </div>
+          <TicketLabelChips ticketId={ticket.id} />
 
           {ticket.description && (
             <Card className="p-3 bg-muted/30">
@@ -679,13 +726,17 @@ function ManageKanban({
                         )}
                         <h4 className="text-sm font-medium leading-snug">{t.title}</h4>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
-                      >
-                        {priorityLabels[t.priority]}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge
+                          variant="outline"
+                          className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
+                        >
+                          {priorityLabels[t.priority]}
+                        </Badge>
+                        <SlaBadge ticket={t} compact />
+                      </div>
                     </div>
+                    <div className="mt-1.5"><TicketLabelChips ticketId={t.id} max={3} /></div>
                     <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] text-muted-foreground truncate flex-1 min-w-0">
                         {author?.full_name || 'Usuário'} • {formatDistanceToNow(new Date(t.created_at), { addSuffix: true, locale: ptBR })}

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2 } from 'lucide-react';
+import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 import {
@@ -84,12 +84,41 @@ export default function DocsPage() {
   const { data: profiles = [] } = useProfilesByIds(profileIds);
   const profileMap = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
 
-  // Group pages by department
+  // Group pages by department + build children map for nesting
+  const childrenMap = useMemo(() => {
+    const m = new Map<string, DocPage[]>();
+    pages.forEach(p => {
+      if (p.parent_id) {
+        const arr = m.get(p.parent_id) || [];
+        arr.push(p);
+        m.set(p.parent_id, arr);
+      }
+    });
+    m.forEach(arr => arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR')));
+    return m;
+  }, [pages]);
+
+  // Breadcrumb path for selected
+  const breadcrumbs = useMemo(() => {
+    if (!selected) return [] as DocPage[];
+    const path: DocPage[] = [];
+    let cur: DocPage | undefined = selected;
+    const guard = new Set<string>();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      path.unshift(cur);
+      cur = cur.parent_id ? pages.find(p => p.id === cur!.parent_id) : undefined;
+    }
+    return path;
+  }, [selected, pages]);
+
   const grouped = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q)) : pages;
     const byDept = new Map<string, DocPage[]>();
     filtered.forEach((p) => {
+      // When searching, show all matches at top level (flat); otherwise only root pages here
+      if (!q && p.parent_id) return;
       const k = p.department_id ?? '__none__';
       if (!byDept.has(k)) byDept.set(k, []);
       byDept.get(k)!.push(p);
@@ -103,6 +132,25 @@ export default function DocsPage() {
     if (orphan.length) groups.push({ id: '__none__', name: 'Sem setor', color: '#9CA3AF', pages: orphan });
     return groups;
   }, [pages, departments, search]);
+
+  const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
+  const togglePage = (id: string) => setExpandedPages(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+
+  // Auto-expand ancestors of selected
+  useEffect(() => {
+    if (!selected) return;
+    setExpandedPages(prev => {
+      const n = new Set(prev);
+      let cur = selected.parent_id ? pages.find(p => p.id === selected.parent_id) : undefined;
+      while (cur) {
+        n.add(cur.id);
+        cur = cur.parent_id ? pages.find(p => p.id === cur!.parent_id) : undefined;
+      }
+      return n;
+    });
+  }, [selectedId, pages]); // eslint-disable-line
 
   useEffect(() => {
     if (!selectedId && pages.length > 0) setSelectedId(pages[0].id);
@@ -221,33 +269,25 @@ export default function DocsPage() {
                 {isOpen && (
                   <div className="ml-2">
                     {g.pages.map((p) => (
-                      <div
+                      <PageNode
                         key={p.id}
-                        onClick={() => { setSelectedId(p.id); setSidebarOpen(false); }}
-                        className={cn(
-                          'group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
-                          selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
-                        )}
-                      >
-                        <span className="text-base leading-none">{p.icon || '📄'}</span>
-                        <span className="truncate flex-1">{p.title || 'Sem título'}</span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button onClick={(e) => e.stopPropagation()}
-                              className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background">
-                              <MoreHorizontal className="h-3 w-3" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDelete(p.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                        page={p}
+                        depth={0}
+                        childrenMap={childrenMap}
+                        expandedPages={expandedPages}
+                        togglePage={togglePage}
+                        selectedId={selectedId}
+                        onSelect={(id) => { setSelectedId(id); setSidebarOpen(false); }}
+                        onDelete={handleDelete}
+                        onAddChild={(parentId) => {
+                          if (!currentOrg) return;
+                          const parent = pages.find(x => x.id === parentId);
+                          createPage.mutate(
+                            { organization_id: currentOrg.id, parent_id: parentId, department_id: parent?.department_id ?? null, title: 'Sem título' },
+                            { onSuccess: (np) => { setSelectedId(np.id); setExpandedPages(prev => new Set(prev).add(parentId)); } }
+                          );
+                        }}
+                      />
                     ))}
                     {g.pages.length === 0 && (
                       <div className="px-2 py-1 text-xs text-muted-foreground italic">Sem páginas</div>
@@ -315,6 +355,19 @@ export default function DocsPage() {
                 </span>
               )}
             </div>
+            {breadcrumbs.length > 1 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 flex-wrap">
+                {breadcrumbs.slice(0, -1).map((b) => (
+                  <span key={b.id} className="flex items-center gap-1">
+                    <button onClick={() => setSelectedId(b.id)} className="hover:text-foreground hover:underline">
+                      {b.icon || '📄'} {b.title || 'Sem título'}
+                    </button>
+                    <ChevronRight className="h-3 w-3" />
+                  </span>
+                ))}
+                <span className="text-foreground/80">{selected.title || 'Sem título'}</span>
+              </div>
+            )}
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -344,6 +397,93 @@ export default function DocsPage() {
         orgId={currentOrg.id}
         onCreate={handleCreate}
       />
+    </div>
+  );
+}
+
+function PageNode({
+  page, depth, childrenMap, expandedPages, togglePage, selectedId, onSelect, onDelete, onAddChild,
+}: {
+  page: DocPage;
+  depth: number;
+  childrenMap: Map<string, DocPage[]>;
+  expandedPages: Set<string>;
+  togglePage: (id: string) => void;
+  selectedId?: string;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onAddChild: (parentId: string) => void;
+}) {
+  const children = childrenMap.get(page.id) || [];
+  const hasChildren = children.length > 0;
+  const isOpen = expandedPages.has(page.id);
+  return (
+    <div>
+      <div
+        onClick={() => onSelect(page.id)}
+        style={{ paddingLeft: depth * 12 }}
+        className={cn(
+          'group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
+          selectedId === page.id && 'bg-accent text-accent-foreground font-medium'
+        )}
+      >
+        {hasChildren ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); togglePage(page.id); }}
+            className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </button>
+        ) : (
+          <span className="w-4" />
+        )}
+        <span className="text-base leading-none">{page.icon || '📄'}</span>
+        <span className="truncate flex-1">{page.title || 'Sem título'}</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onAddChild(page.id); }}
+          className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background"
+          title="Nova sub-página"
+        >
+          <PlusIcon className="h-3 w-3" />
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button onClick={(e) => e.stopPropagation()}
+              className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background">
+              <MoreHorizontal className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onAddChild(page.id)}>
+              <PlusIcon className="h-3.5 w-3.5 mr-2" /> Nova sub-página
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => onDelete(page.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {isOpen && hasChildren && (
+        <div>
+          {children.map(c => (
+            <PageNode
+              key={c.id}
+              page={c}
+              depth={depth + 1}
+              childrenMap={childrenMap}
+              expandedPages={expandedPages}
+              togglePage={togglePage}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onDelete={onDelete}
+              onAddChild={onAddChild}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
