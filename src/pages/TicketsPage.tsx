@@ -267,10 +267,32 @@ export default function TicketsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={slaFilter} onValueChange={(v) => setSlaFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">SLA: qualquer</SelectItem>
+              <SelectItem value="breached">SLA estourado</SelectItem>
+            </SelectContent>
+          </Select>
+          {orgLabels.length > 0 && (
+            <Select value={labelFilter} onValueChange={setLabelFilter}>
+              <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Qualquer label</SelectItem>
+                {orgLabels.map(l => (
+                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {activeChips > 0 && (
             <Button
               variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
-              onClick={() => { setSearch(''); setPriorityFilter('all'); setCategoryFilter('all'); setScope(view === 'mine' ? 'mine' : 'all'); }}
+              onClick={() => {
+                setSearch(''); setPriorityFilter('all'); setCategoryFilter('all');
+                setScope(view === 'mine' ? 'mine' : 'all');
+                setSlaFilter('all'); setLabelFilter('all');
+              }}
             >
               <X className="h-3.5 w-3.5 mr-1" />Limpar
             </Button>
