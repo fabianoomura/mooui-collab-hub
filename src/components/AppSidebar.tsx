@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
