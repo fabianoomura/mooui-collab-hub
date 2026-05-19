@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, ArrowLeft, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, ArrowLeft, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,6 +65,7 @@ export default function TicketsPage() {
   const deleteMut = useDeleteTicket();
   const confirm = useConfirm();
 
+  const [view, setView] = useState<'mine' | 'manage'>('mine');
   const [filter, setFilter] = useState<'all' | TicketStatus>('all');
   const [showNew, setShowNew] = useState(false);
   const [openTicket, setOpenTicket] = useState<Ticket | null>(null);
@@ -72,6 +73,13 @@ export default function TicketsPage() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | TicketPriority>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | TicketCategory>('all');
   const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
+
+  // Quando a visão muda, ajusta o scope default
+  useEffect(() => {
+    if (view === 'mine') setScope('mine');
+    else setScope('all');
+    setFilter('all');
+  }, [view]);
 
   // New ticket form
   const [nTitle, setNTitle] = useState('');
@@ -167,18 +175,37 @@ export default function TicketsPage() {
 
   return (
     <div className="space-y-4">
+
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Tickets de TI</h1>
           <p className="text-sm text-muted-foreground">
-            {isIT ? 'Você é da equipe de TI.' : 'Reporte bugs e solicite suporte.'}
+            {view === 'manage'
+              ? 'Gestão: atribua responsáveis e acompanhe o andamento interno.'
+              : 'Abra um chamado e acompanhe o status dele.'}
           </p>
         </div>
         <Button onClick={() => setShowNew(true)}>
           <Plus className="h-4 w-4 mr-1.5" />
-          Novo ticket
+          Abrir ticket
         </Button>
       </div>
+
+      {/* View switcher: Meus tickets / Gestão TI (apenas TI vê gestão) */}
+      {isIT && (
+        <Tabs value={view} onValueChange={(v) => setView(v as any)}>
+          <TabsList>
+            <TabsTrigger value="mine">
+              <Inbox className="h-3.5 w-3.5 mr-1.5" />
+              Meus tickets
+            </TabsTrigger>
+            <TabsTrigger value="manage">
+              <Headset className="h-3.5 w-3.5 mr-1.5" />
+              Gestão TI
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {/* Busca + filtros */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -192,14 +219,16 @@ export default function TicketsPage() {
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={scope} onValueChange={(v) => setScope(v as any)}>
-            <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="mine">Meus tickets</SelectItem>
-              <SelectItem value="assigned">Atribuídos a mim</SelectItem>
-            </SelectContent>
-          </Select>
+          {view === 'manage' && (
+            <Select value={scope} onValueChange={(v) => setScope(v as any)}>
+              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tickets</SelectItem>
+                <SelectItem value="assigned">Atribuídos a mim</SelectItem>
+                <SelectItem value="mine">Abertos por mim</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
             <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent>
@@ -221,7 +250,7 @@ export default function TicketsPage() {
           {activeChips > 0 && (
             <Button
               variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
-              onClick={() => { setSearch(''); setPriorityFilter('all'); setCategoryFilter('all'); setScope('all'); }}
+              onClick={() => { setSearch(''); setPriorityFilter('all'); setCategoryFilter('all'); setScope(view === 'mine' ? 'mine' : 'all'); }}
             >
               <X className="h-3.5 w-3.5 mr-1" />Limpar
             </Button>
@@ -229,25 +258,40 @@ export default function TicketsPage() {
         </div>
       </div>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-        <TabsList className="flex flex-wrap h-auto">
-          <TabsTrigger value="all">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
-          <TabsTrigger value="open">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
-          <TabsTrigger value="in_progress">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
-          <TabsTrigger value="resolved">Resolvidos <Badge variant="secondary" className="ml-1.5">{counts.resolved}</Badge></TabsTrigger>
-          <TabsTrigger value="closed">Fechados <Badge variant="secondary" className="ml-1.5">{counts.closed}</Badge></TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : filtered.length === 0 ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          Nenhum ticket {filter !== 'all' ? `com status "${statusLabels[filter as TicketStatus]}"` : ''}.
-        </Card>
+      {view === 'manage' && isIT ? (
+        <ManageKanban
+          tickets={baseFiltered}
+          profileMap={profileMap as any}
+          itMembers={itMembers as any}
+          onOpen={(t) => setOpenTicket(t)}
+          onAssign={(t, userId) => updateMut.mutate({
+            id: t.id,
+            assigned_to: userId,
+            status: userId && t.status === 'open' ? 'in_progress' : t.status,
+          })}
+          onStatus={(t, status) => updateMut.mutate({ id: t.id, status })}
+        />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((t) => {
+        <>
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
+            <TabsList className="flex flex-wrap h-auto">
+              <TabsTrigger value="all">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
+              <TabsTrigger value="open">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
+              <TabsTrigger value="in_progress">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
+              <TabsTrigger value="resolved">Resolvidos <Badge variant="secondary" className="ml-1.5">{counts.resolved}</Badge></TabsTrigger>
+              <TabsTrigger value="closed">Fechados <Badge variant="secondary" className="ml-1.5">{counts.closed}</Badge></TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : filtered.length === 0 ? (
+            <Card className="p-10 text-center text-sm text-muted-foreground">
+              Nenhum ticket {filter !== 'all' ? `com status "${statusLabels[filter as TicketStatus]}"` : ''}.
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((t) => {
             const Icon = categoryIcon(t.category);
             const author = profileMap.get(t.created_by) as any;
             const assignee = t.assigned_to ? (profileMap.get(t.assigned_to) as any) : null;
@@ -290,8 +334,11 @@ export default function TicketsPage() {
               </Card>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
+
 
       {/* New ticket dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -556,3 +603,112 @@ function TicketDetail({
     </Dialog>
   );
 }
+
+// ============================================================
+// Kanban de gestão TI
+// ============================================================
+
+const KANBAN_COLS: { key: TicketStatus; label: string; Icon: typeof AlertCircle }[] = [
+  { key: 'open', label: 'Abertos', Icon: AlertCircle },
+  { key: 'in_progress', label: 'Em andamento', Icon: Clock },
+  { key: 'resolved', label: 'Resolvidos', Icon: CheckCircle2 },
+  { key: 'closed', label: 'Fechados', Icon: UserCheck },
+];
+
+function ManageKanban({
+  tickets, profileMap, itMembers, onOpen, onAssign, onStatus,
+}: {
+  tickets: Ticket[];
+  profileMap: Map<string, { id: string; full_name: string | null }>;
+  itMembers: { id: string; full_name: string | null }[];
+  onOpen: (t: Ticket) => void;
+  onAssign: (t: Ticket, userId: string | null) => void;
+  onStatus: (t: Ticket, status: TicketStatus) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+      {KANBAN_COLS.map(({ key, label, Icon }) => {
+        const items = tickets.filter(t => t.status === key);
+        return (
+          <div key={key} className="rounded-lg border border-border bg-muted/20 p-2 flex flex-col min-h-[200px]">
+            <div className="flex items-center gap-2 px-1.5 py-1.5 mb-1">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+              <Badge variant="secondary" className="ml-auto h-5 text-[10px]">{items.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {items.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-2 py-3 text-center">Vazio</p>
+              )}
+              {items.map(t => {
+                const Icon2 = categoryIcon(t.category);
+                const assignee = t.assigned_to ? profileMap.get(t.assigned_to) : null;
+                const author = profileMap.get(t.created_by);
+                return (
+                  <Card
+                    key={t.id}
+                    className="p-2.5 cursor-pointer hover:border-primary/40 transition-colors bg-background"
+                    onClick={() => onOpen(t)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Icon2 className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <h4 className="text-sm font-medium leading-snug flex-1 min-w-0">{t.title}</h4>
+                      <Badge
+                        variant="outline"
+                        className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
+                      >
+                        {priorityLabels[t.priority]}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground truncate flex-1 min-w-0">
+                        {author?.full_name || 'Usuário'} • {formatDistanceToNow(new Date(t.created_at), { addSuffix: true, locale: ptBR })}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={t.assigned_to || 'none'}
+                        onValueChange={(v) => onAssign(t, v === 'none' ? null : v)}
+                      >
+                        <SelectTrigger className="h-7 text-xs flex-1">
+                          <SelectValue placeholder="Ninguém" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Ninguém</SelectItem>
+                          {itMembers.map(m => (
+                            <SelectItem key={m.id} value={m.id}>{m.full_name || 'Sem nome'}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={t.status} onValueChange={(v) => onStatus(t, v as TicketStatus)}>
+                        <SelectTrigger className="h-7 text-xs w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(statusLabels) as TicketStatus[]).map(k => (
+                            <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {assignee && (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <Avatar className="h-4 w-4">
+                          <AvatarFallback className="text-[8px] bg-primary/15 text-primary">
+                            {getInitials(assignee.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{assignee.full_name}</span>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
