@@ -222,9 +222,16 @@ export default function DocsPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="text-sm font-semibold">Documentação</h2>
-        <Button size="sm" variant="ghost" onClick={() => { setShowNew(true); setSidebarOpen(false); }}>
-          <Plus className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="A partir de template"
+            onClick={() => { setShowTemplates(true); setSidebarOpen(false); }}>
+            <LayoutTemplate className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Nova página"
+            onClick={() => { setShowNew(true); setSidebarOpen(false); }}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       <div className="px-3 py-2 border-b">
         <div className="relative">
