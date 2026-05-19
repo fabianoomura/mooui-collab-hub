@@ -295,3 +295,92 @@ function BookingBlock({ booking, room, profile, canDelete, onDelete }: {
     </Popover>
   );
 }
+
+function MonthResumo({
+  month, setMonth, bookings, roomMap, onPickDay,
+}: {
+  month: Date;
+  setMonth: (d: Date) => void;
+  bookings: RoomBooking[];
+  roomMap: Record<string, { name: string; color: string }>;
+  onPickDay: (d: Date) => void;
+}) {
+  // Group bookings by yyyy-mm-dd of local start
+  const byDay = useMemo(() => {
+    const m: Record<string, RoomBooking[]> = {};
+    bookings.forEach((b) => {
+      const k = format(new Date(b.starts_at), 'yyyy-MM-dd');
+      (m[k] ||= []).push(b);
+    });
+    return m;
+  }, [bookings]);
+
+  const bookedDates = useMemo(
+    () => Object.keys(byDay).map((k) => new Date(k + 'T00:00:00')),
+    [byDay],
+  );
+
+  const dayList = Object.entries(byDay)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, list]) => ({ key: k, date: new Date(k + 'T00:00:00'), list }));
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4">
+      <div className="border rounded-lg bg-card p-2 flex justify-center">
+        <Calendar
+          mode="single"
+          month={month}
+          onMonthChange={setMonth}
+          locale={ptBR}
+          weekStartsOn={1}
+          modifiers={{ booked: bookedDates }}
+          modifiersClassNames={{
+            booked: 'relative font-semibold text-primary after:content-[""] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-1 after:h-1 after:w-1 after:rounded-full after:bg-primary',
+          }}
+          onDayClick={(d) => onPickDay(d)}
+        />
+      </div>
+
+      <div className="border rounded-lg bg-card p-3 overflow-hidden">
+        <h3 className="text-sm font-semibold mb-2">
+          Reservas em {format(month, "MMMM 'de' yyyy", { locale: ptBR })}
+        </h3>
+        {dayList.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            Nenhuma reserva neste mês.
+          </p>
+        ) : (
+          <ul className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+            {dayList.map(({ key, date, list }) => (
+              <li key={key}>
+                <button
+                  onClick={() => onPickDay(date)}
+                  className="w-full text-left rounded-md border p-2 hover:bg-accent/40 transition-colors"
+                >
+                  <div className="text-xs font-medium uppercase text-muted-foreground mb-1">
+                    {format(date, "EEE, d 'de' MMM", { locale: ptBR })} · {list.length} {list.length === 1 ? 'reserva' : 'reservas'}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {list.slice(0, 4).map((b) => (
+                      <span
+                        key={b.id}
+                        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white"
+                        style={{ background: roomMap[b.room_id]?.color ?? 'hsl(var(--primary))' }}
+                      >
+                        {format(new Date(b.starts_at), 'HH:mm')} · {b.title}
+                      </span>
+                    ))}
+                    {list.length > 4 && (
+                      <span className="text-[10px] text-muted-foreground">+{list.length - 4}</span>
+                    )}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
