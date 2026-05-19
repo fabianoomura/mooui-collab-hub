@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useTickets, useCreateTicket, useUpdateTicket, useDeleteTicket,
-  useTicketComments, useAddTicketComment, useIsITSupport,
-  type Ticket, type TicketStatus, type TicketPriority, type TicketCategory,
+  useTicketComments, useAddTicketComment, useIsITSupport, useTicketActivity,
+  type Ticket, type TicketStatus, type TicketPriority, type TicketCategory, type TicketActivity,
 } from '@/hooks/useTickets';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
