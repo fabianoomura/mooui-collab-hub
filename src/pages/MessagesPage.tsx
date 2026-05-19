@@ -408,6 +408,17 @@ export default function MessagesPage() {
   const { data: threadMessages = [] } = useThreadMessages(threadParentId || undefined);
   const threadParent = messages.find(m => m.id === threadParentId);
 
+  const reactionIds = useMemo(
+    () => [...messages.map(m => m.id), ...threadMessages.map(m => m.id), ...(threadParent ? [threadParent.id] : [])],
+    [messages, threadMessages, threadParent]
+  );
+  const { data: reactionsMap } = useChannelReactions(activeChannelId || undefined, reactionIds);
+  const getReactions = (id: string) => reactionsMap?.get(id) || [];
+  const handleToggleReaction = (messageId: string) => (emoji: string, mine: boolean) =>
+    toggleReaction.mutate({ messageId, emoji, mine });
+  const handleEditMessage = (messageId: string) => (content: string) =>
+    updateMessage.mutate({ messageId, content });
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const threadScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
