@@ -720,6 +720,9 @@ export default function MessagesPage() {
                   onDelete={() => deleteMessage.mutate(m.id)}
                   onOpenThread={() => setThreadParentId(m.id)}
                   showThreadAction
+                  reactions={getReactions(m.id)}
+                  onToggleReaction={handleToggleReaction(m.id)}
+                  onEdit={handleEditMessage(m.id)}
                 />
               ))}
             </div>
