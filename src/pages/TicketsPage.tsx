@@ -733,3 +733,101 @@ function ManageKanban({
   );
 }
 
+
+// ============================================================
+// Timeline de atividade
+// ============================================================
+
+function actionLabel(a: TicketActivity, lookupName: (id: string | null) => string): { title: string; subtitle?: string } {
+  switch (a.action) {
+    case 'created':
+      return { title: 'criou o ticket', subtitle: a.to_value || undefined };
+    case 'status':
+      return { title: `mudou status para "${statusLabels[(a.to_value || 'open') as TicketStatus] ?? a.to_value}"`, subtitle: a.from_value ? `de "${statusLabels[a.from_value as TicketStatus] ?? a.from_value}"` : undefined };
+    case 'priority':
+      return { title: `mudou prioridade para "${priorityLabels[(a.to_value || 'medium') as TicketPriority] ?? a.to_value}"`, subtitle: a.from_value ? `de "${priorityLabels[a.from_value as TicketPriority] ?? a.from_value}"` : undefined };
+    case 'category':
+      return { title: `mudou categoria para "${categoryLabels[(a.to_value || 'outro') as TicketCategory] ?? a.to_value}"` };
+    case 'assigned': {
+      const to = a.to_value ? lookupName(a.to_value) : null;
+      if (!to) return { title: 'removeu o responsável' };
+      return { title: `atribuiu para ${to}` };
+    }
+    case 'title':
+      return { title: 'renomeou o ticket', subtitle: a.to_value || undefined };
+    case 'description':
+      return { title: 'atualizou a descrição' };
+    default:
+      return { title: a.action };
+  }
+}
+
+function ActivityTimeline({
+  ticketId, itMembers, authorName, authorId,
+}: {
+  ticketId: string;
+  itMembers: { id: string; full_name: string | null }[];
+  authorName: string;
+  authorId: string;
+}) {
+  const { data: activity = [], isLoading } = useTicketActivity(ticketId);
+
+  const userIds = useMemo(() => {
+    const ids = new Set<string>();
+    activity.forEach((a) => {
+      if (a.user_id) ids.add(a.user_id);
+      if (a.action === 'assigned') {
+        if (a.from_value) ids.add(a.from_value);
+        if (a.to_value) ids.add(a.to_value);
+      }
+    });
+    return [...ids];
+  }, [activity]);
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['activity-profiles', userIds.sort().join(',')],
+    queryFn: async () => {
+      if (userIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+      return data || [];
+    },
+    enabled: userIds.length > 0,
+  });
+
+  const nameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (profiles as any[]).forEach((p) => m.set(p.id, p.full_name || 'Usuário'));
+    itMembers.forEach((m2) => { if (m2.full_name) m.set(m2.id, m2.full_name); });
+    m.set(authorId, authorName);
+    return m;
+  }, [profiles, itMembers, authorId, authorName]);
+
+  const lookup = (id: string | null) => (id && nameMap.get(id)) || 'Usuário';
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Carregando…</p>;
+  if (activity.length === 0) return <p className="text-xs text-muted-foreground">Sem atividade ainda.</p>;
+
+  return (
+    <div className="relative pl-4 space-y-3 before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-border">
+      {activity.map((a) => {
+        const { title, subtitle } = actionLabel(a, lookup);
+        const who = lookup(a.user_id);
+        return (
+          <div key={a.id} className="relative">
+            <span className="absolute -left-4 top-1.5 h-2 w-2 rounded-full bg-primary" />
+            <p className="text-xs">
+              <span className="font-medium">{who}</span>{' '}
+              <span className="text-muted-foreground">{title}</span>
+            </p>
+            {subtitle && (
+              <p className="text-[11px] text-muted-foreground italic mt-0.5">{subtitle}</p>
+            )}
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
