@@ -84,12 +84,41 @@ export default function DocsPage() {
   const { data: profiles = [] } = useProfilesByIds(profileIds);
   const profileMap = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
 
-  // Group pages by department
+  // Group pages by department + build children map for nesting
+  const childrenMap = useMemo(() => {
+    const m = new Map<string, DocPage[]>();
+    pages.forEach(p => {
+      if (p.parent_id) {
+        const arr = m.get(p.parent_id) || [];
+        arr.push(p);
+        m.set(p.parent_id, arr);
+      }
+    });
+    m.forEach(arr => arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR')));
+    return m;
+  }, [pages]);
+
+  // Breadcrumb path for selected
+  const breadcrumbs = useMemo(() => {
+    if (!selected) return [] as DocPage[];
+    const path: DocPage[] = [];
+    let cur: DocPage | undefined = selected;
+    const guard = new Set<string>();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      path.unshift(cur);
+      cur = cur.parent_id ? pages.find(p => p.id === cur!.parent_id) : undefined;
+    }
+    return path;
+  }, [selected, pages]);
+
   const grouped = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q)) : pages;
     const byDept = new Map<string, DocPage[]>();
     filtered.forEach((p) => {
+      // When searching, show all matches at top level (flat); otherwise only root pages here
+      if (!q && p.parent_id) return;
       const k = p.department_id ?? '__none__';
       if (!byDept.has(k)) byDept.set(k, []);
       byDept.get(k)!.push(p);
@@ -103,6 +132,25 @@ export default function DocsPage() {
     if (orphan.length) groups.push({ id: '__none__', name: 'Sem setor', color: '#9CA3AF', pages: orphan });
     return groups;
   }, [pages, departments, search]);
+
+  const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
+  const togglePage = (id: string) => setExpandedPages(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+
+  // Auto-expand ancestors of selected
+  useEffect(() => {
+    if (!selected) return;
+    setExpandedPages(prev => {
+      const n = new Set(prev);
+      let cur = selected.parent_id ? pages.find(p => p.id === selected.parent_id) : undefined;
+      while (cur) {
+        n.add(cur.id);
+        cur = cur.parent_id ? pages.find(p => p.id === cur!.parent_id) : undefined;
+      }
+      return n;
+    });
+  }, [selectedId, pages]); // eslint-disable-line
 
   useEffect(() => {
     if (!selectedId && pages.length > 0) setSelectedId(pages[0].id);
