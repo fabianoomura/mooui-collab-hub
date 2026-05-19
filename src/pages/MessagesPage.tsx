@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus, Pencil, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -16,6 +16,8 @@ import {
   useUnreadCounts,
 } from '@/hooks/useChannels';
 import { useMessages, useSendMessage, useDeleteMessage, useThreadMessages, type MessageWithProfile } from '@/hooks/useMessages';
+import { useChannelReactions, useToggleReaction, useUpdateMessage, type ReactionGroup } from '@/hooks/useMessageReactions';
+import { ReactionBar } from '@/components/messages/ReactionBar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,9 +48,22 @@ interface MessageItemProps {
   onDelete: () => void;
   onOpenThread?: () => void;
   showThreadAction?: boolean;
+  reactions?: ReactionGroup[];
+  onToggleReaction?: (emoji: string, mine: boolean) => void;
+  onEdit?: (content: string) => void;
 }
 
-function MessageItem({ msg, isMine, onDelete, onOpenThread, showThreadAction }: MessageItemProps) {
+function MessageItem({ msg, isMine, onDelete, onOpenThread, showThreadAction, reactions = [], onToggleReaction, onEdit }: MessageItemProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(msg.content);
+
+  const submitEdit = () => {
+    const v = draft.trim();
+    if (!v || v === msg.content) { setEditing(false); return; }
+    onEdit?.(v);
+    setEditing(false);
+  };
+
   return (
     <div className="group flex gap-3 hover:bg-muted/40 rounded-md px-2 py-1.5 -mx-2">
       <Avatar className="h-9 w-9 shrink-0">
@@ -61,20 +76,41 @@ function MessageItem({ msg, isMine, onDelete, onOpenThread, showThreadAction }: 
           <span className="font-semibold text-sm">{msg.profile?.full_name || 'Usuário'}</span>
           <span className="text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true, locale: ptBR })}
+            {msg.edited_at && <span className="ml-1 italic">(editada)</span>}
           </span>
         </div>
-        {msg.content && msg.content !== '📎' && (
-          <p className="text-sm whitespace-pre-wrap break-words">
-            {msg.content.split(/(@[\wÀ-ÿ.-]+)/g).map((part, i) =>
-              part.startsWith('@') ? (
-                <span key={i} className="text-primary font-medium bg-primary/10 rounded px-1">
-                  {part}
-                </span>
-              ) : (
-                <span key={i}>{part}</span>
-              )
-            )}
-          </p>
+        {editing ? (
+          <div className="mt-1 space-y-1.5">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitEdit(); }
+                if (e.key === 'Escape') { setEditing(false); setDraft(msg.content); }
+              }}
+              rows={2}
+              autoFocus
+              className="resize-none text-sm"
+            />
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={submitEdit} className="h-7"><Check className="h-3 w-3 mr-1" /> Salvar</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDraft(msg.content); }} className="h-7">Cancelar</Button>
+            </div>
+          </div>
+        ) : (
+          msg.content && msg.content !== '📎' && (
+            <p className="text-sm whitespace-pre-wrap break-words">
+              {msg.content.split(/(@[\wÀ-ÿ.-]+)/g).map((part, i) =>
+                part.startsWith('@') ? (
+                  <span key={i} className="text-primary font-medium bg-primary/10 rounded px-1">
+                    {part}
+                  </span>
+                ) : (
+                  <span key={i}>{part}</span>
+                )
+              )}
+            </p>
+          )
         )}
         {msg.attachments?.length > 0 && (
           <div className="mt-2 space-y-2">
@@ -111,6 +147,9 @@ function MessageItem({ msg, isMine, onDelete, onOpenThread, showThreadAction }: 
             })}
           </div>
         )}
+        {onToggleReaction && (
+          <ReactionBar groups={reactions} onToggle={onToggleReaction} />
+        )}
         {showThreadAction && onOpenThread && (msg.reply_count ?? 0) > 0 && (
           <button
             onClick={onOpenThread}
@@ -130,6 +169,11 @@ function MessageItem({ msg, isMine, onDelete, onOpenThread, showThreadAction }: 
             title="Responder em thread"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {isMine && onEdit && !editing && (
+          <button onClick={() => setEditing(true)} className="text-muted-foreground hover:text-foreground p-1" aria-label="Editar mensagem" title="Editar">
+            <Pencil className="h-3.5 w-3.5" />
           </button>
         )}
         {isMine && (
@@ -326,6 +370,8 @@ export default function MessagesPage() {
   const confirm = useConfirm();
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
+  const updateMessage = useUpdateMessage();
+  const toggleReaction = useToggleReaction();
   const markRead = useMarkChannelRead();
   const openDm = useOpenDm();
 
@@ -361,6 +407,17 @@ export default function MessagesPage() {
   const { data: messages = [] } = useMessages(activeChannelId || undefined);
   const { data: threadMessages = [] } = useThreadMessages(threadParentId || undefined);
   const threadParent = messages.find(m => m.id === threadParentId);
+
+  const reactionIds = useMemo(
+    () => [...messages.map(m => m.id), ...threadMessages.map(m => m.id), ...(threadParent ? [threadParent.id] : [])],
+    [messages, threadMessages, threadParent]
+  );
+  const { data: reactionsMap } = useChannelReactions(activeChannelId || undefined, reactionIds);
+  const getReactions = (id: string) => reactionsMap?.get(id) || [];
+  const handleToggleReaction = (messageId: string) => (emoji: string, mine: boolean) =>
+    toggleReaction.mutate({ messageId, emoji, mine });
+  const handleEditMessage = (messageId: string) => (content: string) =>
+    updateMessage.mutate({ messageId, content });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const threadScrollRef = useRef<HTMLDivElement>(null);
@@ -663,6 +720,9 @@ export default function MessagesPage() {
                   onDelete={() => deleteMessage.mutate(m.id)}
                   onOpenThread={() => setThreadParentId(m.id)}
                   showThreadAction
+                  reactions={getReactions(m.id)}
+                  onToggleReaction={handleToggleReaction(m.id)}
+                  onEdit={handleEditMessage(m.id)}
                 />
               ))}
             </div>
@@ -701,6 +761,9 @@ export default function MessagesPage() {
               msg={threadParent}
               isMine={threadParent.user_id === user?.id}
               onDelete={() => deleteMessage.mutate(threadParent.id)}
+              reactions={getReactions(threadParent.id)}
+              onToggleReaction={handleToggleReaction(threadParent.id)}
+              onEdit={handleEditMessage(threadParent.id)}
             />
             <div className="border-t border-border pt-3 -mx-4 px-4 space-y-3">
               {threadMessages.length === 0 && (
@@ -712,6 +775,9 @@ export default function MessagesPage() {
                   msg={m}
                   isMine={m.user_id === user?.id}
                   onDelete={() => deleteMessage.mutate(m.id)}
+                  reactions={getReactions(m.id)}
+                  onToggleReaction={handleToggleReaction(m.id)}
+                  onEdit={handleEditMessage(m.id)}
                 />
               ))}
             </div>
