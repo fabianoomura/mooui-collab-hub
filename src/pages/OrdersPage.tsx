@@ -125,20 +125,32 @@ export default function OrdersPage() {
   const profileMap = useMemo(() => new Map(profiles.map((p: any) => [p.id, p])), [profiles]);
 
   const q = search.trim().toLowerCase();
-  const visible = orders.filter(o => {
-    const isFinal = FINAL_STATUSES.includes(o.status);
-    if (!showFinished && isFinal) return false;
-    if (statusFilter !== 'all' && o.status !== statusFilter) return false;
-    if (problemFilter !== 'all' && o.problem_type !== problemFilter) return false;
-    if (sourceFilter !== 'all' && o.source !== sourceFilter) return false;
-    if (priorityFilter !== 'all' && o.priority !== priorityFilter) return false;
-    if (q) {
-      const hay = [o.title, o.description, o.shopify_order, o.totvs_order, o.customer_name, o.code]
-        .filter(Boolean).join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
+  const priorityRank: Record<OrderPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+  const visible = orders
+    .filter(o => {
+      const isFinal = FINAL_STATUSES.includes(o.status);
+      if (!showFinished && isFinal) return false;
+      if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+      if (problemFilter !== 'all' && o.problem_type !== problemFilter) return false;
+      if (sourceFilter !== 'all' && o.source !== sourceFilter) return false;
+      if (priorityFilter !== 'all' && o.priority !== priorityFilter) return false;
+      if (q) {
+        const hay = [o.title, o.description, o.shopify_order, o.totvs_order, o.customer_name, o.code]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'priority') {
+        const d = priorityRank[a.priority] - priorityRank[b.priority];
+        if (d !== 0) return d;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return sortBy === 'oldest' ? ta - tb : tb - ta;
+    });
 
   const baseForCounts = orders.filter(o => {
     const isFinal = FINAL_STATUSES.includes(o.status);
