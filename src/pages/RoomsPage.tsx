@@ -30,9 +30,10 @@ export default function RoomsPage() {
   const { data: rooms = [] } = useMeetingRooms(currentOrg?.id);
   const confirm = useConfirm();
   const [roomId, setRoomId] = useState<string>('__all__');
-  const [view, setView] = useState<'week' | 'day'>(isMobile ? 'day' : 'week');
+  const [view, setView] = useState<'month' | 'week' | 'day'>(isMobile ? 'day' : 'month');
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [day, setDay] = useState<Date>(startOfDay(new Date()));
+  const [month, setMonth] = useState<Date>(startOfMonth(new Date()));
   const [showManage, setShowManage] = useState(false);
   const [showBooking, setShowBooking] = useState(false);
   const [presetStart, setPresetStart] = useState<Date | undefined>();
@@ -41,11 +42,14 @@ export default function RoomsPage() {
   const range = useMemo(
     () => view === 'week'
       ? { from: weekStart, to: addDays(weekStart, 7) }
-      : { from: day, to: addDays(day, 1) },
-    [view, weekStart, day],
+      : view === 'day'
+        ? { from: day, to: addDays(day, 1) }
+        : { from: startOfMonth(month), to: addDays(endOfMonth(month), 1) },
+    [view, weekStart, day, month],
   );
   const { data: bookings = [] } = useRoomBookings(currentOrg?.id, roomId === '__all__' ? undefined : roomId, range);
   const delBooking = useDeleteBooking();
+
 
   const userIds = useMemo(() => [...new Set(bookings.map(b => b.user_id))], [bookings]);
   const { data: profiles = [] } = useQuery({
