@@ -365,6 +365,28 @@ export default function DocsPage() {
                   <UserChip profile={profileMap[selected.updated_by]} label="Editado por:" />
                 )}
               </div>
+              <button
+                onClick={() => toggleFavorite.mutate({ pageId: selected.id, on: !favorites.has(selected.id) })}
+                title={favorites.has(selected.id) ? 'Remover dos favoritos' : 'Favoritar'}
+                className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent"
+              >
+                <Star className={cn('h-4 w-4', favorites.has(selected.id) && 'fill-yellow-400 text-yellow-400')} />
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent" title="Exportar">
+                    <Download className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => exportPageMd(selected)}>
+                    <FileText className="h-3.5 w-3.5 mr-2" /> Exportar página (.md)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportPageWithChildren(selected)}>
+                    <FileArchive className="h-3.5 w-3.5 mr-2" /> Exportar com sub-páginas (.zip)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <PagePermissions
                 page={selected}
                 disabled={!isAdmin}
