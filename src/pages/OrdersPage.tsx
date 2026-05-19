@@ -94,6 +94,7 @@ export default function OrdersPage() {
   const [problemFilter, setProblemFilter] = useState<'all' | OrderProblem>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | OrderSource>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | OrderPriority>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'priority'>('newest');
   const [showNew, setShowNew] = useState(false);
   const [openOrder, setOpenOrder] = useState<Order | null>(null);
 
