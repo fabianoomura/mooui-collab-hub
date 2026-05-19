@@ -79,6 +79,33 @@ function initials(name?: string | null) {
   return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
 }
 
+function describeActivity(a: { action: string; from_value: string | null; to_value: string | null }): string {
+  switch (a.action) {
+    case 'created': return `abriu o pedido${a.to_value ? `: "${a.to_value}"` : ''}`;
+    case 'status': {
+      const to = (statusLabels as any)[a.to_value || ''] || a.to_value;
+      const from = (statusLabels as any)[a.from_value || ''] || a.from_value;
+      return `mudou status de ${from} para ${to}`;
+    }
+    case 'priority': {
+      const to = (priorityLabels as any)[a.to_value || ''] || a.to_value;
+      const from = (priorityLabels as any)[a.from_value || ''] || a.from_value;
+      return `mudou prioridade de ${from} para ${to}`;
+    }
+    case 'problem_type': {
+      const to = (problemLabels as any)[a.to_value || ''] || a.to_value;
+      const from = (problemLabels as any)[a.from_value || ''] || a.from_value;
+      return `mudou o problema de ${from} para ${to}`;
+    }
+    case 'assigned': {
+      if (!a.to_value) return 'removeu o responsável';
+      if (!a.from_value) return 'atribuiu um responsável';
+      return 'mudou o responsável';
+    }
+    default: return a.action;
+  }
+}
+
 export default function OrdersPage() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
