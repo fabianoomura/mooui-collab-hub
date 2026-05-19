@@ -149,11 +149,22 @@ export default function TicketsPage() {
   });
 
   const q = search.trim().toLowerCase();
+  const ticketLabelMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    labelAssignments.forEach(a => {
+      const arr = m.get(a.ticket_id) || [];
+      arr.push(a.label_id);
+      m.set(a.ticket_id, arr);
+    });
+    return m;
+  }, [labelAssignments]);
   const baseFiltered = tickets.filter(t => {
     if (scope === 'mine' && t.created_by !== user?.id) return false;
     if (scope === 'assigned' && t.assigned_to !== user?.id) return false;
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
     if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+    if (slaFilter === 'breached' && !isBreached(t)) return false;
+    if (labelFilter !== 'all' && !(ticketLabelMap.get(t.id) || []).includes(labelFilter)) return false;
     if (q && !(t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))) return false;
     return true;
   });
@@ -165,7 +176,7 @@ export default function TicketsPage() {
     resolved: baseFiltered.filter(t => t.status === 'resolved').length,
     closed: baseFiltered.filter(t => t.status === 'closed').length,
   };
-  const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0);
+  const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0) + (slaFilter !== 'all' ? 1 : 0) + (labelFilter !== 'all' ? 1 : 0);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
