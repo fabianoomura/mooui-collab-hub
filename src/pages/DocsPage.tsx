@@ -489,6 +489,12 @@ export default function DocsPage() {
         orgId={currentOrg.id}
         onCreate={handleCreate}
       />
+      <TemplatePickerDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        orgId={currentOrg.id}
+        onPick={(t) => handleCreate({ title: t.name, icon: t.icon || '📄', department_id: null, content: t.content })}
+      />
     </div>
   );
 }
