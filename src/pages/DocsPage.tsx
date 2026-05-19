@@ -255,6 +255,29 @@ export default function DocsPage() {
       </div>
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
+          {!search && favorites.size > 0 && (
+            <div className="mb-2">
+              <div className="flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">
+                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                <span className="font-semibold">Favoritos</span>
+              </div>
+              <div className="ml-2">
+                {pages.filter(p => favorites.has(p.id)).map(p => (
+                  <div
+                    key={`fav-${p.id}`}
+                    onClick={() => { setSelectedId(p.id); setSidebarOpen(false); }}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
+                      selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
+                    )}
+                  >
+                    <span className="text-base leading-none">{p.icon || '📄'}</span>
+                    <span className="truncate">{p.title || 'Sem título'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {grouped.length === 0 || pages.length === 0 ? (
             search ? (
               <p className="text-xs text-muted-foreground p-3">Nenhuma página corresponde a "{search}"</p>
