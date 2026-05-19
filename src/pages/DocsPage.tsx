@@ -269,33 +269,25 @@ export default function DocsPage() {
                 {isOpen && (
                   <div className="ml-2">
                     {g.pages.map((p) => (
-                      <div
+                      <PageNode
                         key={p.id}
-                        onClick={() => { setSelectedId(p.id); setSidebarOpen(false); }}
-                        className={cn(
-                          'group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
-                          selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
-                        )}
-                      >
-                        <span className="text-base leading-none">{p.icon || '📄'}</span>
-                        <span className="truncate flex-1">{p.title || 'Sem título'}</span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button onClick={(e) => e.stopPropagation()}
-                              className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background">
-                              <MoreHorizontal className="h-3 w-3" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDelete(p.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                        page={p}
+                        depth={0}
+                        childrenMap={childrenMap}
+                        expandedPages={expandedPages}
+                        togglePage={togglePage}
+                        selectedId={selectedId}
+                        onSelect={(id) => { setSelectedId(id); setSidebarOpen(false); }}
+                        onDelete={handleDelete}
+                        onAddChild={(parentId) => {
+                          if (!currentOrg) return;
+                          const parent = pages.find(x => x.id === parentId);
+                          createPage.mutate(
+                            { organization_id: currentOrg.id, parent_id: parentId, department_id: parent?.department_id ?? null, title: 'Sem título' },
+                            { onSuccess: (np) => { setSelectedId(np.id); setExpandedPages(prev => new Set(prev).add(parentId)); } }
+                          );
+                        }}
+                      />
                     ))}
                     {g.pages.length === 0 && (
                       <div className="px-2 py-1 text-xs text-muted-foreground italic">Sem páginas</div>
