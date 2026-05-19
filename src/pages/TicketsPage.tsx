@@ -237,25 +237,122 @@ export default function TicketsPage() {
         </div>
       </div>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-        <TabsList className="flex flex-wrap h-auto">
-          <TabsTrigger value="all">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
-          <TabsTrigger value="open">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
-          <TabsTrigger value="in_progress">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
-          <TabsTrigger value="resolved">Resolvidos <Badge variant="secondary" className="ml-1.5">{counts.resolved}</Badge></TabsTrigger>
-          <TabsTrigger value="closed">Fechados <Badge variant="secondary" className="ml-1.5">{counts.closed}</Badge></TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold">Tickets de TI</h1>
+          <p className="text-sm text-muted-foreground">
+            {view === 'manage'
+              ? 'Gestão: atribua responsáveis e acompanhe o andamento interno.'
+              : 'Abra um chamado e acompanhe o status dele.'}
+          </p>
+        </div>
+        <Button onClick={() => setShowNew(true)}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          Abrir ticket
+        </Button>
+      </div>
 
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : filtered.length === 0 ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          Nenhum ticket {filter !== 'all' ? `com status "${statusLabels[filter as TicketStatus]}"` : ''}.
-        </Card>
+      {/* View switcher: Meus tickets / Gestão TI (apenas TI vê gestão) */}
+      {isIT && (
+        <Tabs value={view} onValueChange={(v) => setView(v as any)}>
+          <TabsList>
+            <TabsTrigger value="mine">
+              <Inbox className="h-3.5 w-3.5 mr-1.5" />
+              Meus tickets
+            </TabsTrigger>
+            <TabsTrigger value="manage">
+              <Headset className="h-3.5 w-3.5 mr-1.5" />
+              Gestão TI
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {/* Busca + filtros */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por título ou descrição…"
+            className="pl-8 h-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {view === 'manage' && (
+            <Select value={scope} onValueChange={(v) => setScope(v as any)}>
+              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tickets</SelectItem>
+                <SelectItem value="assigned">Atribuídos a mim</SelectItem>
+                <SelectItem value="mine">Abertos por mim</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer prioridade</SelectItem>
+              {(Object.keys(priorityLabels) as TicketPriority[]).map(k => (
+                <SelectItem key={k} value={k}>{priorityLabels[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer categoria</SelectItem>
+              {(Object.keys(categoryLabels) as TicketCategory[]).map(k => (
+                <SelectItem key={k} value={k}>{categoryLabels[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {activeChips > 0 && (
+            <Button
+              variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
+              onClick={() => { setSearch(''); setPriorityFilter('all'); setCategoryFilter('all'); setScope(view === 'mine' ? 'mine' : 'all'); }}
+            >
+              <X className="h-3.5 w-3.5 mr-1" />Limpar
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {view === 'manage' && isIT ? (
+        <ManageKanban
+          tickets={baseFiltered}
+          profileMap={profileMap as any}
+          itMembers={itMembers as any}
+          onOpen={(t) => setOpenTicket(t)}
+          onAssign={(t, userId) => updateMut.mutate({
+            id: t.id,
+            assigned_to: userId,
+            status: userId && t.status === 'open' ? 'in_progress' : t.status,
+          })}
+          onStatus={(t, status) => updateMut.mutate({ id: t.id, status })}
+        />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((t) => {
+        <>
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
+            <TabsList className="flex flex-wrap h-auto">
+              <TabsTrigger value="all">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
+              <TabsTrigger value="open">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
+              <TabsTrigger value="in_progress">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
+              <TabsTrigger value="resolved">Resolvidos <Badge variant="secondary" className="ml-1.5">{counts.resolved}</Badge></TabsTrigger>
+              <TabsTrigger value="closed">Fechados <Badge variant="secondary" className="ml-1.5">{counts.closed}</Badge></TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : filtered.length === 0 ? (
+            <Card className="p-10 text-center text-sm text-muted-foreground">
+              Nenhum ticket {filter !== 'all' ? `com status "${statusLabels[filter as TicketStatus]}"` : ''}.
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((t) => {
             const Icon = categoryIcon(t.category);
             const author = profileMap.get(t.created_by) as any;
             const assignee = t.assigned_to ? (profileMap.get(t.assigned_to) as any) : null;
