@@ -150,9 +150,9 @@ export default function ChecklistPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        crumbs={[{ label: 'Início', to: '/' }, { label: 'Checagem do site' }]}
-        title="Checagem do site"
-        subtitle="Itens para validar no Shopify antes de publicar uma coleção"
+        crumbs={[{ label: 'Início', to: '/' }, { label: 'Check Lançamentos' }]}
+        title="Check Lançamentos"
+        subtitle="Itens para validar no Shopify antes de publicar um lançamento"
         actions={
           <>
             <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
