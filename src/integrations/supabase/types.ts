@@ -1359,6 +1359,44 @@ export type Database = {
           },
         ]
       }
+      ticket_activity: {
+        Row: {
+          action: string
+          created_at: string
+          from_value: string | null
+          id: string
+          ticket_id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          ticket_id: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          ticket_id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_activity_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_attachments: {
         Row: {
           created_at: string
@@ -1400,6 +1438,21 @@ export type Database = {
           },
         ]
       }
+      ticket_code_seq: {
+        Row: {
+          last_value: number
+          organization_id: string
+        }
+        Insert: {
+          last_value?: number
+          organization_id: string
+        }
+        Update: {
+          last_value?: number
+          organization_id?: string
+        }
+        Relationships: []
+      }
       ticket_comments: {
         Row: {
           content: string
@@ -1436,6 +1489,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           category: string
+          code: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -1450,6 +1504,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           category?: string
+          code?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -1464,6 +1519,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           category?: string
+          code?: string | null
           created_at?: string
           created_by?: string
           description?: string | null

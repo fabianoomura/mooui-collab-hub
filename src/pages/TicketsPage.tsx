@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useTickets, useCreateTicket, useUpdateTicket, useDeleteTicket,
-  useTicketComments, useAddTicketComment, useIsITSupport,
-  type Ticket, type TicketStatus, type TicketPriority, type TicketCategory,
+  useTicketComments, useAddTicketComment, useIsITSupport, useTicketActivity,
+  type Ticket, type TicketStatus, type TicketPriority, type TicketCategory, type TicketActivity,
 } from '@/hooks/useTickets';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -307,6 +307,11 @@ export default function TicketsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 flex-wrap">
+                      {t.code && (
+                        <span className="text-[10px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {t.code}
+                        </span>
+                      )}
                       <h3 className="font-medium truncate flex-1 min-w-0">{t.title}</h3>
                       <Badge className={cn('text-[10px]', priorityColors[t.priority])} variant="outline">
                         {priorityLabels[t.priority]}
@@ -460,7 +465,12 @@ function TicketDetail({
             <Button variant="ghost" size="icon" onClick={onClose} className="md:hidden -ml-2">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <DialogTitle className="flex-1 text-left">{ticket.title}</DialogTitle>
+            <DialogTitle className="flex-1 text-left flex items-baseline gap-2 flex-wrap">
+              {ticket.code && (
+                <span className="text-xs font-mono font-semibold text-muted-foreground">{ticket.code}</span>
+              )}
+              <span>{ticket.title}</span>
+            </DialogTitle>
           </div>
         </DialogHeader>
 
@@ -541,54 +551,60 @@ function TicketDetail({
             </div>
           )}
 
-          {/* Comments */}
-          <div>
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
-              Comentários ({comments.length})
-            </h3>
-            <div className="space-y-2">
-              {comments.length === 0 && (
-                <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
-              )}
-              {comments.map((c) => {
-                const p = cMap.get(c.user_id) as any;
-                return (
-                  <div key={c.id} className="flex gap-2">
-                    <Avatar className="h-7 w-7 shrink-0">
-                      <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
-                        {getInitials(p?.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium">{p?.full_name || 'Usuário'}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
-                        </span>
+          {/* Tabs: Comentários / Atividade */}
+          <Tabs defaultValue="comments">
+            <TabsList>
+              <TabsTrigger value="comments">Comentários ({comments.length})</TabsTrigger>
+              <TabsTrigger value="activity">Atividade</TabsTrigger>
+            </TabsList>
+            <TabsContent value="comments" className="mt-3">
+              <div className="space-y-2">
+                {comments.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
+                )}
+                {comments.map((c) => {
+                  const p = cMap.get(c.user_id) as any;
+                  return (
+                    <div key={c.id} className="flex gap-2">
+                      <Avatar className="h-7 w-7 shrink-0">
+                        <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
+                          {getInitials(p?.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-medium">{p?.full_name || 'Usuário'}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            <div className="flex gap-2 mt-3">
-              <Textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Adicionar comentário…"
-                rows={2}
-                className="resize-none"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-                }}
-              />
-              <Button onClick={send} disabled={!text.trim() || addComment.isPending} size="icon">
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+              <div className="flex gap-2 mt-3">
+                <Textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Adicionar comentário…"
+                  rows={2}
+                  className="resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+                  }}
+                />
+                <Button onClick={send} disabled={!text.trim() || addComment.isPending} size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="activity" className="mt-3">
+              <ActivityTimeline ticketId={ticket.id} itMembers={itMembers} authorName={authorName} authorId={ticket.created_by} />
+            </TabsContent>
+          </Tabs>
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -652,7 +668,12 @@ function ManageKanban({
                   >
                     <div className="flex items-start gap-2">
                       <Icon2 className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                      <h4 className="text-sm font-medium leading-snug flex-1 min-w-0">{t.title}</h4>
+                      <div className="flex-1 min-w-0">
+                        {t.code && (
+                          <div className="text-[9px] font-mono font-semibold text-muted-foreground mb-0.5">{t.code}</div>
+                        )}
+                        <h4 className="text-sm font-medium leading-snug">{t.title}</h4>
+                      </div>
                       <Badge
                         variant="outline"
                         className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
@@ -712,3 +733,101 @@ function ManageKanban({
   );
 }
 
+
+// ============================================================
+// Timeline de atividade
+// ============================================================
+
+function actionLabel(a: TicketActivity, lookupName: (id: string | null) => string): { title: string; subtitle?: string } {
+  switch (a.action) {
+    case 'created':
+      return { title: 'criou o ticket', subtitle: a.to_value || undefined };
+    case 'status':
+      return { title: `mudou status para "${statusLabels[(a.to_value || 'open') as TicketStatus] ?? a.to_value}"`, subtitle: a.from_value ? `de "${statusLabels[a.from_value as TicketStatus] ?? a.from_value}"` : undefined };
+    case 'priority':
+      return { title: `mudou prioridade para "${priorityLabels[(a.to_value || 'medium') as TicketPriority] ?? a.to_value}"`, subtitle: a.from_value ? `de "${priorityLabels[a.from_value as TicketPriority] ?? a.from_value}"` : undefined };
+    case 'category':
+      return { title: `mudou categoria para "${categoryLabels[(a.to_value || 'outro') as TicketCategory] ?? a.to_value}"` };
+    case 'assigned': {
+      const to = a.to_value ? lookupName(a.to_value) : null;
+      if (!to) return { title: 'removeu o responsável' };
+      return { title: `atribuiu para ${to}` };
+    }
+    case 'title':
+      return { title: 'renomeou o ticket', subtitle: a.to_value || undefined };
+    case 'description':
+      return { title: 'atualizou a descrição' };
+    default:
+      return { title: a.action };
+  }
+}
+
+function ActivityTimeline({
+  ticketId, itMembers, authorName, authorId,
+}: {
+  ticketId: string;
+  itMembers: { id: string; full_name: string | null }[];
+  authorName: string;
+  authorId: string;
+}) {
+  const { data: activity = [], isLoading } = useTicketActivity(ticketId);
+
+  const userIds = useMemo(() => {
+    const ids = new Set<string>();
+    activity.forEach((a) => {
+      if (a.user_id) ids.add(a.user_id);
+      if (a.action === 'assigned') {
+        if (a.from_value) ids.add(a.from_value);
+        if (a.to_value) ids.add(a.to_value);
+      }
+    });
+    return [...ids];
+  }, [activity]);
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['activity-profiles', userIds.sort().join(',')],
+    queryFn: async () => {
+      if (userIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+      return data || [];
+    },
+    enabled: userIds.length > 0,
+  });
+
+  const nameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (profiles as any[]).forEach((p) => m.set(p.id, p.full_name || 'Usuário'));
+    itMembers.forEach((m2) => { if (m2.full_name) m.set(m2.id, m2.full_name); });
+    m.set(authorId, authorName);
+    return m;
+  }, [profiles, itMembers, authorId, authorName]);
+
+  const lookup = (id: string | null) => (id && nameMap.get(id)) || 'Usuário';
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Carregando…</p>;
+  if (activity.length === 0) return <p className="text-xs text-muted-foreground">Sem atividade ainda.</p>;
+
+  return (
+    <div className="relative pl-4 space-y-3 before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-border">
+      {activity.map((a) => {
+        const { title, subtitle } = actionLabel(a, lookup);
+        const who = lookup(a.user_id);
+        return (
+          <div key={a.id} className="relative">
+            <span className="absolute -left-4 top-1.5 h-2 w-2 rounded-full bg-primary" />
+            <p className="text-xs">
+              <span className="font-medium">{who}</span>{' '}
+              <span className="text-muted-foreground">{title}</span>
+            </p>
+            {subtitle && (
+              <p className="text-[11px] text-muted-foreground italic mt-0.5">{subtitle}</p>
+            )}
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
