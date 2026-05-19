@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon } from 'lucide-react';
+import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon, Star, Download, FileArchive, LayoutTemplate } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -23,8 +23,11 @@ import { ptBR } from 'date-fns/locale';
 import { NewPageDialog } from '@/components/docs/NewPageDialog';
 import { PagePermissions } from '@/components/docs/PagePermissions';
 import { IconPicker } from '@/components/docs/IconPicker';
+import { TemplatePickerDialog } from '@/components/docs/TemplatePickerDialog';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useDocFavorites, useToggleFavorite } from '@/hooks/useDocFavorites';
+import JSZip from 'jszip';
 
 interface ProfileLite { id: string; full_name: string | null; avatar_url: string | null; }
 
