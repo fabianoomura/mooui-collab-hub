@@ -400,3 +400,90 @@ export default function DocsPage() {
     </div>
   );
 }
+
+function PageNode({
+  page, depth, childrenMap, expandedPages, togglePage, selectedId, onSelect, onDelete, onAddChild,
+}: {
+  page: DocPage;
+  depth: number;
+  childrenMap: Map<string, DocPage[]>;
+  expandedPages: Set<string>;
+  togglePage: (id: string) => void;
+  selectedId?: string;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onAddChild: (parentId: string) => void;
+}) {
+  const children = childrenMap.get(page.id) || [];
+  const hasChildren = children.length > 0;
+  const isOpen = expandedPages.has(page.id);
+  return (
+    <div>
+      <div
+        onClick={() => onSelect(page.id)}
+        style={{ paddingLeft: depth * 12 }}
+        className={cn(
+          'group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
+          selectedId === page.id && 'bg-accent text-accent-foreground font-medium'
+        )}
+      >
+        {hasChildren ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); togglePage(page.id); }}
+            className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </button>
+        ) : (
+          <span className="w-4" />
+        )}
+        <span className="text-base leading-none">{page.icon || '📄'}</span>
+        <span className="truncate flex-1">{page.title || 'Sem título'}</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onAddChild(page.id); }}
+          className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background"
+          title="Nova sub-página"
+        >
+          <PlusIcon className="h-3 w-3" />
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button onClick={(e) => e.stopPropagation()}
+              className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background">
+              <MoreHorizontal className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onAddChild(page.id)}>
+              <PlusIcon className="h-3.5 w-3.5 mr-2" /> Nova sub-página
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => onDelete(page.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {isOpen && hasChildren && (
+        <div>
+          {children.map(c => (
+            <PageNode
+              key={c.id}
+              page={c}
+              depth={depth + 1}
+              childrenMap={childrenMap}
+              expandedPages={expandedPages}
+              togglePage={togglePage}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onDelete={onDelete}
+              onAddChild={onAddChild}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
