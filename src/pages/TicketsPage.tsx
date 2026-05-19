@@ -27,6 +27,9 @@ import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { TicketFilesTab } from '@/components/tickets/TicketFilesTab';
+import { SlaBadge, useSlaBreached } from '@/components/tickets/SlaBadge';
+import { TicketLabelChips, TicketLabelPicker } from '@/components/tickets/TicketLabelPicker';
+import { useTicketLabelAssignments, useTicketLabels } from '@/hooks/useTicketLabels';
 
 const priorityColors: Record<TicketPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
