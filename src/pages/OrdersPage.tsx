@@ -741,9 +741,21 @@ function OrderDetail({
             </div>
             <div className="pt-2 space-y-1.5 text-[11px] text-muted-foreground">
               <p>Aberto por: <span className="text-foreground">{author?.full_name || 'Usuário'}</span></p>
-              {assignee && <p>Responsável: <span className="text-foreground">{assignee.full_name}</span></p>}
-              <p>Criado: {formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR })}</p>
-              {order.closed_at && <p>Encerrado: {formatDistanceToNow(new Date(order.closed_at), { addSuffix: true, locale: ptBR })}</p>}
+              <p>
+                Data de abertura:{' '}
+                <span className="text-foreground">
+                  {format(new Date(order.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </span>
+                {' '}({formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR })})
+              </p>
+              {order.closed_at && (
+                <p>
+                  Encerrado em:{' '}
+                  <span className="text-foreground">
+                    {format(new Date(order.closed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </span>
+                </p>
+              )}
             </div>
 
             {!isFinal && (
