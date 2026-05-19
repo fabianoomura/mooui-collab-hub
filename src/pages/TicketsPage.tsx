@@ -520,7 +520,7 @@ function TicketDetail({
 
         <div className="space-y-4">
           {/* Meta */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Badge variant="outline" className={cn('text-[10px]', statusColors[ticket.status])}>
               {statusLabels[ticket.status]}
             </Badge>
@@ -528,7 +528,11 @@ function TicketDetail({
               Prioridade: {priorityLabels[ticket.priority]}
             </Badge>
             <Badge variant="outline" className="text-[10px]">{categoryLabels[ticket.category]}</Badge>
+            <SlaBadge ticket={ticket} />
+            <div className="flex-1" />
+            <TicketLabelPicker ticketId={ticket.id} />
           </div>
+          <TicketLabelChips ticketId={ticket.id} />
 
           {ticket.description && (
             <Card className="p-3 bg-muted/30">
