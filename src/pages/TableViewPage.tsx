@@ -588,7 +588,15 @@ function TaskRow({
             <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">{subtaskCount}</span>
           )}
         </div>
-        {visibleColumns.has('due_date') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.due_date)}</span>}
+        {visibleColumns.has('due_date') && (
+          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+            <DateRangeCell
+              startDate={(task as any).start_date || null}
+              endDate={task.due_date}
+              onChange={(s, e) => onInlineUpdate(task.id, { start_date: s, due_date: e } as any)}
+            />
+          </div>
+        )}
         {visibleColumns.has('priority') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} customLabels={priorityLabelsConfig} onEditLabels={onEditPriorityLabels} /></div>}
         {visibleColumns.has('status') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} customLabels={statusLabelsConfig} onEditLabels={onEditStatusLabels} /></div>}
         {visibleColumns.has('assignee') && <div className="px-1 py-1"><AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} /></div>}
