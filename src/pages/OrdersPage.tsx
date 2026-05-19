@@ -379,9 +379,12 @@ export default function OrdersPage() {
                     <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
                       <span>{sourceLabels[o.source]}</span>
                       <span>•</span>
-                      <span>{author?.full_name || 'Usuário'}</span>
+                      <span>Aberto por {author?.full_name || 'Usuário'}</span>
                       <span>•</span>
-                      <span>{formatDistanceToNow(new Date(o.created_at), { addSuffix: true, locale: ptBR })}</span>
+                      <span title={format(new Date(o.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}>
+                        {format(new Date(o.created_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
+                        {' '}({formatDistanceToNow(new Date(o.created_at), { addSuffix: true, locale: ptBR })})
+                      </span>
                       {assignee && (<><span>•</span><span>Resp: {assignee.full_name}</span></>)}
                     </div>
                   </div>
