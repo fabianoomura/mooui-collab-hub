@@ -19,8 +19,8 @@ const ROUTES = [
   { label: 'Documentação', href: '/docs', icon: BookOpen, kw: 'notinha notion' },
   { label: 'Salas', href: '/salas', icon: Calendar, kw: 'reserva reuniao' },
   { label: 'Calendário', href: '/calendario', icon: CalendarDays, kw: 'eventos ano' },
-  { label: 'Lançamentos', href: '/lancamentos', icon: Rocket, kw: 'launches etapas' },
-  { label: 'Checagem Site', href: '/checagens', icon: ClipboardCheck, kw: 'checklist' },
+  { label: 'Produção', href: '/lancamentos', icon: Rocket, kw: 'launches etapas lancamentos producao' },
+  { label: 'Check Lançamentos', href: '/checagens', icon: ClipboardCheck, kw: 'checklist checagem site' },
   { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },
   { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios' },
   { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings' },
@@ -71,7 +71,7 @@ export function CommandPalette() {
         {launches.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Lançamentos">
+            <CommandGroup heading="Produção">
               {launches.map((l: any) => (
                 <CommandItem key={l.id} value={`lancamento ${l.name}`} onSelect={() => go('/lancamentos')}>
                   <Rocket className="h-4 w-4 mr-2 text-muted-foreground" />

@@ -85,8 +85,8 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
   return (
     <div className="space-y-4">
       <PageHeader
-        crumbs={[{ label: 'Início', to: '/' }, { label: 'Lançamentos' }]}
-        title="Lançamentos"
+        crumbs={[{ label: 'Início', to: '/' }, { label: 'Produção' }]}
+        title="Produção"
         subtitle="Etapas, prazos e gargalos em tempo real"
         actions={
           <Button onClick={() => setOpen(true)}>
@@ -265,7 +265,7 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
       <PageHeader
         crumbs={[
           { label: 'Início', to: '/' },
-          { label: 'Lançamentos', to: '#' },
+          { label: 'Produção', to: '#' },
         ]}
         title={launch.name}
         subtitle={`${launch.description || 'Sem descrição'} · Início ${fmtDate(launch.start_date)}`}
