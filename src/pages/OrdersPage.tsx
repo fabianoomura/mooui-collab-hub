@@ -652,6 +652,33 @@ function OrderDetail({
                 </div>
               </div>
             </div>
+
+            {/* Passo a passo / histórico */}
+            <div>
+              <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <History className="h-3 w-3" /> Passo a passo ({activity.length})
+              </Label>
+              <ol className="mt-2 relative border-l border-border ml-2 space-y-3">
+                {activity.length === 0 && (
+                  <li className="text-xs text-muted-foreground pl-4">Sem histórico ainda.</li>
+                )}
+                {activity.map(a => {
+                  const au = a.user_id ? (cmtMap.get(a.user_id) || profileMap.get(a.user_id)) as any : null;
+                  return (
+                    <li key={a.id} className="pl-4 relative">
+                      <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary border-2 border-background" />
+                      <div className="text-xs">
+                        <span className="font-medium">{au?.full_name || 'Sistema'}</span>{' '}
+                        <span className="text-muted-foreground">{describeActivity(a)}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {format(new Date(a.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
           </div>
 
           <div className="space-y-3">
