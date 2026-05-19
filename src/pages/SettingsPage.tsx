@@ -43,12 +43,16 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container max-w-6xl mx-auto py-6 sm:py-8 px-3 sm:px-4">
-      <div className="mb-6 flex items-center gap-3">
-        <SettingsIcon className="h-6 w-6 text-primary" />
+    <div className="container max-w-6xl mx-auto py-6 sm:py-8 px-3 sm:px-6">
+      <div className="mb-6 rounded-lg border bg-card p-4 shadow-sm sm:p-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
+            <SettingsIcon className="h-5 w-5 text-primary" />
+          </div>
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">Configurações</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">{currentOrg.name}</p>
+        </div>
         </div>
       </div>
 
@@ -58,32 +62,32 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <Tabs defaultValue="profile">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="profile"><UserIcon className="h-4 w-4 mr-2" />Meu perfil</TabsTrigger>
-          {isAdmin && <TabsTrigger value="users"><UsersIcon className="h-4 w-4 mr-2" />Usuários</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="departments"><Building2 className="h-4 w-4 mr-2" />Setores & Cargos</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="teams"><UsersIcon className="h-4 w-4 mr-2" />Equipes de setor</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="permissions"><Shield className="h-4 w-4 mr-2" />Permissões</TabsTrigger>}
+      <Tabs defaultValue="profile" className="space-y-5">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-lg bg-muted/60 p-1 sm:grid-cols-2 lg:grid-cols-5">
+          <TabsTrigger value="profile" className="justify-start gap-2 px-3 py-2"><UserIcon className="h-4 w-4" />Meu perfil</TabsTrigger>
+          {isAdmin && <TabsTrigger value="users" className="justify-start gap-2 px-3 py-2"><UsersIcon className="h-4 w-4" />Usuários</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="departments" className="justify-start gap-2 px-3 py-2"><Building2 className="h-4 w-4" />Setores & Cargos</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="teams" className="justify-start gap-2 px-3 py-2"><UsersIcon className="h-4 w-4" />Equipes de setor</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="permissions" className="justify-start gap-2 px-3 py-2"><Shield className="h-4 w-4" />Permissões</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="profile" className="mt-6">
+        <TabsContent value="profile" className="mt-0">
           <ProfileTab />
         </TabsContent>
         {isAdmin && (
           <>
-            <TabsContent value="users" className="mt-6">
+            <TabsContent value="users" className="mt-0">
               <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 <UsersTab orgId={currentOrg.id} canEdit={isAdmin} />
               </div>
             </TabsContent>
-            <TabsContent value="departments" className="mt-6">
+            <TabsContent value="departments" className="mt-0">
               <DepartmentsTab orgId={currentOrg.id} canEdit={isAdmin} />
             </TabsContent>
-            <TabsContent value="teams" className="mt-6">
+            <TabsContent value="teams" className="mt-0">
               <DepartmentTeamsTab orgId={currentOrg.id} canEdit={isAdmin} />
             </TabsContent>
-            <TabsContent value="permissions" className="mt-6">
+            <TabsContent value="permissions" className="mt-0">
               <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 <PermissionsTab orgId={currentOrg.id} canEdit={isAdmin} />
               </div>
