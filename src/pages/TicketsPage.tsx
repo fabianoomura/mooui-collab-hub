@@ -465,7 +465,12 @@ function TicketDetail({
             <Button variant="ghost" size="icon" onClick={onClose} className="md:hidden -ml-2">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <DialogTitle className="flex-1 text-left">{ticket.title}</DialogTitle>
+            <DialogTitle className="flex-1 text-left flex items-baseline gap-2 flex-wrap">
+              {ticket.code && (
+                <span className="text-xs font-mono font-semibold text-muted-foreground">{ticket.code}</span>
+              )}
+              <span>{ticket.title}</span>
+            </DialogTitle>
           </div>
         </DialogHeader>
 
