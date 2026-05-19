@@ -370,6 +370,8 @@ export default function MessagesPage() {
   const confirm = useConfirm();
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
+  const updateMessage = useUpdateMessage();
+  const toggleReaction = useToggleReaction();
   const markRead = useMarkChannelRead();
   const openDm = useOpenDm();
 
