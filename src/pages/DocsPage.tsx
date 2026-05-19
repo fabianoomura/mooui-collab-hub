@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon } from 'lucide-react';
+import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon, Star, Download, FileArchive, LayoutTemplate } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -23,8 +23,11 @@ import { ptBR } from 'date-fns/locale';
 import { NewPageDialog } from '@/components/docs/NewPageDialog';
 import { PagePermissions } from '@/components/docs/PagePermissions';
 import { IconPicker } from '@/components/docs/IconPicker';
+import { TemplatePickerDialog } from '@/components/docs/TemplatePickerDialog';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useDocFavorites, useToggleFavorite } from '@/hooks/useDocFavorites';
+import JSZip from 'jszip';
 
 interface ProfileLite { id: string; full_name: string | null; avatar_url: string | null; }
 
@@ -69,10 +72,13 @@ export default function DocsPage() {
   const [content, setContent] = useState('');
   const [icon, setIcon] = useState('📄');
   const [showNew, setShowNew] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const { data: favorites = new Set<string>() } = useDocFavorites();
+  const toggleFavorite = useToggleFavorite();
 
   const selected = pages.find((p) => p.id === selectedId);
 
@@ -114,7 +120,7 @@ export default function DocsPage() {
 
   const grouped = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q)) : pages;
+    const filtered = q ? pages.filter(p => (p.title || '').toLowerCase().includes(q) || (p.content || '').toLowerCase().includes(q)) : pages;
     const byDept = new Map<string, DocPage[]>();
     filtered.forEach((p) => {
       // When searching, show all matches at top level (flat); otherwise only root pages here
@@ -208,6 +214,40 @@ export default function DocsPage() {
     });
   };
 
+  const slug = (s: string) => (s || 'sem-titulo').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'sem-titulo';
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const exportPageMd = (p: DocPage) => {
+    const md = `# ${p.title || 'Sem título'}\n\n${p.content || ''}`;
+    downloadBlob(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${slug(p.title)}.md`);
+  };
+
+  const exportPageWithChildren = async (root: DocPage) => {
+    const zip = new JSZip();
+    const walk = (node: DocPage, folder: JSZip) => {
+      const md = `# ${node.title || 'Sem título'}\n\n${node.content || ''}`;
+      const children = childrenMap.get(node.id) || [];
+      if (children.length > 0) {
+        const sub = folder.folder(slug(node.title))!;
+        sub.file('index.md', md);
+        children.forEach((c) => walk(c, sub));
+      } else {
+        folder.file(`${slug(node.title)}.md`, md);
+      }
+    };
+    walk(root, zip);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, `${slug(root.title)}.zip`);
+    toast.success('Exportado com sub-páginas');
+  };
+
+
   if (!currentOrg) {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Selecione uma organização</div>;
   }
@@ -216,9 +256,16 @@ export default function DocsPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="text-sm font-semibold">Documentação</h2>
-        <Button size="sm" variant="ghost" onClick={() => { setShowNew(true); setSidebarOpen(false); }}>
-          <Plus className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="A partir de template"
+            onClick={() => { setShowTemplates(true); setSidebarOpen(false); }}>
+            <LayoutTemplate className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Nova página"
+            onClick={() => { setShowNew(true); setSidebarOpen(false); }}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       <div className="px-3 py-2 border-b">
         <div className="relative">
@@ -242,6 +289,29 @@ export default function DocsPage() {
       </div>
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
+          {!search && favorites.size > 0 && (
+            <div className="mb-2">
+              <div className="flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">
+                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                <span className="font-semibold">Favoritos</span>
+              </div>
+              <div className="ml-2">
+                {pages.filter(p => favorites.has(p.id)).map(p => (
+                  <div
+                    key={`fav-${p.id}`}
+                    onClick={() => { setSelectedId(p.id); setSidebarOpen(false); }}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
+                      selectedId === p.id && 'bg-accent text-accent-foreground font-medium'
+                    )}
+                  >
+                    <span className="text-base leading-none">{p.icon || '📄'}</span>
+                    <span className="truncate">{p.title || 'Sem título'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {grouped.length === 0 || pages.length === 0 ? (
             search ? (
               <p className="text-xs text-muted-foreground p-3">Nenhuma página corresponde a "{search}"</p>
@@ -329,6 +399,28 @@ export default function DocsPage() {
                   <UserChip profile={profileMap[selected.updated_by]} label="Editado por:" />
                 )}
               </div>
+              <button
+                onClick={() => toggleFavorite.mutate({ pageId: selected.id, on: !favorites.has(selected.id) })}
+                title={favorites.has(selected.id) ? 'Remover dos favoritos' : 'Favoritar'}
+                className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent"
+              >
+                <Star className={cn('h-4 w-4', favorites.has(selected.id) && 'fill-yellow-400 text-yellow-400')} />
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent" title="Exportar">
+                    <Download className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => exportPageMd(selected)}>
+                    <FileText className="h-3.5 w-3.5 mr-2" /> Exportar página (.md)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportPageWithChildren(selected)}>
+                    <FileArchive className="h-3.5 w-3.5 mr-2" /> Exportar com sub-páginas (.zip)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <PagePermissions
                 page={selected}
                 disabled={!isAdmin}
@@ -396,6 +488,12 @@ export default function DocsPage() {
         onOpenChange={setShowNew}
         orgId={currentOrg.id}
         onCreate={handleCreate}
+      />
+      <TemplatePickerDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        orgId={currentOrg.id}
+        onPick={(t) => handleCreate({ title: t.name, icon: t.icon || '📄', department_id: null, content: t.content })}
       />
     </div>
   );
