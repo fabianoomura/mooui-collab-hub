@@ -47,13 +47,15 @@ describe("Orders module — lifecycle, conflicts and cross-module flows", () => 
   });
 
   async function createOrder(c: SupabaseClient, uid: string, patch: Record<string, any> = {}) {
+    const rand = Math.random().toString(36).slice(2, 7);
     const { data, error } = await c.from("orders").insert({
       organization_id: ORG_ID,
       created_by: uid,
-      title: `pedido-${tag}-${Math.random().toString(36).slice(2, 7)}`,
+      title: `pedido-${tag}-${rand}`,
       problem_type: "furo_estoque",
       source: "expedicao",
       priority: "medium",
+      shopify_order: `#SH-${tag}-${rand}`,
       ...patch,
     }).select().single();
     expect(error).toBeNull();
