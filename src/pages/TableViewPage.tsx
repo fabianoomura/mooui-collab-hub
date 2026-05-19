@@ -17,6 +17,7 @@ import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
 import { LabelEditorDialog, type LabelOption } from '@/components/table/LabelEditor';
 import { PromptDialog } from '@/components/PromptDialog';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { DateRangeCell } from '@/components/table/DateRangeCell';
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
