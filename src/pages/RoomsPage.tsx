@@ -7,19 +7,21 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Settings2, Trash2, Users } from 'lucide-react';
-import { addDays, startOfWeek, format, isSameDay, startOfDay } from 'date-fns';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Settings2, Trash2, Users } from 'lucide-react';
+import { addDays, startOfWeek, format, isSameDay, startOfDay, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ptBR } from 'date-fns/locale';
 import { ManageRoomsDialog } from '@/components/rooms/ManageRoomsDialog';
 import { BookingDialog } from '@/components/rooms/BookingDialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 8h..19h
+
 
 export default function RoomsPage() {
   const { currentOrg, isAdmin } = useOrganization();
