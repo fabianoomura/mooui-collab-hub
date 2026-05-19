@@ -361,7 +361,9 @@ export default function TicketsPage() {
                       <Badge className={cn('text-[10px]', statusColors[t.status])} variant="outline">
                         {statusLabels[t.status]}
                       </Badge>
+                      <SlaBadge ticket={t} />
                     </div>
+                    <div className="mt-1"><TicketLabelChips ticketId={t.id} /></div>
                     {t.description && (
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{t.description}</p>
                     )}
