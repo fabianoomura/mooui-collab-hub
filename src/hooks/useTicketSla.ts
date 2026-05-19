@@ -71,7 +71,7 @@ export function computeSla(
   priority: TicketPriority,
   slaMap: Record<TicketPriority, { response_hours: number; resolve_hours: number }>,
 ): SlaStatus {
-  const cfg = slaMap[priority] ?? DEFAULT_SLA[priority];
+  const cfg = slaMap[priority] ?? DEFAULT_SLA[priority] ?? DEFAULT_SLA.high;
   const due = new Date(new Date(createdAt).getTime() + cfg.resolve_hours * 3600 * 1000);
   if (status === 'resolved' || status === 'closed' || resolvedAt) {
     return { due, hoursLeft: 0, state: 'done' };
