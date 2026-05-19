@@ -147,3 +147,30 @@ export function useAddOrderComment() {
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['order-comments', v.orderId] }),
   });
 }
+
+export interface OrderActivity {
+  id: string;
+  order_id: string;
+  user_id: string | null;
+  action: string;
+  from_value: string | null;
+  to_value: string | null;
+  created_at: string;
+}
+
+export function useOrderActivity(orderId?: string) {
+  return useQuery({
+    queryKey: ['order-activity', orderId],
+    queryFn: async () => {
+      if (!orderId) return [] as OrderActivity[];
+      const { data, error } = await supabase
+        .from('order_activity' as any)
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as OrderActivity[];
+    },
+    enabled: !!orderId,
+  });
+}
