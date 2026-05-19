@@ -143,6 +143,14 @@ export default function RoomsPage() {
           <p className="mb-3">Nenhuma sala cadastrada ainda.</p>
           {isAdmin && <Button onClick={() => setShowManage(true)}>Cadastrar primeira sala</Button>}
         </div>
+      ) : view === 'month' ? (
+        <MonthResumo
+          month={month}
+          setMonth={setMonth}
+          bookings={bookings}
+          roomMap={roomMap}
+          onPickDay={(d) => { setDay(startOfDay(d)); setView('day'); }}
+        />
       ) : view === 'week' ? (
         <div className="border rounded-lg overflow-x-auto bg-card">
           <div className="min-w-[700px]">
