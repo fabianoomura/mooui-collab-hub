@@ -662,7 +662,12 @@ function ManageKanban({
                   >
                     <div className="flex items-start gap-2">
                       <Icon2 className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                      <h4 className="text-sm font-medium leading-snug flex-1 min-w-0">{t.title}</h4>
+                      <div className="flex-1 min-w-0">
+                        {t.code && (
+                          <div className="text-[9px] font-mono font-semibold text-muted-foreground mb-0.5">{t.code}</div>
+                        )}
+                        <h4 className="text-sm font-medium leading-snug">{t.title}</h4>
+                      </div>
                       <Badge
                         variant="outline"
                         className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
