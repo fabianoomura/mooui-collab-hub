@@ -284,6 +284,17 @@ export default function OrdersPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+            <SelectTrigger className="h-9 w-[170px]">
+              <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Mais recentes</SelectItem>
+              <SelectItem value="oldest">Mais antigos</SelectItem>
+              <SelectItem value="priority">Por urgência</SelectItem>
+            </SelectContent>
+          </Select>
           {activeChips > 0 && (
             <Button
               variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
