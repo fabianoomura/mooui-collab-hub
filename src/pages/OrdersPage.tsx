@@ -380,13 +380,15 @@ export default function OrdersPage() {
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
                       {o.code && (
-                        <span className="text-[10px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
                           {o.code}
                         </span>
                       )}
                       <h3 className="font-medium truncate flex-1 min-w-0">{o.title}</h3>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       <Badge variant="outline" className="text-[10px]">{problemLabels[o.problem_type]}</Badge>
                       <Badge variant="outline" className={cn('text-[10px]', priorityColors[o.priority])}>
                         {priorityLabels[o.priority]}
