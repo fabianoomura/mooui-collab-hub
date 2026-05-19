@@ -7,6 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Camera, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export function ProfileTab() {
   const { data: profile } = useMyProfile();
   const upload = useUploadAvatar();
@@ -23,7 +26,7 @@ export function ProfileTab() {
     if (f.size > 4 * 1024 * 1024) { toast.error('Máx 4MB'); return; }
     upload.mutate(f, {
       onSuccess: () => toast.success('Foto atualizada'),
-      onError: (err: any) => toast.error(err?.message ?? 'Erro no upload'),
+      onError: (error: unknown) => toast.error(getErrorMessage(error, 'Erro no upload')),
     });
   };
 
