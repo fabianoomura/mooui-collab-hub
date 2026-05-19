@@ -371,9 +371,9 @@ console.log("== Notifications ==");
 async function seedNotifs(members) {
   for (const m of members) {
     await admin.from("notifications").insert([
-      { user_id: m.id, type: "info",    title: "Bem-vindo ao MOOUI!", message: "Sua conta foi atualizada com dados de exemplo.", link: "/dashboard" },
+      { user_id: m.id, type: "info",    title: "Bem-vindo ao MOOUI!", message: "Sua conta foi atualizada com dados de exemplo.", link: "/" },
       { user_id: m.id, type: "ticket",  title: "Novo ticket atribuído a você", message: "Confira a fila de tickets.", link: "/tickets" },
-      { user_id: m.id, type: "mention", title: "Você foi mencionado", message: "No canal #geral", link: "/messages" },
+      { user_id: m.id, type: "mention", title: "Você foi mencionado", message: "No canal #geral", link: "/mensagens" },
     ]).then(() => {}, () => {});
   }
 }
