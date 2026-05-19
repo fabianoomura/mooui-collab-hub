@@ -334,8 +334,11 @@ export default function TicketsPage() {
               </Card>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
+
 
       {/* New ticket dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
