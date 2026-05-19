@@ -505,17 +505,12 @@ function TicketDetail({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={onClose} className="md:hidden -ml-2">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <DialogTitle className="flex-1 text-left flex items-baseline gap-2 flex-wrap">
-              {ticket.code && (
-                <span className="text-xs font-mono font-semibold text-muted-foreground">{ticket.code}</span>
-              )}
-              <span>{ticket.title}</span>
-            </DialogTitle>
-          </div>
+          <DialogTitle className="flex-1 text-left flex items-baseline gap-2 flex-wrap pr-8">
+            {ticket.code && (
+              <span className="text-xs font-mono font-semibold text-muted-foreground">{ticket.code}</span>
+            )}
+            <span>{ticket.title}</span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
