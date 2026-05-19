@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowLeft } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowLeft, ArrowUpDown, History } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -8,10 +8,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import {
   useOrders, useCreateOrder, useUpdateOrder, useDeleteOrder,
-  useOrderComments, useAddOrderComment,
+  useOrderComments, useAddOrderComment, useOrderActivity,
   type Order, type OrderStatus, type OrderPriority, type OrderProblem, type OrderSource,
   FINAL_STATUSES,
 } from '@/hooks/useOrders';
+import { AssigneePicker } from '@/components/AssigneePicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -78,6 +79,33 @@ function initials(name?: string | null) {
   return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
 }
 
+function describeActivity(a: { action: string; from_value: string | null; to_value: string | null }): string {
+  switch (a.action) {
+    case 'created': return `abriu o pedido${a.to_value ? `: "${a.to_value}"` : ''}`;
+    case 'status': {
+      const to = (statusLabels as any)[a.to_value || ''] || a.to_value;
+      const from = (statusLabels as any)[a.from_value || ''] || a.from_value;
+      return `mudou status de ${from} para ${to}`;
+    }
+    case 'priority': {
+      const to = (priorityLabels as any)[a.to_value || ''] || a.to_value;
+      const from = (priorityLabels as any)[a.from_value || ''] || a.from_value;
+      return `mudou prioridade de ${from} para ${to}`;
+    }
+    case 'problem_type': {
+      const to = (problemLabels as any)[a.to_value || ''] || a.to_value;
+      const from = (problemLabels as any)[a.from_value || ''] || a.from_value;
+      return `mudou o problema de ${from} para ${to}`;
+    }
+    case 'assigned': {
+      if (!a.to_value) return 'removeu o responsável';
+      if (!a.from_value) return 'atribuiu um responsável';
+      return 'mudou o responsável';
+    }
+    default: return a.action;
+  }
+}
+
 export default function OrdersPage() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
@@ -93,6 +121,7 @@ export default function OrdersPage() {
   const [problemFilter, setProblemFilter] = useState<'all' | OrderProblem>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | OrderSource>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | OrderPriority>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'priority'>('newest');
   const [showNew, setShowNew] = useState(false);
   const [openOrder, setOpenOrder] = useState<Order | null>(null);
 
@@ -123,20 +152,32 @@ export default function OrdersPage() {
   const profileMap = useMemo(() => new Map(profiles.map((p: any) => [p.id, p])), [profiles]);
 
   const q = search.trim().toLowerCase();
-  const visible = orders.filter(o => {
-    const isFinal = FINAL_STATUSES.includes(o.status);
-    if (!showFinished && isFinal) return false;
-    if (statusFilter !== 'all' && o.status !== statusFilter) return false;
-    if (problemFilter !== 'all' && o.problem_type !== problemFilter) return false;
-    if (sourceFilter !== 'all' && o.source !== sourceFilter) return false;
-    if (priorityFilter !== 'all' && o.priority !== priorityFilter) return false;
-    if (q) {
-      const hay = [o.title, o.description, o.shopify_order, o.totvs_order, o.customer_name, o.code]
-        .filter(Boolean).join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
+  const priorityRank: Record<OrderPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+  const visible = orders
+    .filter(o => {
+      const isFinal = FINAL_STATUSES.includes(o.status);
+      if (!showFinished && isFinal) return false;
+      if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+      if (problemFilter !== 'all' && o.problem_type !== problemFilter) return false;
+      if (sourceFilter !== 'all' && o.source !== sourceFilter) return false;
+      if (priorityFilter !== 'all' && o.priority !== priorityFilter) return false;
+      if (q) {
+        const hay = [o.title, o.description, o.shopify_order, o.totvs_order, o.customer_name, o.code]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'priority') {
+        const d = priorityRank[a.priority] - priorityRank[b.priority];
+        if (d !== 0) return d;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return sortBy === 'oldest' ? ta - tb : tb - ta;
+    });
 
   const baseForCounts = orders.filter(o => {
     const isFinal = FINAL_STATUSES.includes(o.status);
@@ -270,6 +311,17 @@ export default function OrdersPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+            <SelectTrigger className="h-9 w-[170px]">
+              <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Mais recentes</SelectItem>
+              <SelectItem value="oldest">Mais antigos</SelectItem>
+              <SelectItem value="priority">Por urgência</SelectItem>
+            </SelectContent>
+          </Select>
           {activeChips > 0 && (
             <Button
               variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
@@ -354,9 +406,12 @@ export default function OrdersPage() {
                     <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
                       <span>{sourceLabels[o.source]}</span>
                       <span>•</span>
-                      <span>{author?.full_name || 'Usuário'}</span>
+                      <span>Aberto por {author?.full_name || 'Usuário'}</span>
                       <span>•</span>
-                      <span>{formatDistanceToNow(new Date(o.created_at), { addSuffix: true, locale: ptBR })}</span>
+                      <span title={format(new Date(o.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}>
+                        {format(new Date(o.created_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
+                        {' '}({formatDistanceToNow(new Date(o.created_at), { addSuffix: true, locale: ptBR })})
+                      </span>
                       {assignee && (<><span>•</span><span>Resp: {assignee.full_name}</span></>)}
                     </div>
                   </div>
@@ -467,6 +522,7 @@ function OrderDetail({
   currentUserId?: string;
 }) {
   const { data: comments = [] } = useOrderComments(order.id);
+  const { data: activity = [] } = useOrderActivity(order.id);
   const addComment = useAddOrderComment();
   const [newComment, setNewComment] = useState('');
   const [notes, setNotes] = useState(order.notes || '');
@@ -475,15 +531,20 @@ function OrderDetail({
   const assignee = order.assigned_to ? (profileMap.get(order.assigned_to) as any) : null;
   const isFinal = FINAL_STATUSES.includes(order.status);
 
-  const commentUserIds = useMemo(() => [...new Set(comments.map(c => c.user_id))], [comments]);
+  const extraUserIds = useMemo(() => {
+    const s = new Set<string>();
+    comments.forEach(c => s.add(c.user_id));
+    activity.forEach(a => { if (a.user_id) s.add(a.user_id); });
+    return [...s];
+  }, [comments, activity]);
   const { data: commentProfiles = [] } = useQuery({
-    queryKey: ['order-comment-profiles', commentUserIds.sort().join(',')],
+    queryKey: ['order-extra-profiles', extraUserIds.sort().join(',')],
     queryFn: async () => {
-      if (!commentUserIds.length) return [];
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', commentUserIds);
+      if (!extraUserIds.length) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', extraUserIds);
       return data || [];
     },
-    enabled: commentUserIds.length > 0,
+    enabled: extraUserIds.length > 0,
   });
   const cmtMap = useMemo(() => new Map(commentProfiles.map((p: any) => [p.id, p])), [commentProfiles]);
 
@@ -618,9 +679,49 @@ function OrderDetail({
                 </div>
               </div>
             </div>
+
+            {/* Passo a passo / histórico */}
+            <div>
+              <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <History className="h-3 w-3" /> Passo a passo ({activity.length})
+              </Label>
+              <ol className="mt-2 relative border-l border-border ml-2 space-y-3">
+                {activity.length === 0 && (
+                  <li className="text-xs text-muted-foreground pl-4">Sem histórico ainda.</li>
+                )}
+                {activity.map(a => {
+                  const au = a.user_id ? (cmtMap.get(a.user_id) || profileMap.get(a.user_id)) as any : null;
+                  return (
+                    <li key={a.id} className="pl-4 relative">
+                      <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary border-2 border-background" />
+                      <div className="text-xs">
+                        <span className="font-medium">{au?.full_name || 'Sistema'}</span>{' '}
+                        <span className="text-muted-foreground">{describeActivity(a)}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {format(new Date(a.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
           </div>
 
           <div className="space-y-3">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Responsável pela tratativa</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <AssigneePicker
+                  value={order.assigned_to}
+                  onChange={(id) => onUpdate({ assigned_to: id })}
+                  size="md"
+                />
+                <span className="text-sm truncate">
+                  {assignee?.full_name || <span className="text-muted-foreground">Não atribuído</span>}
+                </span>
+              </div>
+            </div>
             <div>
               <Label className="text-[11px] text-muted-foreground">Status</Label>
               <Select value={order.status} onValueChange={(v) => onStatus(v as OrderStatus)}>
@@ -667,9 +768,21 @@ function OrderDetail({
             </div>
             <div className="pt-2 space-y-1.5 text-[11px] text-muted-foreground">
               <p>Aberto por: <span className="text-foreground">{author?.full_name || 'Usuário'}</span></p>
-              {assignee && <p>Responsável: <span className="text-foreground">{assignee.full_name}</span></p>}
-              <p>Criado: {formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR })}</p>
-              {order.closed_at && <p>Encerrado: {formatDistanceToNow(new Date(order.closed_at), { addSuffix: true, locale: ptBR })}</p>}
+              <p>
+                Data de abertura:{' '}
+                <span className="text-foreground">
+                  {format(new Date(order.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </span>
+                {' '}({formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR })})
+              </p>
+              {order.closed_at && (
+                <p>
+                  Encerrado em:{' '}
+                  <span className="text-foreground">
+                    {format(new Date(order.closed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </span>
+                </p>
+              )}
             </div>
 
             {!isFinal && (
