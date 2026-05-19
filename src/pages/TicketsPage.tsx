@@ -77,6 +77,11 @@ export default function TicketsPage() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | TicketPriority>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | TicketCategory>('all');
   const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
+  const [slaFilter, setSlaFilter] = useState<'all' | 'breached'>('all');
+  const [labelFilter, setLabelFilter] = useState<string>('all');
+  const { labels: orgLabels } = useTicketLabels();
+  const { data: labelAssignments = [] } = useTicketLabelAssignments();
+  const isBreached = useSlaBreached();
 
   // Quando a visão muda, ajusta o scope default
   useEffect(() => {
