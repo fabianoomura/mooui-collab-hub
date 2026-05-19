@@ -65,6 +65,7 @@ export default function TicketsPage() {
   const deleteMut = useDeleteTicket();
   const confirm = useConfirm();
 
+  const [view, setView] = useState<'mine' | 'manage'>('mine');
   const [filter, setFilter] = useState<'all' | TicketStatus>('all');
   const [showNew, setShowNew] = useState(false);
   const [openTicket, setOpenTicket] = useState<Ticket | null>(null);
@@ -72,6 +73,13 @@ export default function TicketsPage() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | TicketPriority>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | TicketCategory>('all');
   const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
+
+  // Quando a visão muda, ajusta o scope default
+  useEffect(() => {
+    if (view === 'mine') setScope('mine');
+    else setScope('all');
+    setFilter('all');
+  }, [view]);
 
   // New ticket form
   const [nTitle, setNTitle] = useState('');
