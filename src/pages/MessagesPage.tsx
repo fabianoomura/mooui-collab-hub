@@ -16,6 +16,8 @@ import {
   useUnreadCounts,
 } from '@/hooks/useChannels';
 import { useMessages, useSendMessage, useDeleteMessage, useThreadMessages, type MessageWithProfile } from '@/hooks/useMessages';
+import { useChannelReactions, useToggleReaction, useUpdateMessage, type ReactionGroup } from '@/hooks/useMessageReactions';
+import { ReactionBar } from '@/components/messages/ReactionBar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
