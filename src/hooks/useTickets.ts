@@ -16,6 +16,7 @@ export type TicketCategory = 'bug' | 'duvida' | 'solicitacao' | 'outro';
 export interface Ticket {
   id: string;
   organization_id: string;
+  code: string | null;
   title: string;
   description: string | null;
   status: TicketStatus;
@@ -34,6 +35,33 @@ export interface TicketComment {
   user_id: string;
   content: string;
   created_at: string;
+}
+
+export interface TicketActivity {
+  id: string;
+  ticket_id: string;
+  user_id: string | null;
+  action: 'created' | 'status' | 'priority' | 'category' | 'assigned' | 'title' | 'description';
+  from_value: string | null;
+  to_value: string | null;
+  created_at: string;
+}
+
+export function useTicketActivity(ticketId: string | null) {
+  return useQuery({
+    queryKey: ['ticket-activity', ticketId],
+    queryFn: async () => {
+      if (!ticketId) return [];
+      const { data, error } = await supabase
+        .from('ticket_activity' as any)
+        .select('*')
+        .eq('ticket_id', ticketId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as TicketActivity[];
+    },
+    enabled: !!ticketId,
+  });
 }
 
 export function useIsITSupport() {
