@@ -603,3 +603,112 @@ function TicketDetail({
     </Dialog>
   );
 }
+
+// ============================================================
+// Kanban de gestão TI
+// ============================================================
+
+const KANBAN_COLS: { key: TicketStatus; label: string; Icon: typeof AlertCircle }[] = [
+  { key: 'open', label: 'Abertos', Icon: AlertCircle },
+  { key: 'in_progress', label: 'Em andamento', Icon: Clock },
+  { key: 'resolved', label: 'Resolvidos', Icon: CheckCircle2 },
+  { key: 'closed', label: 'Fechados', Icon: UserCheck },
+];
+
+function ManageKanban({
+  tickets, profileMap, itMembers, onOpen, onAssign, onStatus,
+}: {
+  tickets: Ticket[];
+  profileMap: Map<string, { id: string; full_name: string | null }>;
+  itMembers: { id: string; full_name: string | null }[];
+  onOpen: (t: Ticket) => void;
+  onAssign: (t: Ticket, userId: string | null) => void;
+  onStatus: (t: Ticket, status: TicketStatus) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+      {KANBAN_COLS.map(({ key, label, Icon }) => {
+        const items = tickets.filter(t => t.status === key);
+        return (
+          <div key={key} className="rounded-lg border border-border bg-muted/20 p-2 flex flex-col min-h-[200px]">
+            <div className="flex items-center gap-2 px-1.5 py-1.5 mb-1">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+              <Badge variant="secondary" className="ml-auto h-5 text-[10px]">{items.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {items.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-2 py-3 text-center">Vazio</p>
+              )}
+              {items.map(t => {
+                const Icon2 = categoryIcon(t.category);
+                const assignee = t.assigned_to ? profileMap.get(t.assigned_to) : null;
+                const author = profileMap.get(t.created_by);
+                return (
+                  <Card
+                    key={t.id}
+                    className="p-2.5 cursor-pointer hover:border-primary/40 transition-colors bg-background"
+                    onClick={() => onOpen(t)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Icon2 className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <h4 className="text-sm font-medium leading-snug flex-1 min-w-0">{t.title}</h4>
+                      <Badge
+                        variant="outline"
+                        className={cn('text-[9px] px-1.5 py-0 h-4', priorityColors[t.priority])}
+                      >
+                        {priorityLabels[t.priority]}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground truncate flex-1 min-w-0">
+                        {author?.full_name || 'Usuário'} • {formatDistanceToNow(new Date(t.created_at), { addSuffix: true, locale: ptBR })}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={t.assigned_to || 'none'}
+                        onValueChange={(v) => onAssign(t, v === 'none' ? null : v)}
+                      >
+                        <SelectTrigger className="h-7 text-xs flex-1">
+                          <SelectValue placeholder="Ninguém" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Ninguém</SelectItem>
+                          {itMembers.map(m => (
+                            <SelectItem key={m.id} value={m.id}>{m.full_name || 'Sem nome'}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={t.status} onValueChange={(v) => onStatus(t, v as TicketStatus)}>
+                        <SelectTrigger className="h-7 text-xs w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(statusLabels) as TicketStatus[]).map(k => (
+                            <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {assignee && (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <Avatar className="h-4 w-4">
+                          <AvatarFallback className="text-[8px] bg-primary/15 text-primary">
+                            {getInitials(assignee.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{assignee.full_name}</span>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
