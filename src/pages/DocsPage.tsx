@@ -355,6 +355,19 @@ export default function DocsPage() {
                 </span>
               )}
             </div>
+            {breadcrumbs.length > 1 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 flex-wrap">
+                {breadcrumbs.slice(0, -1).map((b) => (
+                  <span key={b.id} className="flex items-center gap-1">
+                    <button onClick={() => setSelectedId(b.id)} className="hover:text-foreground hover:underline">
+                      {b.icon || '📄'} {b.title || 'Sem título'}
+                    </button>
+                    <ChevronRight className="h-3 w-3" />
+                  </span>
+                ))}
+                <span className="text-foreground/80">{selected.title || 'Sem título'}</span>
+              </div>
+            )}
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
