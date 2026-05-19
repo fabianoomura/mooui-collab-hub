@@ -422,7 +422,7 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
                     <Select
                       disabled={!canEdit}
                       value={m.app_role}
-                      onValueChange={(v: any) => updateAppRole.mutate({ user_id: m.user_id, role: v }, {
+                      onValueChange={(role: AppRole) => updateAppRole.mutate({ user_id: m.user_id, role }, {
                         onSuccess: () => toast.success('Permissão atualizada'),
                         onError: () => toast.error('Erro — apenas admins do sistema podem alterar'),
                       })}
@@ -524,7 +524,7 @@ function DepartmentTeamsTab({ orgId, canEdit }: { orgId: string; canEdit: boolea
                       { department_id: activeDept, user_id: addUser, role: addRole },
                       {
                         onSuccess: () => { toast.success('Adicionado'); setAddUser(''); },
-                        onError: (e: any) => toast.error(e?.message ?? 'Erro'),
+                          onError: (error: unknown) => toast.error(getErrorMessage(error, 'Erro')),
                       },
                     );
                   }}
