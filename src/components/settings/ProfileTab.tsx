@@ -1,34 +1,21 @@
-import { useRef, useState } from 'react';
-import { useMyProfile, useUploadAvatar, useUpdateMyName } from '@/hooks/useProfile';
+import { useState } from 'react';
+import { useMyProfile, useUpdateMyName } from '@/hooks/useProfile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
-
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
+import { AvatarUploadDialog } from '@/components/AvatarUploadDialog';
 
 export function ProfileTab() {
   const { data: profile } = useMyProfile();
-  const upload = useUploadAvatar();
   const updateName = useUpdateMyName();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
+  const [openAvatar, setOpenAvatar] = useState(false);
 
   const initials = (profile?.full_name ?? '?')
     .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > 4 * 1024 * 1024) { toast.error('Máx 4MB'); return; }
-    upload.mutate(f, {
-      onSuccess: () => toast.success('Foto atualizada'),
-      onError: (error: unknown) => toast.error(getErrorMessage(error, 'Erro no upload')),
-    });
-  };
 
   const handleSaveName = () => {
     if (!name.trim()) return;
@@ -47,13 +34,12 @@ export function ProfileTab() {
             <AvatarFallback className="text-lg">{initials}</AvatarFallback>
           </Avatar>
           <button
-            onClick={() => fileRef.current?.click()}
+            onClick={() => setOpenAvatar(true)}
             className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow hover:opacity-90"
             aria-label="Trocar foto"
           >
-            {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            <Camera className="h-3.5 w-3.5" />
           </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         </div>
         <div>
           <h3 className="font-semibold">{profile?.full_name || 'Sem nome'}</h3>
@@ -72,6 +58,9 @@ export function ProfileTab() {
           <Button className="sm:w-28" onClick={handleSaveName} disabled={!name.trim() || updateName.isPending}>Salvar</Button>
         </div>
       </div>
+
+      <AvatarUploadDialog open={openAvatar} onOpenChange={setOpenAvatar} />
     </div>
   );
 }
+
