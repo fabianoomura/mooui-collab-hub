@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon, Star, Download, FileArchive, LayoutTemplate } from 'lucide-react';
+import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon, Star, Download, FileArchive, LayoutTemplate, Lock } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 import {
@@ -536,7 +536,11 @@ function PageNode({
           <span className="w-4" />
         )}
         <span className="text-base leading-none">{page.icon || '📄'}</span>
-        <span className="truncate flex-1">{page.title || 'Sem título'}</span>
+        <span className="truncate flex-1 flex items-center gap-1">
+          <span className="truncate">{page.title || 'Sem título'}</span>
+          {page.is_restricted && <Lock className="h-3 w-3 text-primary shrink-0" aria-label="Sigiloso" />}
+        </span>
+
         <button
           onClick={(e) => { e.stopPropagation(); onAddChild(page.id); }}
           className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background"

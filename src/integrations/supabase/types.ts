@@ -258,6 +258,7 @@ export type Database = {
       }
       doc_pages: {
         Row: {
+          allowed_user_ids: string[]
           can_delete_roles: Database["public"]["Enums"]["app_role"][]
           can_edit_roles: Database["public"]["Enums"]["app_role"][]
           content: string | null
@@ -266,6 +267,7 @@ export type Database = {
           department_id: string | null
           icon: string | null
           id: string
+          is_restricted: boolean
           organization_id: string
           parent_id: string | null
           position: number
@@ -274,6 +276,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          allowed_user_ids?: string[]
           can_delete_roles?: Database["public"]["Enums"]["app_role"][]
           can_edit_roles?: Database["public"]["Enums"]["app_role"][]
           content?: string | null
@@ -282,6 +285,7 @@ export type Database = {
           department_id?: string | null
           icon?: string | null
           id?: string
+          is_restricted?: boolean
           organization_id: string
           parent_id?: string | null
           position?: number
@@ -290,6 +294,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          allowed_user_ids?: string[]
           can_delete_roles?: Database["public"]["Enums"]["app_role"][]
           can_edit_roles?: Database["public"]["Enums"]["app_role"][]
           content?: string | null
@@ -298,6 +303,7 @@ export type Database = {
           department_id?: string | null
           icon?: string | null
           id?: string
+          is_restricted?: boolean
           organization_id?: string
           parent_id?: string | null
           position?: number
