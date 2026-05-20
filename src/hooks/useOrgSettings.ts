@@ -240,11 +240,11 @@ export function useToggleItSupport() {
 
 export function useResetUserPassword() {
   return useMutation({
-    mutationFn: async (email: string) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
-      });
+    mutationFn: async (input: { user_id: string; organization_id: string; new_password?: string }) => {
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', { body: input });
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { ok: true; password: string };
     },
   });
 }
