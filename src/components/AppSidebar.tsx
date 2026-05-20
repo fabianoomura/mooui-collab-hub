@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +36,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { AvatarUploadDialog } from '@/components/AvatarUploadDialog';
+
 
 type NavItem = { title: string; url: string; icon: any };
 
@@ -85,6 +87,8 @@ export function AppSidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [projectFilter, setProjectFilter] = useState('');
   const [showProjectSearch, setShowProjectSearch] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+
 
   const sortedProjects = useMemo(() => {
     if (!projects) return [];
@@ -397,6 +401,11 @@ export function AppSidebar() {
               <UserIcon className="h-4 w-4 mr-2" />
               Meu perfil
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowAvatarDialog(true)}>
+              <Camera className="h-4 w-4 mr-2" />
+              Alterar foto
+            </DropdownMenuItem>
+
             {isAdmin && (
               <DropdownMenuItem onClick={() => navigate('/configuracoes')}>
                 <Settings className="h-4 w-4 mr-2" />
@@ -433,6 +442,9 @@ export function AppSidebar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AvatarUploadDialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog} />
     </Sidebar>
+
   );
 }
