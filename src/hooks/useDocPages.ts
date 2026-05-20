@@ -14,10 +14,13 @@ export interface DocPage {
   position: number;
   can_edit_roles: AppRole[];
   can_delete_roles: AppRole[];
+  is_restricted: boolean;
+  allowed_user_ids: string[];
   created_by: string;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+
 }
 
 export function useDocPages(orgId?: string) {
