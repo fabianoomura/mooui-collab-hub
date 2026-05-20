@@ -308,6 +308,32 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
         orgId={orgId}
         departments={departments}
       />
+
+      <Dialog open={!!resetResult} onOpenChange={(o) => !o && setResetResult(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova senha temporária</DialogTitle>
+            <DialogDescription>
+              Compartilhe esta senha com <strong>{resetResult?.name}</strong>. Ela poderá alterá-la depois.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <Input readOnly value={resetResult?.password ?? ''} className="font-mono" />
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (resetResult?.password) {
+                  navigator.clipboard.writeText(resetResult.password);
+                  toast.success('Senha copiada');
+                }
+              }}
+            >Copiar</Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setResetResult(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
