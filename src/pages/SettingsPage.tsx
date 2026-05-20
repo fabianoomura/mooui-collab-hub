@@ -30,7 +30,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 import { toast } from 'sonner';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -109,11 +111,15 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const { data: members = [] } = useOrgMembersFull(orgId);
   const { data: departments = [] } = useDepartments(orgId);
   const { data: positions = [] } = usePositions(orgId);
+  const { data: deptMembers = [] } = useDepartmentMembers(orgId);
+  const addDeptMember = useAddDepartmentMember();
+  const removeDeptMember = useRemoveDepartmentMember();
   const updateProfile = useUpdateMemberProfile();
   const updateOrgRole = useUpdateOrgRole();
   const removeMember = useRemoveOrgMember();
   const confirm = useConfirm();
   const createUser = useCreateOrgUser();
+
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
@@ -166,20 +172,87 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                     </div>
                   </td>
                   <td className="px-4 py-2">
-                    <Select
-                      disabled={!canEdit}
-                      value={m.department ?? '__none__'}
-                      onValueChange={(v) => updateProfile.mutate({ user_id: m.user_id, department: v === '__none__' ? null : v })}
-                    >
-                      <SelectTrigger className="h-8 w-40"><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">—</SelectItem>
-                        {departments.map((d) => (
-                          <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {(() => {
+                      const userDeptIds = deptMembers
+                        .filter((dm) => dm.user_id === m.user_id)
+                        .map((dm) => dm.department_id);
+                      const userDepts = departments.filter((d) => userDeptIds.includes(d.id));
+                      const toggle = async (deptId: string, deptName: string, on: boolean) => {
+                        if (on) {
+                          await addDeptMember.mutateAsync({ department_id: deptId, user_id: m.user_id, role: 'operator' });
+                          // se for o primeiro setor, define como primário no profile
+                          if (userDeptIds.length === 0) {
+                            updateProfile.mutate({ user_id: m.user_id, department: deptName });
+                          }
+                        } else {
+                          const row = deptMembers.find((dm) => dm.user_id === m.user_id && dm.department_id === deptId);
+                          if (row) await removeDeptMember.mutateAsync(row.id);
+                          // se removeu o primário, atualiza para o próximo restante (ou null)
+                          if (m.department === deptName) {
+                            const remaining = userDepts.filter((d) => d.id !== deptId);
+                            updateProfile.mutate({ user_id: m.user_id, department: remaining[0]?.name ?? null });
+                          }
+                        }
+                      };
+                      return (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!canEdit}
+                              className="h-8 w-48 justify-between font-normal"
+                            >
+                              <span className="truncate text-left flex-1">
+                                {userDepts.length === 0
+                                  ? <span className="text-muted-foreground">—</span>
+                                  : userDepts.length === 1
+                                    ? userDepts[0].name
+                                    : `${userDepts[0].name} +${userDepts.length - 1}`}
+                              </span>
+                              <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-56 p-1">
+                            {departments.length === 0 && (
+                              <div className="px-2 py-3 text-xs text-muted-foreground text-center">Nenhum setor</div>
+                            )}
+                            {departments.map((d) => {
+                              const checked = userDeptIds.includes(d.id);
+                              const isPrimary = m.department === d.name;
+                              return (
+                                <button
+                                  key={d.id}
+                                  type="button"
+                                  onClick={() => toggle(d.id, d.name, !checked)}
+                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm hover:bg-accent text-left"
+                                >
+                                  <div className="h-4 w-4 flex items-center justify-center">
+                                    {checked && <Check className="h-3.5 w-3.5 text-primary" />}
+                                  </div>
+                                  <span className="flex-1 truncate">{d.name}</span>
+                                  {checked && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!isPrimary) updateProfile.mutate({ user_id: m.user_id, department: d.name });
+                                      }}
+                                      className={`text-[10px] px-1.5 py-0.5 rounded ${isPrimary ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                                      title={isPrimary ? 'Setor principal' : 'Tornar principal'}
+                                    >
+                                      {isPrimary ? 'principal' : 'tornar principal'}
+                                    </button>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    })()}
                   </td>
+
                   <td className="px-4 py-2">
                     <Select
                       disabled={!canEdit}
