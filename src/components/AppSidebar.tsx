@@ -401,6 +401,11 @@ export function AppSidebar() {
               <UserIcon className="h-4 w-4 mr-2" />
               Meu perfil
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowAvatarDialog(true)}>
+              <Camera className="h-4 w-4 mr-2" />
+              Alterar foto
+            </DropdownMenuItem>
+
             {isAdmin && (
               <DropdownMenuItem onClick={() => navigate('/configuracoes')}>
                 <Settings className="h-4 w-4 mr-2" />
