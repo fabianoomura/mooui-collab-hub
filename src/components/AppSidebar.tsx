@@ -442,6 +442,9 @@ export function AppSidebar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AvatarUploadDialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog} />
     </Sidebar>
+
   );
 }
