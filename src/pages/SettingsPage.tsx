@@ -2,11 +2,8 @@ import { useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useDepartments,
-  usePositions,
   useCreateDepartment,
   useDeleteDepartment,
-  useCreatePosition,
-  useDeletePosition,
   useOrgMembersFull,
   useUpdateMemberProfile,
   useUpdateOrgRole,
@@ -24,13 +21,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown, Mail, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { toast } from 'sonner';
@@ -70,12 +68,13 @@ export default function SettingsPage() {
       )}
 
       <Tabs defaultValue="profile" className="space-y-5">
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-lg bg-muted/60 p-1 sm:grid-cols-2 lg:grid-cols-5">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-lg bg-muted/60 p-1 sm:grid-cols-2 lg:grid-cols-6">
           <TabsTrigger value="profile" className="justify-start gap-2 px-3 py-2"><UserIcon className="h-4 w-4" />Meu perfil</TabsTrigger>
           {isAdmin && <TabsTrigger value="users" className="justify-start gap-2 px-3 py-2"><UsersIcon className="h-4 w-4" />Usuários</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="departments" className="justify-start gap-2 px-3 py-2"><Building2 className="h-4 w-4" />Setores & Cargos</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="departments" className="justify-start gap-2 px-3 py-2"><Building2 className="h-4 w-4" />Setores</TabsTrigger>}
           {isAdmin && <TabsTrigger value="teams" className="justify-start gap-2 px-3 py-2"><UsersIcon className="h-4 w-4" />Equipes de setor</TabsTrigger>}
           {isAdmin && <TabsTrigger value="permissions" className="justify-start gap-2 px-3 py-2"><Shield className="h-4 w-4" />Permissões</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="emails" className="justify-start gap-2 px-3 py-2"><Mail className="h-4 w-4" />Emails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="mt-0">
@@ -99,6 +98,9 @@ export default function SettingsPage() {
                 <PermissionsTab orgId={currentOrg.id} canEdit={isAdmin} />
               </div>
             </TabsContent>
+            <TabsContent value="emails" className="mt-0">
+              <EmailsTab />
+            </TabsContent>
           </>
         )}
       </Tabs>
@@ -110,7 +112,6 @@ export default function SettingsPage() {
 function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const { data: members = [] } = useOrgMembersFull(orgId);
   const { data: departments = [] } = useDepartments(orgId);
-  const { data: positions = [] } = usePositions(orgId);
   const { data: deptMembers = [] } = useDepartmentMembers(orgId);
   const addDeptMember = useAddDepartmentMember();
   const removeDeptMember = useRemoveDepartmentMember();
@@ -118,25 +119,8 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const updateOrgRole = useUpdateOrgRole();
   const removeMember = useRemoveOrgMember();
   const confirm = useConfirm();
-  const createUser = useCreateOrgUser();
-
 
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({
-    email: '', password: '', full_name: '',
-    department: '', position: '', org_role: 'member' as 'admin' | 'member',
-  });
-
-  const handleCreate = () => {
-    if (!form.email || !form.password) { toast.error('Email e senha obrigatórios'); return; }
-    createUser.mutate(
-      { ...form, organization_id: orgId, department: form.department || undefined, position: form.position || undefined },
-      {
-        onSuccess: () => { toast.success('Usuário criado!'); setShowCreate(false); setForm({ email: '', password: '', full_name: '', department: '', position: '', org_role: 'member' }); },
-        onError: (error: unknown) => toast.error(getErrorMessage(error, 'Erro ao criar usuário')),
-      }
-    );
-  };
 
   return (
     <div>
@@ -151,8 +135,7 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
           <thead className="bg-muted/50">
             <tr className="text-left">
               <th className="px-4 py-2 font-medium">Usuário</th>
-              <th className="px-4 py-2 font-medium">Setor</th>
-              <th className="px-4 py-2 font-medium">Cargo</th>
+              <th className="px-4 py-2 font-medium">Setores</th>
               <th className="px-4 py-2 font-medium">Papel na org</th>
               <th className="px-4 py-2 w-10"></th>
             </tr>
@@ -180,14 +163,12 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                       const toggle = async (deptId: string, deptName: string, on: boolean) => {
                         if (on) {
                           await addDeptMember.mutateAsync({ department_id: deptId, user_id: m.user_id, role: 'operator' });
-                          // se for o primeiro setor, define como primário no profile
                           if (userDeptIds.length === 0) {
                             updateProfile.mutate({ user_id: m.user_id, department: deptName });
                           }
                         } else {
                           const row = deptMembers.find((dm) => dm.user_id === m.user_id && dm.department_id === deptId);
                           if (row) await removeDeptMember.mutateAsync(row.id);
-                          // se removeu o primário, atualiza para o próximo restante (ou null)
                           if (m.department === deptName) {
                             const remaining = userDepts.filter((d) => d.id !== deptId);
                             updateProfile.mutate({ user_id: m.user_id, department: remaining[0]?.name ?? null });
@@ -252,22 +233,6 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                       );
                     })()}
                   </td>
-
-                  <td className="px-4 py-2">
-                    <Select
-                      disabled={!canEdit}
-                      value={m.position ?? '__none__'}
-                      onValueChange={(v) => updateProfile.mutate({ user_id: m.user_id, position: v === '__none__' ? null : v })}
-                    >
-                      <SelectTrigger className="h-8 w-40"><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">—</SelectItem>
-                        {positions.map((p) => (
-                          <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
                   <td className="px-4 py-2">
                     <Select
                       disabled={!canEdit}
@@ -303,79 +268,227 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
               );
             })}
             {members.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Nenhum membro</td></tr>
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">Nenhum membro</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo usuário</DialogTitle>
-            <DialogDescription>O usuário será criado já confirmado e adicionado a esta organização.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div><Label>Nome completo</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
-            <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            <div><Label>Senha temporária</Label><Input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Setor</Label>
-                <Select value={form.department || '__none__'} onValueChange={(v) => setForm({ ...form, department: v === '__none__' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {departments.map((d) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Cargo</Label>
-                <Select value={form.position || '__none__'} onValueChange={(v) => setForm({ ...form, position: v === '__none__' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {positions.map((p) => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Papel na organização</Label>
-              <Select value={form.org_role} onValueChange={(v: 'admin' | 'member') => setForm({ ...form, org_role: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="member">Membro</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={createUser.isPending}>Criar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateUserWizard
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        orgId={orgId}
+        departments={departments}
+      />
     </div>
   );
 }
 
-/* ----- Setores e Cargos ----- */
-function DepartmentsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
-  const { data: departments = [] } = useDepartments(orgId);
-  const { data: positions = [] } = usePositions(orgId);
-  const createDept = useCreateDepartment();
-  const deleteDept = useDeleteDepartment();
-  const createPos = useCreatePosition();
-  const deletePos = useDeletePosition();
+/* ----- Wizard de criação de usuário ----- */
+function CreateUserWizard({
+  open, onClose, orgId, departments,
+}: {
+  open: boolean;
+  onClose: () => void;
+  orgId: string;
+  departments: { id: string; name: string }[];
+}) {
+  const createUser = useCreateOrgUser();
+  const addDeptMember = useAddDepartmentMember();
+  const updateAppRole = useUpdateAppRole();
 
-  const [newDept, setNewDept] = useState('');
-  const [newPos, setNewPos] = useState('');
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [data, setData] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    org_role: 'member' as 'admin' | 'member',
+    app_role: 'member' as AppRole,
+    selectedDeptIds: [] as string[],
+    primaryDeptId: '' as string,
+  });
+
+  const reset = () => {
+    setStep(1);
+    setData({
+      full_name: '', email: '', password: '',
+      org_role: 'member', app_role: 'member',
+      selectedDeptIds: [], primaryDeptId: '',
+    });
+  };
+
+  const close = () => { reset(); onClose(); };
+
+  const canNext1 = data.email.trim() && data.password.trim();
+
+  const toggleDept = (id: string) => {
+    setData((d) => {
+      const has = d.selectedDeptIds.includes(id);
+      const next = has ? d.selectedDeptIds.filter((x) => x !== id) : [...d.selectedDeptIds, id];
+      let primary = d.primaryDeptId;
+      if (has && primary === id) primary = next[0] ?? '';
+      if (!has && !primary) primary = id;
+      return { ...d, selectedDeptIds: next, primaryDeptId: primary };
+    });
+  };
+
+  const handleFinish = async () => {
+    if (!data.email || !data.password) { toast.error('Email e senha obrigatórios'); return; }
+    const primaryName = departments.find((d) => d.id === data.primaryDeptId)?.name;
+    try {
+      const res: any = await createUser.mutateAsync({
+        email: data.email,
+        password: data.password,
+        full_name: data.full_name,
+        organization_id: orgId,
+        org_role: data.org_role,
+        department: primaryName,
+      });
+      const newUserId = res?.user_id as string | undefined;
+      if (newUserId) {
+        // adiciona aos demais setores
+        for (const deptId of data.selectedDeptIds) {
+          try {
+            await addDeptMember.mutateAsync({ department_id: deptId, user_id: newUserId, role: 'operator' });
+          } catch { /* ignore duplicates */ }
+        }
+        // permissão de app
+        if (data.app_role && data.app_role !== 'member') {
+          try { await updateAppRole.mutateAsync({ user_id: newUserId, role: data.app_role }); } catch { /* ignore */ }
+        }
+      }
+      toast.success('Usuário criado!');
+      close();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Erro ao criar usuário'));
+    }
+  };
 
   return (
-    <div className="grid md:grid-cols-2 gap-6">
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Novo usuário</DialogTitle>
+          <DialogDescription>
+            Passo {step} de 3 — {step === 1 ? 'Dados básicos' : step === 2 ? 'Setores' : 'Permissão'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Stepper */}
+        <div className="flex items-center gap-2 mb-2">
+          {[1, 2, 3].map((s) => (
+            <div key={s} className={`h-1.5 flex-1 rounded-full ${step >= s ? 'bg-primary' : 'bg-muted'}`} />
+          ))}
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-3">
+            <div><Label>Nome completo</Label><Input value={data.full_name} onChange={(e) => setData({ ...data, full_name: e.target.value })} placeholder="Ex.: Maria Silva" /></div>
+            <div><Label>Email</Label><Input type="email" value={data.email} onChange={(e) => setData({ ...data, email: e.target.value })} placeholder="maria@empresa.com" /></div>
+            <div><Label>Senha temporária</Label><Input type="text" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} placeholder="Mínimo 6 caracteres" /></div>
+            <p className="text-xs text-muted-foreground">A pessoa poderá alterar a senha depois pelo login.</p>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Selecione um ou mais setores. Marque um como principal.</p>
+            <div className="border rounded-md divide-y max-h-72 overflow-y-auto">
+              {departments.length === 0 && (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">Nenhum setor cadastrado</div>
+              )}
+              {departments.map((d) => {
+                const checked = data.selectedDeptIds.includes(d.id);
+                const isPrimary = data.primaryDeptId === d.id;
+                return (
+                  <div key={d.id} className="flex items-center gap-3 px-3 py-2">
+                    <Checkbox checked={checked} onCheckedChange={() => toggleDept(d.id)} />
+                    <span className="flex-1 text-sm">{d.name}</span>
+                    {checked && (
+                      <button
+                        type="button"
+                        onClick={() => setData({ ...data, primaryDeptId: d.id })}
+                        className={`text-[10px] px-1.5 py-0.5 rounded ${isPrimary ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                      >
+                        {isPrimary ? 'principal' : 'tornar principal'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-3">
+            <div>
+              <Label>Papel na organização</Label>
+              <Select value={data.org_role} onValueChange={(v: 'admin' | 'member') => setData({ ...data, org_role: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="admin">Admin da organização</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">Admin pode gerenciar usuários, setores e permissões desta organização.</p>
+            </div>
+            <div>
+              <Label>Nível de permissão no sistema</Label>
+              <Select value={data.app_role} onValueChange={(v: AppRole) => setData({ ...data, app_role: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin (Master)</SelectItem>
+                  <SelectItem value="director">Diretor</SelectItem>
+                  <SelectItem value="manager">Gerente</SelectItem>
+                  <SelectItem value="operator">Operador</SelectItem>
+                  <SelectItem value="member">Membro</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">Define o que a pessoa pode acessar dentro do sistema.</p>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="flex sm:justify-between gap-2">
+          <div>
+            {step > 1 && (
+              <Button variant="outline" onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3)}>
+                <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={close}>Cancelar</Button>
+            {step < 3 ? (
+              <Button
+                onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
+                disabled={step === 1 ? !canNext1 : false}
+              >
+                Avançar <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            ) : (
+              <Button onClick={handleFinish} disabled={createUser.isPending}>
+                Criar usuário
+              </Button>
+            )}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ----- Setores ----- */
+function DepartmentsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
+  const { data: departments = [] } = useDepartments(orgId);
+  const createDept = useCreateDepartment();
+  const deleteDept = useDeleteDepartment();
+
+  const [newDept, setNewDept] = useState('');
+
+  return (
+    <div className="max-w-2xl">
       <section className="border rounded-lg p-4">
         <h3 className="font-semibold mb-3 flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Setores</h3>
         {canEdit && (
@@ -415,43 +528,6 @@ function DepartmentsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
           {departments.length === 0 && <li className="text-sm text-muted-foreground py-3 text-center">Nenhum setor</li>}
         </ul>
       </section>
-
-      <section className="border rounded-lg p-4">
-        <h3 className="font-semibold mb-3 flex items-center gap-2"><UsersIcon className="h-4 w-4 text-primary" /> Cargos</h3>
-        {canEdit && (
-          <div className="flex gap-2 mb-3">
-            <Input placeholder="Novo cargo" value={newPos} onChange={(e) => setNewPos(e.target.value)} onKeyDown={(e) => {
-              if (e.key === 'Enter' && newPos.trim()) {
-                createPos.mutate({ organization_id: orgId, name: newPos.trim() }, {
-                  onSuccess: () => setNewPos(''),
-                  onError: () => toast.error('Cargo já existe ou erro'),
-                });
-              }
-            }} />
-            <Button size="sm" onClick={() => {
-              if (!newPos.trim()) return;
-              createPos.mutate({ organization_id: orgId, name: newPos.trim() }, {
-                onSuccess: () => setNewPos(''),
-                onError: () => toast.error('Cargo já existe ou erro'),
-              });
-            }}><Plus className="h-4 w-4" /></Button>
-          </div>
-        )}
-        <ul className="space-y-1">
-          {positions.map((p) => (
-            <li key={p.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-accent">
-              <span className="text-sm">{p.name}</span>
-              {canEdit && (
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
-                  onClick={() => deletePos.mutate(p.id, { onError: () => toast.error('Erro') })}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </li>
-          ))}
-          {positions.length === 0 && <li className="text-sm text-muted-foreground py-3 text-center">Nenhum cargo</li>}
-        </ul>
-      </section>
     </div>
   );
 }
@@ -464,14 +540,13 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
   return (
     <div>
       <p className="text-sm text-muted-foreground mb-4">
-        Defina o nível de permissão de cada usuário no sistema. <strong>Admin</strong> tem acesso total, <strong>Manager</strong> pode gerenciar projetos e <strong>Member</strong> tem acesso padrão.
+        Defina o nível de permissão de cada usuário no sistema. <strong>Admin</strong> tem acesso total, <strong>Gerente</strong> pode gerenciar projetos e <strong>Membro</strong> tem acesso padrão.
       </p>
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
               <th className="px-4 py-2 font-medium">Usuário</th>
-              <th className="px-4 py-2 font-medium">Cargo</th>
               <th className="px-4 py-2 font-medium">Permissão</th>
             </tr>
           </thead>
@@ -490,7 +565,6 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
                       {m.org_role === 'admin' && <Badge variant="secondary" className="text-[10px]">Admin org</Badge>}
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-muted-foreground">{m.position || '—'}</td>
                   <td className="px-4 py-2">
                     <Select
                       disabled={!canEdit}
@@ -515,6 +589,39 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+/* ----- Emails ----- */
+function EmailsTab() {
+  return (
+    <div className="max-w-2xl space-y-4">
+      <div className="rounded-lg border bg-card p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 shrink-0">
+            <Mail className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold">Domínio de envio</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configure um domínio próprio (ex.: <code className="text-xs bg-muted px-1 py-0.5 rounded">notify.suaempresa.com</code>) para que os e-mails do sistema (recuperação de senha, novas atribuições de tickets/pedidos, etc.) sejam enviados com a identidade da sua marca.
+            </p>
+            <p className="text-xs text-muted-foreground mt-3 bg-muted/40 rounded p-2">
+              Para ativar, peça no chat: <em>"configurar domínio de e-mail"</em>. Você informará o domínio (ex.: <code className="text-[10px]">suaempresa.com</code>) e o subdomínio de envio (padrão <code className="text-[10px]">notify</code>). Em seguida, basta apontar os registros DNS sugeridos no seu provedor.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-4 text-sm text-muted-foreground bg-muted/30">
+        <p className="font-medium text-foreground mb-1">O que será habilitado depois da verificação:</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>E-mails de autenticação (cadastro, recuperação de senha, magic link) com sua marca</li>
+          <li>Notificações automáticas do sistema por e-mail (ticket atribuído, pedido novo, etc.)</li>
+          <li>Acompanhamento de entregas e relatórios de envio</li>
+        </ul>
       </div>
     </div>
   );
