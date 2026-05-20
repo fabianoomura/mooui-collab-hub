@@ -292,6 +292,9 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                       </div>
                     )}
                   </td>
+                </tr>
+              );
+            })}
             {members.length === 0 && (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">Nenhum membro</td></tr>
             )}
