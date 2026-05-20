@@ -14,6 +14,9 @@ import {
   useAddDepartmentMember,
   useUpdateDepartmentMemberRole,
   useRemoveDepartmentMember,
+  useItSupportMembers,
+  useToggleItSupport,
+  useResetUserPassword,
 } from '@/hooks/useOrgSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
