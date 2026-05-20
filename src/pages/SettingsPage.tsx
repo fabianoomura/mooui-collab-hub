@@ -122,9 +122,11 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const updateProfile = useUpdateMemberProfile();
   const updateOrgRole = useUpdateOrgRole();
   const removeMember = useRemoveOrgMember();
+  const resetPassword = useResetUserPassword();
   const confirm = useConfirm();
 
   const [showCreate, setShowCreate] = useState(false);
+  const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(null);
 
   return (
     <div>
