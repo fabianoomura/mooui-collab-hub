@@ -536,7 +536,11 @@ function PageNode({
           <span className="w-4" />
         )}
         <span className="text-base leading-none">{page.icon || '📄'}</span>
-        <span className="truncate flex-1">{page.title || 'Sem título'}</span>
+        <span className="truncate flex-1 flex items-center gap-1">
+          <span className="truncate">{page.title || 'Sem título'}</span>
+          {page.is_restricted && <Lock className="h-3 w-3 text-primary shrink-0" aria-label="Sigiloso" />}
+        </span>
+
         <button
           onClick={(e) => { e.stopPropagation(); onAddChild(page.id); }}
           className="md:opacity-0 md:group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-background"
