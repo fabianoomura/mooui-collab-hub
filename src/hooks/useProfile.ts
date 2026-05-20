@@ -56,6 +56,23 @@ export function useUploadAvatar() {
   });
 }
 
+export function useRemoveAvatar() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Não autenticado');
+      const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-profile'] });
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+      qc.invalidateQueries({ queryKey: ['assignee-profiles'] });
+    },
+  });
+}
+
 export function useUpdateMyName() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -71,3 +88,4 @@ export function useUpdateMyName() {
     },
   });
 }
+
