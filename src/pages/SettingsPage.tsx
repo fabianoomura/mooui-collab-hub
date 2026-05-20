@@ -590,11 +590,14 @@ function DepartmentsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
 function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const { data: members = [] } = useOrgMembersFull(orgId);
   const updateAppRole = useUpdateAppRole();
+  const memberIds = members.map((m) => m.user_id);
+  const { data: itSet } = useItSupportMembers(memberIds);
+  const toggleIT = useToggleItSupport();
 
   return (
     <div>
       <p className="text-sm text-muted-foreground mb-4">
-        Defina o nível de permissão de cada usuário no sistema. <strong>Admin</strong> tem acesso total, <strong>Gerente</strong> pode gerenciar projetos e <strong>Membro</strong> tem acesso padrão.
+        Defina o nível de permissão de cada usuário no sistema. <strong>Admin</strong> tem acesso total, <strong>Gerente</strong> pode gerenciar projetos e <strong>Membro</strong> tem acesso padrão. Ative <strong>Suporte TI</strong> para quem deve receber e atender tickets de TI.
       </p>
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -602,11 +605,13 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
             <tr className="text-left">
               <th className="px-4 py-2 font-medium">Usuário</th>
               <th className="px-4 py-2 font-medium">Permissão</th>
+              <th className="px-4 py-2 font-medium">Suporte TI</th>
             </tr>
           </thead>
           <tbody>
             {members.map((m) => {
               const initials = (m.full_name ?? '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              const isIT = itSet?.has(m.user_id) ?? false;
               return (
                 <tr key={m.user_id} className="border-t">
                   <td className="px-4 py-2">
@@ -637,6 +642,23 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
                         <SelectItem value="member">Membro</SelectItem>
                       </SelectContent>
                     </Select>
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={isIT}
+                        disabled={!canEdit || toggleIT.isPending}
+                        onCheckedChange={(v) => toggleIT.mutate({ user_id: m.user_id, enable: v }, {
+                          onSuccess: () => toast.success(v ? 'Adicionado ao Suporte TI' : 'Removido do Suporte TI'),
+                          onError: (e: unknown) => toast.error(getErrorMessage(e, 'Erro')),
+                        })}
+                      />
+                      {isIT && (
+                        <Badge variant="outline" className="gap-1 text-[10px]">
+                          <Wrench className="h-3 w-3" /> TI
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
