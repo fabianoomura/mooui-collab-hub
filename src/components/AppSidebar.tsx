@@ -87,6 +87,8 @@ export function AppSidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [projectFilter, setProjectFilter] = useState('');
   const [showProjectSearch, setShowProjectSearch] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+
 
   const sortedProjects = useMemo(() => {
     if (!projects) return [];
