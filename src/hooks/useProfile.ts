@@ -8,6 +8,7 @@ export interface Profile {
   avatar_url: string | null;
   department: string | null;
   position: string | null;
+  email: string | null;
 }
 
 export function useMyProfile() {
@@ -18,7 +19,7 @@ export function useMyProfile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, department, position')
+        .select('id, full_name, avatar_url, department, position, email')
         .eq('id', user!.id)
         .maybeSingle();
       if (error) throw error;
@@ -81,6 +82,23 @@ export function useUpdateMyName() {
       if (!user) throw new Error('Não autenticado');
       const { error } = await supabase.from('profiles').update({ full_name }).eq('id', user.id);
       if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-profile'] });
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+    },
+  });
+}
+
+export function useUpdateMyEmail() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (email: string) => {
+      if (!user) throw new Error('Não autenticado');
+      const { error } = await supabase.auth.updateUser({ email });
+      if (error) throw error;
+      await supabase.from('profiles').update({ email }).eq('id', user.id);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-profile'] });

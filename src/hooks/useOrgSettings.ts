@@ -109,6 +109,7 @@ export interface MemberRow {
   avatar_url: string | null;
   department: string | null;
   position: string | null;
+  email: string | null;
   app_role: 'admin' | 'manager' | 'member' | 'director' | 'operator';
 }
 
@@ -126,7 +127,7 @@ export function useOrgMembersFull(orgId?: string) {
       if (ids.length === 0) return [] as MemberRow[];
 
       const [{ data: profiles }, { data: roles }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, avatar_url, department, position').in('id', ids),
+        supabase.from('profiles').select('id, full_name, avatar_url, department, position, email').in('id', ids),
         supabase.from('user_roles').select('user_id, role').in('user_id', ids),
       ]);
 
@@ -134,7 +135,6 @@ export function useOrgMembersFull(orgId?: string) {
       const roleMap = new Map<string, string>();
       (roles ?? []).forEach((r: any) => {
         const cur = roleMap.get(r.user_id);
-        // priority: admin > manager > member
         const order = { admin: 5, director: 4, manager: 3, operator: 2, member: 1 } as Record<string, number>;
         if (!cur || order[r.role] > order[cur]) roleMap.set(r.user_id, r.role);
       });
@@ -148,6 +148,7 @@ export function useOrgMembersFull(orgId?: string) {
           avatar_url: p.avatar_url ?? null,
           department: p.department ?? null,
           position: p.position ?? null,
+          email: p.email ?? null,
           app_role: (roleMap.get(m.user_id) ?? 'member') as MemberRow['app_role'],
         } as MemberRow;
       });
