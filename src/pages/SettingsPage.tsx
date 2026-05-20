@@ -608,9 +608,9 @@ function EmailsTab() {
             <p className="text-sm text-muted-foreground mt-1">
               Configure um domínio próprio (ex.: <code className="text-xs bg-muted px-1 py-0.5 rounded">notify.suaempresa.com</code>) para que os e-mails do sistema (recuperação de senha, novas atribuições de tickets/pedidos, etc.) sejam enviados com a identidade da sua marca.
             </p>
-            <div className="mt-4">
-              <presentation-open-email-setup>Configurar domínio de e-mail</presentation-open-email-setup>
-            </div>
+            <p className="text-xs text-muted-foreground mt-3 bg-muted/40 rounded p-2">
+              Para ativar, peça no chat: <em>"configurar domínio de e-mail"</em>. Você informará o domínio (ex.: <code className="text-[10px]">suaempresa.com</code>) e o subdomínio de envio (padrão <code className="text-[10px]">notify</code>). Em seguida, basta apontar os registros DNS sugeridos no seu provedor.
+            </p>
           </div>
         </div>
       </div>
