@@ -254,25 +254,44 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                   </td>
                   <td className="px-4 py-2">
                     {canEdit && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: `Remover ${m.full_name || 'usuário'} da organização?`,
-                            destructive: true,
-                            confirmText: 'Remover',
-                          });
-                          if (!ok) return;
-                          removeMember.mutate({ organization_id: orgId, user_id: m.user_id }, {
-                            onSuccess: () => toast.success('Removido'),
-                            onError: () => toast.error('Erro ao remover'),
-                          });
-                        }}
-                      ><Trash2 className="h-4 w-4" /></Button>
+                      <div className="flex items-center gap-1 justify-end">
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8"
+                          title="Resetar senha"
+                          disabled={resetPassword.isPending}
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `Resetar senha de ${m.full_name || 'usuário'}?`,
+                              description: 'Será gerada uma nova senha temporária. Você poderá copiá-la e enviar à pessoa.',
+                              confirmText: 'Resetar',
+                            });
+                            if (!ok) return;
+                            try {
+                              const res = await resetPassword.mutateAsync({ user_id: m.user_id, organization_id: orgId });
+                              setResetResult({ name: m.full_name || 'Usuário', password: res.password });
+                            } catch (e: unknown) {
+                              toast.error(getErrorMessage(e, 'Erro ao resetar senha'));
+                            }
+                          }}
+                        ><KeyRound className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                          title="Remover da organização"
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `Remover ${m.full_name || 'usuário'} da organização?`,
+                              destructive: true,
+                              confirmText: 'Remover',
+                            });
+                            if (!ok) return;
+                            removeMember.mutate({ organization_id: orgId, user_id: m.user_id }, {
+                              onSuccess: () => toast.success('Removido'),
+                              onError: () => toast.error('Erro ao remover'),
+                            });
+                          }}
+                        ><Trash2 className="h-4 w-4" /></Button>
+                      </div>
                     )}
                   </td>
-                </tr>
-              );
-            })}
             {members.length === 0 && (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">Nenhum membro</td></tr>
             )}
