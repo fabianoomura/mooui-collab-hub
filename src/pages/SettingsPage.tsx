@@ -111,11 +111,15 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const { data: members = [] } = useOrgMembersFull(orgId);
   const { data: departments = [] } = useDepartments(orgId);
   const { data: positions = [] } = usePositions(orgId);
+  const { data: deptMembers = [] } = useDepartmentMembers(orgId);
+  const addDeptMember = useAddDepartmentMember();
+  const removeDeptMember = useRemoveDepartmentMember();
   const updateProfile = useUpdateMemberProfile();
   const updateOrgRole = useUpdateOrgRole();
   const removeMember = useRemoveOrgMember();
   const confirm = useConfirm();
   const createUser = useCreateOrgUser();
+
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
