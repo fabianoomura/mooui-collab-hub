@@ -186,13 +186,66 @@ export function useUpdateAppRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { user_id: string; role: 'admin' | 'manager' | 'member' | 'director' | 'operator' }) => {
-      // wipe previous roles then insert new
-      const { error: delErr } = await supabase.from('user_roles').delete().eq('user_id', input.user_id);
+      // wipe previous app roles (preserve it_support flag) then insert new
+      const { error: delErr } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', input.user_id)
+        .in('role', ['admin', 'manager', 'member', 'director', 'operator']);
       if (delErr) throw delErr;
       const { error: insErr } = await supabase.from('user_roles').insert({ user_id: input.user_id, role: input.role });
       if (insErr) throw insErr;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['org-members-full'] }),
+  });
+}
+
+export function useItSupportMembers(userIds: string[]) {
+  return useQuery({
+    queryKey: ['it-support-flags', userIds.sort().join(',')],
+    enabled: userIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'it_support')
+        .in('user_id', userIds);
+      if (error) throw error;
+      return new Set((data ?? []).map((r: any) => r.user_id));
+    },
+  });
+}
+
+export function useToggleItSupport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { user_id: string; enable: boolean }) => {
+      if (input.enable) {
+        const { error } = await supabase.from('user_roles').insert({ user_id: input.user_id, role: 'it_support' });
+        if (error && !error.message.includes('duplicate')) throw error;
+      } else {
+        const { error } = await supabase
+          .from('user_roles').delete()
+          .eq('user_id', input.user_id).eq('role', 'it_support');
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['it-support-flags'] });
+      qc.invalidateQueries({ queryKey: ['is-it-support'] });
+      qc.invalidateQueries({ queryKey: ['it-support-members'] });
+    },
+  });
+}
+
+export function useResetUserPassword() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+    },
   });
 }
 
