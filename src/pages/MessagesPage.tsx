@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus, Pencil, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -389,6 +390,18 @@ export default function MessagesPage() {
     }
     didAutoSelect.current = true;
   }, [channels, activeChannelId]);
+
+  // Open channel from ?channel= query param (used by Team page DM button)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const ch = searchParams.get('channel');
+    if (ch) {
+      setActiveChannelId(ch);
+      didAutoSelect.current = true;
+      searchParams.delete('channel');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Mark as read when opening a channel
   useEffect(() => {

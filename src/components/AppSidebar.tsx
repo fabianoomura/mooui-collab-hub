@@ -49,8 +49,8 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Colaboração',
     items: [
-      { title: 'Mensagens', url: '/mensagens', icon: MessageSquare },
-      { title: 'Documentação', url: '/docs', icon: BookOpen },
+      { title: 'Speaks', url: '/mensagens', icon: MessageSquare },
+      { title: 'Papelinho', url: '/docs', icon: BookOpen },
       { title: 'Salas', url: '/salas', icon: Calendar },
       { title: 'Equipe', url: '/equipe', icon: Users },
     ],
@@ -58,7 +58,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Operações',
     items: [
-      { title: 'Projetos', url: '/projetos', icon: FolderKanban },
+      { title: 'Sunday', url: '/projetos', icon: FolderKanban },
       { title: 'Calendário Anual', url: '/calendario', icon: CalendarDays },
       { title: 'Produção', url: '/lancamentos', icon: Rocket },
       { title: 'Check Lançamentos', url: '/checagens', icon: ClipboardCheck },
