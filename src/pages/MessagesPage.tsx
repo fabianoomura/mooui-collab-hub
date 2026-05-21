@@ -560,7 +560,7 @@ export default function MessagesPage() {
       >
         <div className="p-3 border-b border-border">
           <h2 className="font-semibold text-sm">{currentOrg.name}</h2>
-          <p className="text-xs text-muted-foreground">Mensagens</p>
+          <p className="text-xs text-muted-foreground">Speaks</p>
         </div>
 
         <ScrollArea className="flex-1">
