@@ -255,7 +255,7 @@ export default function DocsPage() {
   const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h2 className="text-sm font-semibold">Documentação</h2>
+        <h2 className="text-sm font-semibold">Papelinho</h2>
         <div className="flex items-center gap-0.5">
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="A partir de template"
             onClick={() => { setShowTemplates(true); setSidebarOpen(false); }}>
