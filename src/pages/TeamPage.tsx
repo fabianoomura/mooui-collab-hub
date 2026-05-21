@@ -58,8 +58,8 @@ export default function TeamPage() {
       return;
     }
     try {
-      await openDm.mutateAsync({ otherUserId, orgId: currentOrg.id });
-      navigate('/mensagens');
+      const channelId = await openDm.mutateAsync({ otherUserId, orgId: currentOrg.id });
+      navigate(`/mensagens?channel=${channelId}`);
     } catch (e: any) {
       toast.error(e?.message ?? 'Erro ao abrir conversa');
     }
