@@ -54,7 +54,7 @@ export default function ProjectsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Projetos</h1>
+          <h1 className="text-2xl font-bold text-foreground">Sunday</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie todos os seus projetos</p>
         </div>
         <Button onClick={() => setShowNew(true)}>
