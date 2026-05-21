@@ -386,7 +386,7 @@ export default function DocsPage() {
             <Menu className="h-5 w-5" />
           </Button>
           <span className="text-sm font-medium truncate">
-            {selected ? `${selected.icon || '📄'} ${selected.title || 'Sem título'}` : 'Documentação'}
+            {selected ? `${selected.icon || '📄'} ${selected.title || 'Sem título'}` : 'Papelinho'}
           </span>
         </div>
         {selected ? (
