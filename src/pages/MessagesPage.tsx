@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus, Pencil, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
