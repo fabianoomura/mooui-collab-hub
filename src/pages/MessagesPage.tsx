@@ -391,6 +391,18 @@ export default function MessagesPage() {
     didAutoSelect.current = true;
   }, [channels, activeChannelId]);
 
+  // Open channel from ?channel= query param (used by Team page DM button)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const ch = searchParams.get('channel');
+    if (ch) {
+      setActiveChannelId(ch);
+      didAutoSelect.current = true;
+      searchParams.delete('channel');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   // Mark as read when opening a channel
   useEffect(() => {
     if (activeChannelId) {
