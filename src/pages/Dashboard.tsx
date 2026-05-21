@@ -101,11 +101,11 @@ export default function Dashboard() {
   });
 
   const cards: ModuleCard[] = [
-    { title: 'Monday', description: 'Projetos e tarefas', href: '/projetos', icon: Table2, accent: 'from-pink-500/15 to-pink-500/5 text-pink-500',
+    { title: 'Sunday', description: 'Projetos e tarefas', href: '/projetos', icon: Table2, accent: 'from-pink-500/15 to-pink-500/5 text-pink-500',
       stat: stats ? `${stats.myOpenTasks} tarefa${stats.myOpenTasks === 1 ? '' : 's'} sua${stats.myOpenTasks === 1 ? '' : 's'}` : '—' },
-    { title: 'Slack', description: 'Mensagens da equipe', href: '/mensagens', icon: MessageSquare, accent: 'from-violet-500/15 to-violet-500/5 text-violet-500',
+    { title: 'Speaks', description: 'Mensagens da equipe', href: '/mensagens', icon: MessageSquare, accent: 'from-violet-500/15 to-violet-500/5 text-violet-500',
       stat: stats ? `${stats.recentMessages} mensagens 24h` : '—' },
-    { title: 'Notinha', description: 'Documentação', href: '/docs', icon: BookOpen, accent: 'from-amber-500/15 to-amber-500/5 text-amber-600',
+    { title: 'Papelinho', description: 'Documentação', href: '/docs', icon: BookOpen, accent: 'from-amber-500/15 to-amber-500/5 text-amber-600',
       stat: stats ? `${stats.docs} documento${stats.docs === 1 ? '' : 's'}` : '—' },
     { title: 'Reserva de Sala', description: 'Salas de reunião', href: '/salas', icon: Calendar, accent: 'from-emerald-500/15 to-emerald-500/5 text-emerald-600',
       stat: stats ? `${stats.upcomingBookings} reserva${stats.upcomingBookings === 1 ? '' : 's'} agendada${stats.upcomingBookings === 1 ? '' : 's'}` : '—' },

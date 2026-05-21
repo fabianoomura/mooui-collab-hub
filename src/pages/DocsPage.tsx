@@ -255,7 +255,7 @@ export default function DocsPage() {
   const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h2 className="text-sm font-semibold">Documentação</h2>
+        <h2 className="text-sm font-semibold">Papelinho</h2>
         <div className="flex items-center gap-0.5">
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="A partir de template"
             onClick={() => { setShowTemplates(true); setSidebarOpen(false); }}>
@@ -386,7 +386,7 @@ export default function DocsPage() {
             <Menu className="h-5 w-5" />
           </Button>
           <span className="text-sm font-medium truncate">
-            {selected ? `${selected.icon || '📄'} ${selected.title || 'Sem título'}` : 'Documentação'}
+            {selected ? `${selected.icon || '📄'} ${selected.title || 'Sem título'}` : 'Papelinho'}
           </span>
         </div>
         {selected ? (
