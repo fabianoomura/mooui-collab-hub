@@ -14,9 +14,9 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 
 const ROUTES = [
   { label: 'Início', href: '/', icon: Home, kw: 'home dashboard inicio' },
-  { label: 'Projetos', href: '/projetos', icon: Table2, kw: 'monday tarefas' },
-  { label: 'Mensagens', href: '/mensagens', icon: MessageSquare, kw: 'slack chat' },
-  { label: 'Documentação', href: '/docs', icon: BookOpen, kw: 'notinha notion' },
+  { label: 'Sunday', href: '/projetos', icon: Table2, kw: 'monday projetos tarefas' },
+  { label: 'Speaks', href: '/mensagens', icon: MessageSquare, kw: 'slack chat mensagens' },
+  { label: 'Papelinho', href: '/docs', icon: BookOpen, kw: 'notinha notion docs documentação' },
   { label: 'Salas', href: '/salas', icon: Calendar, kw: 'reserva reuniao' },
   { label: 'Calendário', href: '/calendario', icon: CalendarDays, kw: 'eventos ano' },
   { label: 'Produção', href: '/lancamentos', icon: Rocket, kw: 'launches etapas lancamentos producao' },
