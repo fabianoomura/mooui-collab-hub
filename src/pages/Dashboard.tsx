@@ -1,10 +1,11 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import {
   Table2, MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
   ArrowRight, Briefcase, ClipboardCheck, ListTodo, CalendarClock,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -30,6 +31,30 @@ function greeting() {
 export default function Dashboard() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
+  const qc = useQueryClient();
+
+  // Atualização dinâmica: invalida estatísticas quando dados mudam
+  useEffect(() => {
+    if (!user || !currentOrg) return;
+    const invalidate = () => {
+      qc.invalidateQueries({ queryKey: ['home-stats'] });
+      qc.invalidateQueries({ queryKey: ['personal-panel'] });
+    };
+    const ch = supabase
+      .channel(`dash:${user.id}:${currentOrg.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'launches' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'launch_stages' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'launch_checklists' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meeting_room_bookings' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_events' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doc_pages' }, invalidate)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, currentOrg, qc]);
 
   const firstName =
     (user?.user_metadata as any)?.full_name?.split(' ')[0]
