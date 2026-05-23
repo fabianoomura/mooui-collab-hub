@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus, Pencil, Check, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { notifyUser } from '@/hooks/useNotifications';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { ChannelMembersDialog } from '@/components/messages/ChannelMembersDialog';
 
 function formatBytes(n: number) {
   if (n < 1024) return `${n} B`;
@@ -361,6 +362,7 @@ export default function MessagesPage() {
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [showNewDm, setShowNewDm] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
 
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDesc, setNewChannelDesc] = useState('');
@@ -706,14 +708,26 @@ export default function MessagesPage() {
                   <span className="hidden sm:inline text-sm text-muted-foreground truncate">— {activeChannel.description}</span>
                 )}
               </div>
-              {!activeDm && (activeChannel.created_by === user?.id || isAdmin) && (
-                <button
-                  onClick={() => handleDeleteChannel(activeChannel.id, activeChannel.name)}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                  aria-label="Excluir canal"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+              {!activeDm && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setShowMembers(true)}
+                    className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                    aria-label="Membros do canal"
+                    title="Membros do canal"
+                  >
+                    <Users className="h-4 w-4" />
+                  </button>
+                  {(activeChannel.created_by === user?.id || isAdmin) && (
+                    <button
+                      onClick={() => handleDeleteChannel(activeChannel.id, activeChannel.name)}
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                      aria-label="Excluir canal"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               )}
             </header>
 
@@ -893,6 +907,18 @@ export default function MessagesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Channel members dialog */}
+      {activeChannel && !activeDm && currentOrg && (
+        <ChannelMembersDialog
+          open={showMembers}
+          onOpenChange={setShowMembers}
+          channelId={activeChannel.id}
+          channelName={activeChannel.name}
+          orgId={currentOrg.id}
+          canManage={activeChannel.created_by === user?.id || isAdmin}
+        />
+      )}
     </div>
   );
 }

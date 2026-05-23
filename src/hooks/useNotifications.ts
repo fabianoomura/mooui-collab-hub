@@ -32,6 +32,9 @@ export function useNotifications() {
       return (data || []) as Notification[];
     },
     enabled: !!user,
+    refetchInterval: 20000,
+    refetchOnWindowFocus: true,
+    staleTime: 5000,
   });
 
   useEffect(() => {
