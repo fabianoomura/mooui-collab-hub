@@ -135,7 +135,7 @@ export default function DocsPage() {
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
       .filter((g) => !q || g.pages.length > 0);
     const orphan = byDept.get('__none__') ?? [];
-    if (orphan.length) groups.push({ id: '__none__', name: 'Sem setor', color: '#9CA3AF', pages: orphan });
+    if (orphan.length) groups.push({ id: '__none__', name: 'Manual do Sistema', color: '#6366F1', pages: orphan });
     return groups;
   }, [pages, departments, search]);
 
