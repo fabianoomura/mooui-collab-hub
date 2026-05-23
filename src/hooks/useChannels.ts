@@ -222,6 +222,61 @@ export function useDeleteChannel() {
   });
 }
 
+export function useChannelMembersList(channelId: string | null) {
+  return useQuery({
+    queryKey: ['channel-members', channelId],
+    enabled: !!channelId,
+    queryFn: async () => {
+      if (!channelId) return [];
+      const { data: rows, error } = await supabase
+        .from('channel_members')
+        .select('user_id')
+        .eq('channel_id', channelId);
+      if (error) throw error;
+      const ids = (rows || []).map(r => r.user_id);
+      if (ids.length === 0) return [];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', ids);
+      return (profiles || []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>;
+    },
+  });
+}
+
+export function useAddChannelMembers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ channelId, userIds }: { channelId: string; userIds: string[] }) => {
+      if (userIds.length === 0) return;
+      const rows = userIds.map(uid => ({ channel_id: channelId, user_id: uid }));
+      const { error } = await supabase.from('channel_members').insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['channel-members', vars.channelId] });
+      qc.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
+export function useRemoveChannelMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ channelId, userId }: { channelId: string; userId: string }) => {
+      const { error } = await supabase
+        .from('channel_members')
+        .delete()
+        .eq('channel_id', channelId)
+        .eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['channel-members', vars.channelId] });
+    },
+  });
+}
+
 export function useMarkChannelRead() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
