@@ -907,6 +907,18 @@ export default function MessagesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Channel members dialog */}
+      {activeChannel && !activeDm && currentOrg && (
+        <ChannelMembersDialog
+          open={showMembers}
+          onOpenChange={setShowMembers}
+          channelId={activeChannel.id}
+          channelName={activeChannel.name}
+          orgId={currentOrg.id}
+          canManage={activeChannel.created_by === user?.id || isAdmin}
+        />
+      )}
     </div>
   );
 }
