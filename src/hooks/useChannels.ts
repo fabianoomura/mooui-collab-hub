@@ -163,7 +163,7 @@ export function useOpenDm() {
       return data as string;
     },
     onSuccess: (_d, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['dm-channels', vars.orgId] });
+      queryClient.invalidateQueries({ queryKey: ['dm-channels'] });
     },
   });
 }
