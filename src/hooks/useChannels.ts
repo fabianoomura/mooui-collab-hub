@@ -37,14 +37,15 @@ export function useChannels(orgId: string | undefined) {
   });
 }
 
-export function useDmChannels(orgId: string | undefined) {
+export function useDmChannels(_orgId?: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['dm-channels', orgId, user?.id],
+    // DMs são cross-workspace: mostramos todas as conversas diretas do usuário
+    // independente da org atualmente selecionada.
+    queryKey: ['dm-channels', user?.id],
     queryFn: async () => {
-      if (!orgId || !user) return [];
-      // Get DM channels where I'm a member
+      if (!user) return [];
       const { data: myMemberships, error: memErr } = await supabase
         .from('channel_members')
         .select('channel_id')
@@ -56,13 +57,11 @@ export function useDmChannels(orgId: string | undefined) {
       const { data: dms, error: dmErr } = await supabase
         .from('channels')
         .select('*')
-        .eq('organization_id', orgId)
         .eq('is_dm', true)
         .in('id', channelIds);
       if (dmErr) throw dmErr;
       if (!dms || dms.length === 0) return [];
 
-      // Find the OTHER member in each DM
       const { data: allMembers, error: allErr } = await supabase
         .from('channel_members')
         .select('channel_id, user_id')
@@ -89,7 +88,7 @@ export function useDmChannels(orgId: string | undefined) {
         partner: profMap.get(partnerByChannel.get(d.id) || '') || null,
       })) as DmChannel[];
     },
-    enabled: !!user && !!orgId,
+    enabled: !!user,
   });
 }
 
@@ -164,7 +163,7 @@ export function useOpenDm() {
       return data as string;
     },
     onSuccess: (_d, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['dm-channels', vars.orgId] });
+      queryClient.invalidateQueries({ queryKey: ['dm-channels'] });
     },
   });
 }
