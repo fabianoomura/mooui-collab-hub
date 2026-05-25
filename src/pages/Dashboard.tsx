@@ -65,7 +65,7 @@ export default function Dashboard() {
     weekday: 'long', day: '2-digit', month: 'long',
   });
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, isFetching } = useQuery({
     queryKey: ['home-stats', currentOrg?.id, user?.id],
     queryFn: async () => {
       if (!user || !currentOrg) return null;
