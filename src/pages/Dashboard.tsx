@@ -65,7 +65,7 @@ export default function Dashboard() {
     weekday: 'long', day: '2-digit', month: 'long',
   });
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, isFetching } = useQuery({
     queryKey: ['home-stats', currentOrg?.id, user?.id],
     queryFn: async () => {
       if (!user || !currentOrg) return null;
@@ -154,11 +154,19 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {greeting()}{firstName ? `, ${firstName}` : ''} 👋
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1 capitalize">{todayLabel}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            {greeting()}{firstName ? `, ${firstName}` : ''} 👋
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1 capitalize">{todayLabel}</p>
+        </div>
+        {isFetching && !isLoading && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground mt-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            Atualizando…
+          </span>
+        )}
       </div>
 
       {/* Hoje */}

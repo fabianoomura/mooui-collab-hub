@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export type Notification = {
   id: string;
@@ -42,7 +44,22 @@ export function useNotifications() {
     const ch = supabase
       .channel(`notif:${user.id}`)
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          qc.invalidateQueries({ queryKey: ['notifications', user.id] });
+          const n = payload.new as Notification;
+          toast(n.title, {
+            description: n.message ?? undefined,
+            action: n.link ? { label: 'Abrir', onClick: () => { window.location.href = n.link!; } } : undefined,
+          });
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        () => qc.invalidateQueries({ queryKey: ['notifications', user.id] })
+      )
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
         () => qc.invalidateQueries({ queryKey: ['notifications', user.id] })
       )
       .subscribe();
