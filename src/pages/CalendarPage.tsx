@@ -127,8 +127,8 @@ export default function CalendarPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        crumbs={[{ label: 'Início', to: '/' }, { label: 'Calendário Anual' }]}
-        title="Calendário Anual"
+        crumbs={[{ label: 'Início', to: '/' }, { label: 'Calendário de Marketing' }]}
+        title="Calendário de Marketing"
         subtitle="Planejamento de lançamentos, ações e datas-chave"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
