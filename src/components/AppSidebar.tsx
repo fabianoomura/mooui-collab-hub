@@ -59,7 +59,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: 'Operações',
     items: [
       { title: 'Sunday', url: '/projetos', icon: FolderKanban },
-      { title: 'Calendário Anual', url: '/calendario', icon: CalendarDays },
+      { title: 'Calendário de Marketing', url: '/calendario', icon: CalendarDays },
       { title: 'Produção', url: '/lancamentos', icon: Rocket },
       { title: 'Check Lançamentos', url: '/checagens', icon: ClipboardCheck },
       { title: 'Pedidos', url: '/pedidos', icon: Package },
