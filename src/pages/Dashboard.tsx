@@ -134,7 +134,7 @@ export default function Dashboard() {
       stat: stats ? `${stats.docs} documento${stats.docs === 1 ? '' : 's'}` : '—' },
     { title: 'Reserva de Sala', description: 'Salas de reunião', href: '/salas', icon: Calendar, accent: 'from-emerald-500/15 to-emerald-500/5 text-emerald-600',
       stat: stats ? `${stats.upcomingBookings} reserva${stats.upcomingBookings === 1 ? '' : 's'} agendada${stats.upcomingBookings === 1 ? '' : 's'}` : '—' },
-    { title: 'Calendário Anual', description: 'Planejamento do ano', href: '/calendario', icon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
+    { title: 'Calendário de Marketing', description: 'Planejamento do ano', href: '/calendario', icon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
       stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'} em ${new Date().getFullYear()}` : '—' },
     { title: 'Produção', description: 'Etapas, prazos e gargalos', href: '/lancamentos', icon: Rocket, accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
       stat: stats ? `${stats.activeLaunches} ativo${stats.activeLaunches === 1 ? '' : 's'}` : '—' },
