@@ -447,6 +447,9 @@ export default function OrdersPage() {
                         {' '}({formatDistanceToNow(new Date(o.created_at), { addSuffix: true, locale: ptBR })})
                       </span>
                       {assignee && (<><span>•</span><span>Resp: {assignee.full_name}</span></>)}
+                      {o.assigned_department_id && deptMap.get(o.assigned_department_id) && (
+                        <><span>•</span><span>Setor: {deptMap.get(o.assigned_department_id)!.name}</span></>
+                      )}
                     </div>
                   </div>
                 </div>
