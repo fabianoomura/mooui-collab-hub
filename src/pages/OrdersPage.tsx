@@ -236,13 +236,17 @@ export default function OrdersPage() {
         source: nSource,
         priority: nPriority,
         description: nDesc.trim() || null,
+        assigned_to: nAssignee,
+        assigned_department_id: nAssignedDept,
       },
       {
         onSuccess: () => {
           toast.success('Pedido sinalizado!');
           setShowNew(false);
           setNTitle(''); setNShopify(''); setNTotvs(''); setNCustomer('');
-          setNProblem('furo_estoque'); setNSource('expedicao'); setNPriority('medium'); setNDesc('');
+          setNProblem('furo_estoque'); setNPriority('medium'); setNDesc('');
+          setNSource(deptNameToSource(myProfile?.department));
+          setNAssignee(null); setNAssignedDept(null);
         },
         onError: (e: any) => toast.error(e?.message || 'Erro ao criar'),
       },
