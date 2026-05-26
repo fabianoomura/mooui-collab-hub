@@ -141,6 +141,10 @@ export default function OrdersPage() {
   const [showNew, setShowNew] = useState(false);
   const [openOrder, setOpenOrder] = useState<Order | null>(null);
 
+  const { data: myProfile } = useMyProfile();
+  const { data: departments = [] } = useDepartments(currentOrg?.id);
+  const deptMap = useMemo(() => new Map(departments.map(d => [d.id, d])), [departments]);
+
   // New order form
   const [nTitle, setNTitle] = useState('');
   const [nShopify, setNShopify] = useState('');
@@ -150,6 +154,14 @@ export default function OrdersPage() {
   const [nSource, setNSource] = useState<OrderSource>('expedicao');
   const [nPriority, setNPriority] = useState<OrderPriority>('medium');
   const [nDesc, setNDesc] = useState('');
+  const [nAssignee, setNAssignee] = useState<string | null>(null);
+  const [nAssignedDept, setNAssignedDept] = useState<string | null>(null);
+
+  // Auto-fill source from user's department when opening "new order" dialog
+  const openNew = () => {
+    setNSource(deptNameToSource(myProfile?.department));
+    setShowNew(true);
+  };
 
   const userIds = useMemo(() => {
     const ids = new Set<string>();
