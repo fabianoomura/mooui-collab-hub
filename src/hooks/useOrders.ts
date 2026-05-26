@@ -73,6 +73,8 @@ export function useCreateOrder() {
           priority: payload.priority || 'medium',
           description: payload.description || null,
           notes: payload.notes || null,
+          assigned_to: payload.assigned_to ?? null,
+          assigned_department_id: payload.assigned_department_id ?? null,
         } as any)
         .select()
         .single();
