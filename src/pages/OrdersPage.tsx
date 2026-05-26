@@ -516,6 +516,32 @@ export default function OrdersPage() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Atribuir a (responsável)</Label>
+                <div className="flex items-center gap-2 mt-1 h-10 px-3 rounded-md border border-input bg-background">
+                  <AssigneePicker value={nAssignee} onChange={setNAssignee} size="sm" />
+                  <span className="text-sm truncate text-muted-foreground">
+                    {nAssignee ? 'Pessoa selecionada' : 'Sem responsável'}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <Label>Setor responsável pela tratativa</Label>
+                <Select
+                  value={nAssignedDept ?? 'none'}
+                  onValueChange={(v) => setNAssignedDept(v === 'none' ? null : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {departments.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div>
               <Label>Descrição / observações</Label>
               <Textarea value={nDesc} onChange={(e) => setNDesc(e.target.value)} rows={3} placeholder="Detalhes para tratativa…" />
