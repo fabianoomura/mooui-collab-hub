@@ -581,12 +581,15 @@ function OrderDetail({
   onDelete: () => void;
   profileMap: Map<string, any>;
   currentUserId?: string;
+  departments: { id: string; name: string }[];
 }) {
   const { data: comments = [] } = useOrderComments(order.id);
   const { data: activity = [] } = useOrderActivity(order.id);
   const addComment = useAddOrderComment();
   const [newComment, setNewComment] = useState('');
   const [notes, setNotes] = useState(order.notes || '');
+  const [editTitle, setEditTitle] = useState(order.title);
+  const [editDesc, setEditDesc] = useState(order.description || '');
 
   const author = profileMap.get(order.created_by) as any;
   const assignee = order.assigned_to ? (profileMap.get(order.assigned_to) as any) : null;
