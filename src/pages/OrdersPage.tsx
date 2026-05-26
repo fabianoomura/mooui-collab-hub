@@ -689,12 +689,16 @@ function OrderDetail({
               </div>
             </div>
 
-            {order.description && (
-              <div>
-                <Label className="text-[11px] text-muted-foreground">Descrição</Label>
-                <p className="text-sm mt-1 whitespace-pre-wrap">{order.description}</p>
-              </div>
-            )}
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Descrição</Label>
+              <Textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                onBlur={() => { if (editDesc !== (order.description || '')) onUpdate({ description: editDesc.trim() || null }); }}
+                rows={3}
+                placeholder="Descrição do problema…"
+              />
+            </div>
 
             <div>
               <Label className="text-[11px] text-muted-foreground">Observações internas</Label>
