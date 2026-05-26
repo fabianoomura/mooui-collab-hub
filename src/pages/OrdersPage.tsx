@@ -564,6 +564,7 @@ export default function OrdersPage() {
           onDelete={() => handleDelete(openOrder)}
           profileMap={profileMap}
           currentUserId={user?.id}
+          departments={departments}
         />
       )}
     </div>
@@ -571,7 +572,7 @@ export default function OrdersPage() {
 }
 
 function OrderDetail({
-  order, onClose, onUpdate, onStatus, onDelete, profileMap, currentUserId,
+  order, onClose, onUpdate, onStatus, onDelete, profileMap, currentUserId, departments,
 }: {
   order: Order;
   onClose: () => void;
