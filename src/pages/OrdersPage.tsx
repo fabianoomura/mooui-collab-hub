@@ -825,12 +825,27 @@ function OrderDetail({
               </Select>
             </div>
             <div>
-              <Label className="text-[11px] text-muted-foreground">Setor</Label>
+              <Label className="text-[11px] text-muted-foreground">Setor solicitante</Label>
               <Select value={order.source} onValueChange={(v) => onUpdate({ source: v as OrderSource })}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(sourceLabels) as OrderSource[]).map(p => (
                     <SelectItem key={p} value={p}>{sourceLabels[p]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Setor responsável pela tratativa</Label>
+              <Select
+                value={order.assigned_department_id ?? 'none'}
+                onValueChange={(v) => onUpdate({ assigned_department_id: v === 'none' ? null : v } as any)}
+              >
+                <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {departments.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
