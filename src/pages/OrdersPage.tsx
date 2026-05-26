@@ -113,6 +113,11 @@ function describeActivity(a: { action: string; from_value: string | null; to_val
       if (!a.from_value) return 'atribuiu um responsável';
       return 'mudou o responsável';
     }
+    case 'assigned_department': {
+      if (!a.to_value) return 'removeu o setor responsável';
+      if (!a.from_value) return 'definiu o setor responsável';
+      return 'mudou o setor responsável';
+    }
     default: return a.action;
   }
 }
