@@ -25,6 +25,7 @@ export interface Order {
   description: string | null;
   notes: string | null;
   assigned_to: string | null;
+  assigned_department_id: string | null;
   created_by: string;
   closed_at: string | null;
   created_at: string;
