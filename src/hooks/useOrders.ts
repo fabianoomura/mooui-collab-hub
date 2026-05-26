@@ -25,7 +25,6 @@ export interface Order {
   description: string | null;
   notes: string | null;
   assigned_to: string | null;
-  assigned_department_id: string | null;
   created_by: string;
   closed_at: string | null;
   created_at: string;
@@ -73,8 +72,6 @@ export function useCreateOrder() {
           priority: payload.priority || 'medium',
           description: payload.description || null,
           notes: payload.notes || null,
-          assigned_to: payload.assigned_to ?? null,
-          assigned_department_id: payload.assigned_department_id ?? null,
         } as any)
         .select()
         .single();

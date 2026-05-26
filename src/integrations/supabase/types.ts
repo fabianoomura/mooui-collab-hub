@@ -1023,7 +1023,6 @@ export type Database = {
       }
       orders: {
         Row: {
-          assigned_department_id: string | null
           assigned_to: string | null
           closed_at: string | null
           code: string | null
@@ -1044,7 +1043,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assigned_department_id?: string | null
           assigned_to?: string | null
           closed_at?: string | null
           code?: string | null
@@ -1065,7 +1063,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assigned_department_id?: string | null
           assigned_to?: string | null
           closed_at?: string | null
           code?: string | null
@@ -1086,13 +1083,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "orders_assigned_department_id_fkey"
-            columns: ["assigned_department_id"]
-            isOneToOne: false
-            referencedRelation: "org_departments"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "orders_assigned_to_profile_fkey"
             columns: ["assigned_to"]

@@ -12,8 +12,6 @@ import {
   type Order, type OrderStatus, type OrderPriority, type OrderProblem, type OrderSource,
   FINAL_STATUSES,
 } from '@/hooks/useOrders';
-import { useDepartments } from '@/hooks/useOrgSettings';
-import { useMyProfile } from '@/hooks/useProfile';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,15 +26,6 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
-
-// Maps a free-text profile department name to the source enum
-function deptNameToSource(name?: string | null): OrderSource {
-  const v = (name || '').toLowerCase();
-  if (v.includes('expedi')) return 'expedicao';
-  if (v.includes('atend')) return 'atendimento';
-  if (v.includes('market')) return 'marketing';
-  return 'outro';
-}
 
 const problemLabels: Record<OrderProblem, string> = {
   furo_estoque: 'Furo de estoque',
@@ -113,11 +102,6 @@ function describeActivity(a: { action: string; from_value: string | null; to_val
       if (!a.from_value) return 'atribuiu um responsável';
       return 'mudou o responsável';
     }
-    case 'assigned_department': {
-      if (!a.to_value) return 'removeu o setor responsável';
-      if (!a.from_value) return 'definiu o setor responsável';
-      return 'mudou o setor responsável';
-    }
     default: return a.action;
   }
 }
@@ -141,10 +125,6 @@ export default function OrdersPage() {
   const [showNew, setShowNew] = useState(false);
   const [openOrder, setOpenOrder] = useState<Order | null>(null);
 
-  const { data: myProfile } = useMyProfile();
-  const { data: departments = [] } = useDepartments(currentOrg?.id);
-  const deptMap = useMemo(() => new Map(departments.map(d => [d.id, d])), [departments]);
-
   // New order form
   const [nTitle, setNTitle] = useState('');
   const [nShopify, setNShopify] = useState('');
@@ -154,14 +134,6 @@ export default function OrdersPage() {
   const [nSource, setNSource] = useState<OrderSource>('expedicao');
   const [nPriority, setNPriority] = useState<OrderPriority>('medium');
   const [nDesc, setNDesc] = useState('');
-  const [nAssignee, setNAssignee] = useState<string | null>(null);
-  const [nAssignedDept, setNAssignedDept] = useState<string | null>(null);
-
-  // Auto-fill source from user's department when opening "new order" dialog
-  const openNew = () => {
-    setNSource(deptNameToSource(myProfile?.department));
-    setShowNew(true);
-  };
 
   const userIds = useMemo(() => {
     const ids = new Set<string>();
@@ -236,17 +208,13 @@ export default function OrdersPage() {
         source: nSource,
         priority: nPriority,
         description: nDesc.trim() || null,
-        assigned_to: nAssignee,
-        assigned_department_id: nAssignedDept,
       },
       {
         onSuccess: () => {
           toast.success('Pedido sinalizado!');
           setShowNew(false);
           setNTitle(''); setNShopify(''); setNTotvs(''); setNCustomer('');
-          setNProblem('furo_estoque'); setNPriority('medium'); setNDesc('');
-          setNSource(deptNameToSource(myProfile?.department));
-          setNAssignee(null); setNAssignedDept(null);
+          setNProblem('furo_estoque'); setNSource('expedicao'); setNPriority('medium'); setNDesc('');
         },
         onError: (e: any) => toast.error(e?.message || 'Erro ao criar'),
       },
@@ -297,7 +265,7 @@ export default function OrdersPage() {
             {showFinished ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Eye className="h-4 w-4 mr-1.5" />}
             {showFinished ? 'Em andamento' : 'Ver finalizados'}
           </Button>
-          <Button onClick={openNew}>
+          <Button onClick={() => setShowNew(true)}>
             <Plus className="h-4 w-4 mr-1.5" />
             Sinalizar pedido
           </Button>
@@ -447,9 +415,6 @@ export default function OrdersPage() {
                         {' '}({formatDistanceToNow(new Date(o.created_at), { addSuffix: true, locale: ptBR })})
                       </span>
                       {assignee && (<><span>•</span><span>Resp: {assignee.full_name}</span></>)}
-                      {o.assigned_department_id && deptMap.get(o.assigned_department_id) && (
-                        <><span>•</span><span>Setor: {deptMap.get(o.assigned_department_id)!.name}</span></>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -519,32 +484,6 @@ export default function OrdersPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Atribuir a (responsável)</Label>
-                <div className="flex items-center gap-2 mt-1 h-10 px-3 rounded-md border border-input bg-background">
-                  <AssigneePicker value={nAssignee} onChange={setNAssignee} size="sm" />
-                  <span className="text-sm truncate text-muted-foreground">
-                    {nAssignee ? 'Pessoa selecionada' : 'Sem responsável'}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <Label>Setor responsável pela tratativa</Label>
-                <Select
-                  value={nAssignedDept ?? 'none'}
-                  onValueChange={(v) => setNAssignedDept(v === 'none' ? null : v)}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {departments.map(d => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             <div>
               <Label>Descrição / observações</Label>
               <Textarea value={nDesc} onChange={(e) => setNDesc(e.target.value)} rows={3} placeholder="Detalhes para tratativa…" />
@@ -567,7 +506,6 @@ export default function OrdersPage() {
           onDelete={() => handleDelete(openOrder)}
           profileMap={profileMap}
           currentUserId={user?.id}
-          departments={departments}
         />
       )}
     </div>
@@ -575,7 +513,7 @@ export default function OrdersPage() {
 }
 
 function OrderDetail({
-  order, onClose, onUpdate, onStatus, onDelete, profileMap, currentUserId, departments,
+  order, onClose, onUpdate, onStatus, onDelete, profileMap, currentUserId,
 }: {
   order: Order;
   onClose: () => void;
@@ -584,15 +522,12 @@ function OrderDetail({
   onDelete: () => void;
   profileMap: Map<string, any>;
   currentUserId?: string;
-  departments: { id: string; name: string }[];
 }) {
   const { data: comments = [] } = useOrderComments(order.id);
   const { data: activity = [] } = useOrderActivity(order.id);
   const addComment = useAddOrderComment();
   const [newComment, setNewComment] = useState('');
   const [notes, setNotes] = useState(order.notes || '');
-  const [editTitle, setEditTitle] = useState(order.title);
-  const [editDesc, setEditDesc] = useState(order.description || '');
 
   const author = profileMap.get(order.created_by) as any;
   const assignee = order.assigned_to ? (profileMap.get(order.assigned_to) as any) : null;
@@ -641,13 +576,7 @@ function OrderDetail({
                   {order.code}
                 </span>
               )}
-              <DialogTitle className="text-base truncate sr-only">{order.title}</DialogTitle>
-              <Input
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onBlur={() => { if (editTitle.trim() && editTitle !== order.title) onUpdate({ title: editTitle.trim() }); }}
-                className="h-8 font-semibold text-base border-transparent hover:border-input focus:border-input px-2 -mx-2"
-              />
+              <DialogTitle className="text-base truncate">{order.title}</DialogTitle>
             </div>
             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
               <Badge variant="outline" className="text-[10px]">{problemLabels[order.problem_type]}</Badge>
@@ -692,16 +621,12 @@ function OrderDetail({
               </div>
             </div>
 
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Descrição</Label>
-              <Textarea
-                value={editDesc}
-                onChange={(e) => setEditDesc(e.target.value)}
-                onBlur={() => { if (editDesc !== (order.description || '')) onUpdate({ description: editDesc.trim() || null }); }}
-                rows={3}
-                placeholder="Descrição do problema…"
-              />
-            </div>
+            {order.description && (
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Descrição</Label>
+                <p className="text-sm mt-1 whitespace-pre-wrap">{order.description}</p>
+              </div>
+            )}
 
             <div>
               <Label className="text-[11px] text-muted-foreground">Observações internas</Label>
@@ -828,27 +753,12 @@ function OrderDetail({
               </Select>
             </div>
             <div>
-              <Label className="text-[11px] text-muted-foreground">Setor solicitante</Label>
+              <Label className="text-[11px] text-muted-foreground">Setor</Label>
               <Select value={order.source} onValueChange={(v) => onUpdate({ source: v as OrderSource })}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(sourceLabels) as OrderSource[]).map(p => (
                     <SelectItem key={p} value={p}>{sourceLabels[p]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Setor responsável pela tratativa</Label>
-              <Select
-                value={order.assigned_department_id ?? 'none'}
-                onValueChange={(v) => onUpdate({ assigned_department_id: v === 'none' ? null : v } as any)}
-              >
-                <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {departments.map(d => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
