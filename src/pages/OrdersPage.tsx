@@ -297,7 +297,7 @@ export default function OrdersPage() {
             {showFinished ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Eye className="h-4 w-4 mr-1.5" />}
             {showFinished ? 'Em andamento' : 'Ver finalizados'}
           </Button>
-          <Button onClick={() => setShowNew(true)}>
+          <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-1.5" />
             Sinalizar pedido
           </Button>
