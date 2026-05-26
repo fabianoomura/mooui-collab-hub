@@ -12,6 +12,8 @@ import {
   type Order, type OrderStatus, type OrderPriority, type OrderProblem, type OrderSource,
   FINAL_STATUSES,
 } from '@/hooks/useOrders';
+import { useDepartments } from '@/hooks/useOrgSettings';
+import { useMyProfile } from '@/hooks/useProfile';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +28,15 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
+
+// Maps a free-text profile department name to the source enum
+function deptNameToSource(name?: string | null): OrderSource {
+  const v = (name || '').toLowerCase();
+  if (v.includes('expedi')) return 'expedicao';
+  if (v.includes('atend')) return 'atendimento';
+  if (v.includes('market')) return 'marketing';
+  return 'outro';
+}
 
 const problemLabels: Record<OrderProblem, string> = {
   furo_estoque: 'Furo de estoque',
