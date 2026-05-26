@@ -86,9 +86,11 @@ export default function RoomsPage() {
               {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={() => setShowManage(true)}>
-            <Settings2 className="h-4 w-4 mr-1" />Gerenciar salas
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setShowManage(true)}>
+              <Settings2 className="h-4 w-4 mr-1" />Gerenciar salas
+            </Button>
+          )}
           <Button size="sm" onClick={() => { setPresetStart(undefined); setPresetRoom(roomId === '__all__' ? undefined : roomId); setShowBooking(true); }}
             disabled={rooms.length === 0}>
             <Plus className="h-4 w-4 mr-1" />Nova reserva
@@ -139,7 +141,7 @@ export default function RoomsPage() {
         <div className="border rounded-lg p-8 text-center text-muted-foreground">
           <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
           <p className="mb-3">Nenhuma sala cadastrada ainda.</p>
-          <Button onClick={() => setShowManage(true)}>Cadastrar primeira sala</Button>
+          {isAdmin && <Button onClick={() => setShowManage(true)}>Cadastrar primeira sala</Button>}
         </div>
       ) : view === 'month' ? (
         <MonthResumo
