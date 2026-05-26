@@ -638,7 +638,13 @@ function OrderDetail({
                   {order.code}
                 </span>
               )}
-              <DialogTitle className="text-base truncate">{order.title}</DialogTitle>
+              <DialogTitle className="text-base truncate sr-only">{order.title}</DialogTitle>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={() => { if (editTitle.trim() && editTitle !== order.title) onUpdate({ title: editTitle.trim() }); }}
+                className="h-8 font-semibold text-base border-transparent hover:border-input focus:border-input px-2 -mx-2"
+              />
             </div>
             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
               <Badge variant="outline" className="text-[10px]">{problemLabels[order.problem_type]}</Badge>
