@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertTriangle, CalendarClock, ListTodo, Rocket, Calendar, ClipboardCheck,
-  MessageSquare, Briefcase, Send, CheckCircle2,
+  MessageSquare, Briefcase, Send, CheckCircle2, Package, TrendingUp,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -108,6 +108,17 @@ export function PersonalPanel() {
         .order('updated_at', { ascending: false }).limit(5);
       const myTickets = myTicketsData || [];
 
+      // 8) Pedidos atribuídos a mim
+      const { data: myOrdersData } = await supabase
+        .from('orders' as any)
+        .select('id, title, code, priority, status, problem_type, created_at')
+        .eq('organization_id', currentOrg.id)
+        .eq('assigned_to', user.id)
+        .not('status', 'in', '("done","cancelled","sent")')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      const myOrders = (myOrdersData || []) as any[];
+
       // ---- Build derived sets ----
       const overdue = [
         ...myTasks.filter((t) => isOverdue(t.due_date)).map((t) => ({
@@ -166,13 +177,18 @@ export function PersonalPanel() {
           })),
       ];
 
+      // Summary counters
+      const totalPending = myTasks.length + myStages.length + myCheckItems.length + myOrders.length;
+
       return {
         overdue,
         agenda: groupByDay(upcoming),
         sentMessages: mySent,
         sentCount: sentCount ?? 0,
         myTickets,
-        completedToday: myTasks.filter((t) => t.status === 'done').length, // 0 here (filtered out)
+        myOrders,
+        totalPending,
+        overdueCount: overdue.length,
       };
     },
     enabled: !!user && !!currentOrg,
@@ -196,6 +212,24 @@ export function PersonalPanel() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Resumo do dia */}
+      <Card className="p-4 lg:col-span-3 flex items-center gap-6 flex-wrap">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">Resumo</span>
+        </div>
+        <div className="flex items-center gap-6 text-sm">
+          <span className="flex items-center gap-1.5">
+            <ListTodo className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="font-medium">{data.totalPending}</span> pendências
+          </span>
+          <span className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+            <span className="font-medium">{data.overdueCount}</span> em atraso
+          </span>
+        </div>
+      </Card>
+
       {/* Coluna esquerda */}
       <div className="lg:col-span-2 space-y-4">
         {/* Em atraso */}
@@ -317,6 +351,35 @@ export function PersonalPanel() {
                   <p className="text-xs text-foreground/80 line-clamp-2 group-hover:text-primary">
                     {m.content}
                   </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Pedidos atribuídos */}
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Package className="h-4 w-4 text-orange-500" />
+            <h2 className="text-sm font-semibold uppercase tracking-wide">Seus pedidos</h2>
+            <Badge variant="secondary" className="ml-auto">{data.myOrders.length}</Badge>
+          </div>
+          {data.myOrders.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum pedido pendente.</p>
+          ) : (
+            <div className="space-y-1">
+              {data.myOrders.map((o: any) => (
+                <Link
+                  key={o.id} to="/pedidos"
+                  className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate group-hover:text-primary">{o.title}</p>
+                    {o.code && <p className="text-[10px] text-muted-foreground">#{o.code}</p>}
+                  </div>
+                  <Badge variant="outline" className="text-[10px] shrink-0">
+                    {({ low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' } as Record<string,string>)[o.priority] ?? o.priority}
+                  </Badge>
                 </Link>
               ))}
             </div>

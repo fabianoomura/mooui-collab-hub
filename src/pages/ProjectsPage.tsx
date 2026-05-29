@@ -1,5 +1,6 @@
 import { useProjectsByOrg, useCreateProject } from '@/hooks/useProjectData';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ export default function ProjectsPage() {
   const { currentOrg } = useOrganization();
   const { data: projects, isLoading } = useProjectsByOrg(currentOrg?.id);
   const createProject = useCreateProject();
+  const { canDo } = usePermissions();
 
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState('');
@@ -57,9 +59,11 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold text-foreground">Sunday</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie todos os seus projetos</p>
         </div>
-        <Button onClick={() => setShowNew(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Novo Projeto
-        </Button>
+        {canDo('create_project') && (
+          <Button onClick={() => setShowNew(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Novo Projeto
+          </Button>
+        )}
       </div>
 
       {!projects?.length ? (
@@ -67,9 +71,11 @@ export default function ProjectsPage() {
           <FolderKanban className="h-12 w-12 text-muted-foreground/40 mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-1">Nenhum projeto ainda</h3>
           <p className="text-muted-foreground text-sm mb-4">Crie seu primeiro projeto para começar</p>
-          <Button onClick={() => setShowNew(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Criar Projeto
-          </Button>
+          {canDo('create_project') && (
+            <Button onClick={() => setShowNew(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Criar Projeto
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

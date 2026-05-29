@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -95,6 +95,8 @@ export default function TicketsPage() {
   const [nDesc, setNDesc] = useState('');
   const [nPriority, setNPriority] = useState<TicketPriority>('medium');
   const [nCategory, setNCategory] = useState<TicketCategory>('bug');
+  const [nFiles, setNFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profiles for author/assignee names
   const userIds = useMemo(() => {
@@ -183,10 +185,27 @@ export default function TicketsPage() {
     createMut.mutate(
       { title: nTitle.trim(), description: nDesc.trim(), priority: nPriority, category: nCategory },
       {
-        onSuccess: () => {
+        onSuccess: async (data: any) => {
+          const ticketId = data?.id;
+          // Upload pending files
+          if (ticketId && nFiles.length > 0 && user) {
+            await Promise.allSettled(nFiles.map(async (file) => {
+              const ext = file.name.split('.').pop() || 'bin';
+              const path = `${ticketId}/${crypto.randomUUID()}.${ext}`;
+              const { error: upErr } = await supabase.storage.from('ticket-attachments').upload(path, file, {
+                contentType: file.type, upsert: false,
+              });
+              if (upErr) return;
+              await supabase.from('ticket_attachments').insert({
+                ticket_id: ticketId, user_id: user.id,
+                file_url: path, file_name: file.name,
+                file_size: file.size, file_type: file.type || null,
+              });
+            }));
+          }
           toast.success('Ticket aberto!');
           setShowNew(false);
-          setNTitle(''); setNDesc(''); setNPriority('medium'); setNCategory('bug');
+          setNTitle(''); setNDesc(''); setNPriority('medium'); setNCategory('bug'); setNFiles([]);
         },
         onError: (e: any) => toast.error(e?.message || 'Erro'),
       }
@@ -427,6 +446,42 @@ export default function TicketsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            {/* File attachment zone */}
+            <div>
+              <Label className="text-xs">Anexos</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) setNFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-1 w-full border-2 border-dashed rounded-md p-3 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors flex items-center justify-center gap-2"
+              >
+                <Paperclip className="h-4 w-4" />
+                Clique para anexar arquivos
+              </button>
+              {nFiles.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {nFiles.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs">
+                      <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="truncate flex-1">{f.name}</span>
+                      <span className="text-muted-foreground shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                      <button onClick={() => setNFiles(prev => prev.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <DialogFooter>

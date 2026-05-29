@@ -1,5 +1,8 @@
 import type { TaskWithAssignees, TaskPriority, TaskStatus } from '@/hooks/useProjectData';
 import { useProjectMembers } from '@/hooks/useProjectMembers';
+import { useCreateAnnualEvent } from '@/hooks/useAnnualEvents';
+import { useCreateLink } from '@/hooks/useModuleLinks';
+import { LinkedItems } from '@/components/LinkedItems';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,8 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, User, Flag, Tag, MessageSquare, X, UserPlus, Hash } from 'lucide-react';
+import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, UserPlus, Hash } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 const priorityOptions: { value: TaskPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
@@ -45,9 +49,30 @@ export function TaskDetailModal({ task, projectId, open, onClose, onUpdate }: Pr
   const [ticketNumber, setTicketNumber] = useState(task.ticket_number || '');
   const [comment, setComment] = useState('');
   const { members, addAssignee, removeAssignee } = useProjectMembers(projectId);
+  const createEvent = useCreateAnnualEvent();
+  const createLink = useCreateLink();
 
   const assignedUserIds = new Set(task.task_assignees?.map(a => a.user_id) || []);
   const unassignedMembers = members.filter(m => !assignedUserIds.has(m.user_id));
+
+  const sendToCalendar = () => {
+    const date = task.due_date || new Date().toISOString().split('T')[0];
+    createEvent.mutate(
+      { title: task.title, description: task.description || null, category: 'acao', color: '#3b82f6', start_date: date, end_date: null, project_id: null },
+      {
+        onSuccess: (evt) => {
+          createLink.mutate({
+            source_type: 'task',
+            source_id: task.id,
+            target_type: 'calendar',
+            target_id: evt.id,
+          });
+          toast.success('Evento criado no calendário');
+        },
+        onError: (e: any) => toast.error(e.message),
+      },
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -193,6 +218,21 @@ export function TaskDetailModal({ task, projectId, open, onClose, onUpdate }: Pr
               className="min-h-[100px] resize-none"
             />
           </div>
+
+          {/* Cross-module links */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={sendToCalendar}
+              disabled={createEvent.isPending}
+            >
+              <CalendarPlus className="h-4 w-4 mr-1.5" />
+              Enviar para Calendário
+            </Button>
+          </div>
+
+          <LinkedItems sourceType="task" sourceId={task.id} />
 
           <div className="space-y-3 border-t pt-4">
             <Label className="text-xs text-muted-foreground flex items-center gap-1">

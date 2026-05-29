@@ -1,10 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+function generateSecurePassword(length = 14): string {
+  const charset = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%";
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+  let password = "";
+  for (const v of values) {
+    password += charset[v % charset.length];
+  }
+  return password;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -60,7 +72,7 @@ Deno.serve(async (req) => {
     // generate password if not supplied
     const password = new_password && new_password.length >= 6
       ? new_password
-      : Math.random().toString(36).slice(-10) + "A1!";
+      : generateSecurePassword();
 
     const { error: updErr } = await admin.auth.admin.updateUserById(user_id, { password });
     if (updErr) {

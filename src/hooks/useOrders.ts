@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { notifyUser } from '@/hooks/useNotifications';
 
 export type OrderStatus = 'open' | 'in_progress' | 'waiting' | 'sent' | 'done' | 'cancelled';
 export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -76,6 +77,20 @@ export function useCreateOrder() {
         .select()
         .single();
       if (error) throw error;
+
+      // Notify assignee
+      const order = data as unknown as Order;
+      if (order.assigned_to && order.assigned_to !== user.id) {
+        notifyUser({
+          userId: order.assigned_to,
+          type: 'order_assigned',
+          title: `Pedido atribuído: ${order.title}`,
+          message: order.code ? `Pedido #${order.code}` : undefined,
+          link: '/pedidos',
+          metadata: { module: 'orders', entity_id: order.id, entity_code: order.code ?? undefined },
+        });
+      }
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['orders', currentOrg?.id] }),
@@ -85,8 +100,16 @@ export function useCreateOrder() {
 export function useUpdateOrder() {
   const qc = useQueryClient();
   const { currentOrg } = useOrganization();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Order> & { id: string }) => {
+      // Fetch original for change detection
+      const { data: original } = await supabase
+        .from('orders' as any)
+        .select('created_by, assigned_to, status, title, code')
+        .eq('id', id)
+        .single();
+
       const { data, error } = await supabase
         .from('orders' as any)
         .update(patch as any)
@@ -94,6 +117,34 @@ export function useUpdateOrder() {
         .select()
         .single();
       if (error) throw error;
+
+      // Notifications (fire-and-forget)
+      const prev = original as Record<string, any> | null;
+      if (prev && user) {
+        // Status changed → notify creator
+        if (patch.status && patch.status !== prev.status && prev.created_by !== user.id) {
+          notifyUser({
+            userId: prev.created_by,
+            type: 'order_status',
+            title: `Pedido atualizado: ${prev.title}`,
+            message: `Status alterado para "${patch.status}"`,
+            link: '/pedidos',
+            metadata: { module: 'orders', entity_id: id, entity_code: prev.code ?? undefined },
+          });
+        }
+        // Assignee changed → notify new assignee
+        if (patch.assigned_to && patch.assigned_to !== prev.assigned_to && patch.assigned_to !== user.id) {
+          notifyUser({
+            userId: patch.assigned_to,
+            type: 'order_assigned',
+            title: `Pedido atribuído: ${prev.title}`,
+            message: prev.code ? `Pedido #${prev.code}` : undefined,
+            link: '/pedidos',
+            metadata: { module: 'orders', entity_id: id, entity_code: prev.code ?? undefined },
+          });
+        }
+      }
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['orders', currentOrg?.id] }),
@@ -143,6 +194,31 @@ export function useAddOrderComment() {
         order_id: orderId, user_id: user.id, content,
       } as any);
       if (error) throw error;
+
+      // Notify order creator + assignee (skip self)
+      const { data: order } = await supabase
+        .from('orders' as any)
+        .select('created_by, assigned_to, title, code')
+        .eq('id', orderId)
+        .single();
+
+      if (order) {
+        const o = order as Record<string, any>;
+        const targets = new Set<string>();
+        if (o.created_by && o.created_by !== user.id) targets.add(o.created_by);
+        if (o.assigned_to && o.assigned_to !== user.id) targets.add(o.assigned_to);
+
+        for (const uid of targets) {
+          notifyUser({
+            userId: uid,
+            type: 'order_comment',
+            title: `Novo comentário: ${o.title}`,
+            message: content.length > 100 ? content.slice(0, 100) + '…' : content,
+            link: '/pedidos',
+            metadata: { module: 'orders', entity_id: orderId, entity_code: o.code ?? undefined },
+          });
+        }
+      }
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['order-comments', v.orderId] }),
   });

@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
+export type NotificationMetadata = {
+  module?: string;
+  entity_id?: string;
+  entity_code?: string;
+  [key: string]: unknown;
+};
 
 export type Notification = {
   id: string;
@@ -12,9 +18,20 @@ export type Notification = {
   title: string;
   message: string | null;
   link: string | null;
+  metadata: NotificationMetadata;
   is_read: boolean;
   created_at: string;
 };
+
+/** Build a deep link URL from notification metadata */
+export function buildNotificationLink(n: Pick<Notification, 'link' | 'metadata'>): string | null {
+  if (!n.link) return null;
+  if (n.metadata?.entity_id) {
+    const sep = n.link.includes('?') ? '&' : '?';
+    return `${n.link}${sep}id=${n.metadata.entity_id}`;
+  }
+  return n.link;
+}
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -31,12 +48,15 @@ export function useNotifications() {
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
-      return (data || []) as Notification[];
+      return (data || []).map((n: any) => ({
+        ...n,
+        metadata: n.metadata ?? {},
+      })) as Notification[];
     },
     enabled: !!user,
     refetchInterval: 20000,
     refetchOnWindowFocus: true,
-    staleTime: 5000,
+    staleTime: 15000,
   });
 
   useEffect(() => {
@@ -48,9 +68,12 @@ export function useNotifications() {
         (payload) => {
           qc.invalidateQueries({ queryKey: ['notifications', user.id] });
           const n = payload.new as Notification;
+          const deepLink = buildNotificationLink(n);
           toast(n.title, {
             description: n.message ?? undefined,
-            action: n.link ? { label: 'Abrir', onClick: () => { window.location.href = n.link!; } } : undefined,
+            action: deepLink
+              ? { label: 'Abrir', onClick: () => { window.dispatchEvent(new CustomEvent('mooui:navigate', { detail: deepLink })); } }
+              : undefined,
           });
         }
       )
@@ -93,13 +116,32 @@ export function useMarkAllNotificationsRead() {
   });
 }
 
-export async function notifyUser(params: { userId: string; type: string; title: string; message?: string; link?: string }) {
-  const { error } = await supabase.rpc('notify_user', {
+export function useDeleteNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('notifications').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export async function notifyUser(params: {
+  userId: string;
+  type: string;
+  title: string;
+  message?: string;
+  link?: string;
+  metadata?: NotificationMetadata;
+}) {
+  const { error } = await supabase.rpc('notify_user' as any, {
     _user_id: params.userId,
     _type: params.type,
     _title: params.title,
     _message: params.message ?? null,
     _link: params.link ?? null,
+    _metadata: params.metadata ? JSON.stringify(params.metadata) : '{}',
   });
   if (error) console.error('notify_user failed', error);
 }

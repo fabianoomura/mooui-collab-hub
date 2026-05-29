@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { notifyUser } from '@/hooks/useNotifications';
 
 export type Template = { id: string; organization_id: string; name: string; description: string | null; created_by: string };
 export type TemplateItem = { id: string; template_id: string; position: number; category: string; label: string; hint: string | null };
@@ -115,10 +116,48 @@ export function useCreateChecklistFromTemplate() {
 
 export function useUpdateChecklistItem() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<ChecklistItem> & { id: string }) => {
+      // Fetch original for change detection
+      const { data: prev } = await supabase
+        .from('launch_checklist_items').select('*').eq('id', id).single();
+
       const { error } = await supabase.from('launch_checklist_items').update(patch as any).eq('id', id);
       if (error) throw error;
+
+      const item = prev as ChecklistItem | null;
+      if (item && user) {
+        // Assignee changed → notify new assignee
+        if (patch.assignee_id && patch.assignee_id !== item.assignee_id && patch.assignee_id !== user.id) {
+          const { data: cl } = await supabase
+            .from('launch_checklists').select('name').eq('id', item.checklist_id).single();
+          notifyUser({
+            userId: patch.assignee_id,
+            type: 'checklist_item_assigned',
+            title: `Item atribuído: ${item.label}`,
+            message: `Checklist: ${(cl as any)?.name ?? ''}`,
+            link: '/checagens',
+            metadata: { module: 'checklists', entity_id: item.checklist_id },
+          });
+        }
+
+        // Item completed → notify checklist creator
+        if (patch.status === 'done' && item.status !== 'done') {
+          const { data: cl } = await supabase
+            .from('launch_checklists').select('name, created_by').eq('id', item.checklist_id).single();
+          if (cl && (cl as any).created_by !== user.id) {
+            notifyUser({
+              userId: (cl as any).created_by,
+              type: 'checklist_item_done',
+              title: `Item concluído: ${item.label}`,
+              message: `Checklist: ${(cl as any).name}`,
+              link: '/checagens',
+              metadata: { module: 'checklists', entity_id: item.checklist_id },
+            });
+          }
+        }
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['launch_checklist_items'] }),
   });

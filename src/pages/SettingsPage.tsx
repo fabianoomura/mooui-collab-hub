@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useDepartments,
@@ -672,8 +672,61 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
 
 /* ----- Emails ----- */
 function EmailsTab() {
+  const { currentOrg } = useOrganization();
+  const [prefs, setPrefs] = useState({
+    notify_on_assignment: true,
+    notify_on_deadline: true,
+    notify_on_mention: true,
+    notify_directors: false,
+  });
+  const [loaded, setLoaded] = useState(false);
+
+  // Load existing preferences
+  useEffect(() => {
+    if (!currentOrg) return;
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getUser().then(({ data: ud }) => {
+        if (!ud?.user) return;
+        supabase
+          .from('email_preferences' as any)
+          .select('*')
+          .eq('user_id', ud.user.id)
+          .eq('organization_id', currentOrg.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              const d = data as Record<string, any>;
+              setPrefs({
+                notify_on_assignment: d.notify_on_assignment ?? true,
+                notify_on_deadline: d.notify_on_deadline ?? true,
+                notify_on_mention: d.notify_on_mention ?? true,
+                notify_directors: d.notify_directors ?? false,
+              });
+            }
+            setLoaded(true);
+          });
+      });
+    });
+  }, [currentOrg]);
+
+  const savePrefs = async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: ud } = await supabase.auth.getUser();
+    if (!ud?.user || !currentOrg) return;
+    const { error } = await supabase
+      .from('email_preferences' as any)
+      .upsert({
+        user_id: ud.user.id,
+        organization_id: currentOrg.id,
+        ...prefs,
+      } as any, { onConflict: 'organization_id,user_id' });
+    if (error) toast.error('Erro ao salvar preferências');
+    else toast.success('Preferências salvas');
+  };
+
   return (
     <div className="max-w-2xl space-y-4">
+      {/* Domain config info */}
       <div className="rounded-lg border bg-card p-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 shrink-0">
@@ -682,21 +735,81 @@ function EmailsTab() {
           <div className="flex-1">
             <h3 className="font-semibold">Domínio de envio</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Configure um domínio próprio (ex.: <code className="text-xs bg-muted px-1 py-0.5 rounded">notify.suaempresa.com</code>) para que os e-mails do sistema (recuperação de senha, novas atribuições de tickets/pedidos, etc.) sejam enviados com a identidade da sua marca.
+              Configure um domínio próprio (ex.: <code className="text-xs bg-muted px-1 py-0.5 rounded">notify.suaempresa.com</code>) para que os e-mails do sistema sejam enviados com a identidade da sua marca.
             </p>
             <p className="text-xs text-muted-foreground mt-3 bg-muted/40 rounded p-2">
-              Para ativar, peça no chat: <em>"configurar domínio de e-mail"</em>. Você informará o domínio (ex.: <code className="text-[10px]">suaempresa.com</code>) e o subdomínio de envio (padrão <code className="text-[10px]">notify</code>). Em seguida, basta apontar os registros DNS sugeridos no seu provedor.
+              Para ativar, configure as secrets <code className="text-[10px]">RESEND_API_KEY</code> e <code className="text-[10px]">EMAIL_FROM</code> no Supabase, e aponte os registros DNS sugeridos pelo Resend.
             </p>
           </div>
         </div>
       </div>
 
+      {/* Email preference toggles */}
+      <div className="rounded-lg border bg-card p-5 space-y-4">
+        <h3 className="font-semibold">Preferências de notificação por e-mail</h3>
+        <p className="text-sm text-muted-foreground">
+          Escolha quais notificações você deseja receber por e-mail além das notificações no app.
+        </p>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Atribuições</p>
+              <p className="text-xs text-muted-foreground">Quando um pedido, tarefa ou etapa for atribuída a você</p>
+            </div>
+            <Switch
+              checked={prefs.notify_on_assignment}
+              onCheckedChange={(v) => setPrefs(p => ({ ...p, notify_on_assignment: v }))}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Prazos</p>
+              <p className="text-xs text-muted-foreground">Quando um prazo estiver vencendo (24h) ou vencido</p>
+            </div>
+            <Switch
+              checked={prefs.notify_on_deadline}
+              onCheckedChange={(v) => setPrefs(p => ({ ...p, notify_on_deadline: v }))}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Menções</p>
+              <p className="text-xs text-muted-foreground">Quando alguém mencionar você em comentários</p>
+            </div>
+            <Switch
+              checked={prefs.notify_on_mention}
+              onCheckedChange={(v) => setPrefs(p => ({ ...p, notify_on_mention: v }))}
+            />
+          </div>
+
+          <hr className="border-border" />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Cópia para diretores</p>
+              <p className="text-xs text-muted-foreground">Enviar cópia dos seus e-mails para os administradores da organização</p>
+            </div>
+            <Switch
+              checked={prefs.notify_directors}
+              onCheckedChange={(v) => setPrefs(p => ({ ...p, notify_directors: v }))}
+            />
+          </div>
+        </div>
+
+        <Button onClick={savePrefs} className="mt-2">Salvar preferências</Button>
+      </div>
+
       <div className="rounded-lg border p-4 text-sm text-muted-foreground bg-muted/30">
-        <p className="font-medium text-foreground mb-1">O que será habilitado depois da verificação:</p>
+        <p className="font-medium text-foreground mb-1">Tipos de e-mail enviados:</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>E-mails de autenticação (cadastro, recuperação de senha, magic link) com sua marca</li>
-          <li>Notificações automáticas do sistema por e-mail (ticket atribuído, pedido novo, etc.)</li>
-          <li>Acompanhamento de entregas e relatórios de envio</li>
+          <li>Pedido atribuído ou com novo comentário</li>
+          <li>Etapa de lançamento pronta para você</li>
+          <li>Item de checklist atribuído</li>
+          <li>Prazo vencendo em 24h ou vencido</li>
+          <li>Ticket com atualização de status</li>
         </ul>
       </div>
     </div>

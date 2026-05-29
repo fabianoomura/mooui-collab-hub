@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Plus, Trash2, Rocket, AlertTriangle, CheckCircle2, Calendar as CalIcon,
-  Copy, GripVertical, Sparkles,
+  Copy, GripVertical, Sparkles, CalendarPlus, ClipboardCheck,
 } from 'lucide-react';
 import {
   useLaunches, useCreateLaunch, useDeleteLaunch,
@@ -20,6 +20,10 @@ import {
   useReorderStages, useDuplicateLaunch, useSeedDefaultStages,
   recalcStageDates, type LaunchStage,
 } from '@/hooks/useLaunches';
+import { useCreateChecklistFromTemplate, useTemplates } from '@/hooks/useChecklists';
+import { useCreateAnnualEvent } from '@/hooks/useAnnualEvents';
+import { useCreateLink } from '@/hooks/useModuleLinks';
+import { LinkedItems } from '@/components/LinkedItems';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
@@ -29,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 import { AssigneePicker } from '@/components/AssigneePicker';
+import { usePermissions } from '@/hooks/usePermissions';
 
 function useAllOrgMembers(orgId?: string) {
   return useQuery({
@@ -62,6 +67,7 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
   const deleteMut = useDeleteLaunch();
   const dupMut = useDuplicateLaunch();
   const confirm = useConfirm();
+  const { canDo } = usePermissions();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', start_date: todayStr() });
 
@@ -88,12 +94,12 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
         crumbs={[{ label: 'Início', to: '/' }, { label: 'Produção' }]}
         title="Produção"
         subtitle="Etapas, prazos e gargalos em tempo real"
-        actions={
+        actions={canDo('create_project') ? (
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Novo lançamento</span>
           </Button>
-        }
+        ) : undefined}
       />
 
       <ModuleInstanceBar
@@ -179,10 +185,68 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const reorder = useReorderStages();
   const seedDefaults = useSeedDefaultStages();
   const confirm = useConfirm();
+  const { data: templates = [] } = useTemplates();
+  const createChecklist = useCreateChecklistFromTemplate();
+  const createEvent = useCreateAnnualEvent();
+  const createLink = useCreateLink();
 
   const [editing, setEditing] = useState<LaunchStage | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', duration_days: 1, assignee_id: '', actual_end: '', status: 'pending' });
+  const [checklistDialog, setChecklistDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+
+  const handleCreateChecklist = () => {
+    if (!launch) return;
+    createChecklist.mutate(
+      {
+        name: `Checagem - ${launch.name}`,
+        templateId: selectedTemplate || undefined,
+        launchId: launch.id,
+      },
+      {
+        onSuccess: (cl) => {
+          createLink.mutate({
+            source_type: 'launch',
+            source_id: id,
+            target_type: 'checklist',
+            target_id: cl.id,
+          });
+          toast.success('Checklist criada e vinculada');
+          setChecklistDialog(false);
+          setSelectedTemplate('');
+        },
+        onError: (e: any) => toast.error(e.message),
+      },
+    );
+  };
+
+  const handleCreateCalendarEvent = () => {
+    if (!launch) return;
+    createEvent.mutate(
+      {
+        title: launch.name,
+        description: launch.description || null,
+        category: 'lancamento',
+        color: '#a855f7',
+        start_date: launch.start_date,
+        end_date: null,
+        project_id: null,
+      },
+      {
+        onSuccess: (evt) => {
+          createLink.mutate({
+            source_type: 'launch',
+            source_id: id,
+            target_type: 'calendar',
+            target_id: evt.id,
+          });
+          toast.success('Evento criado no calendário');
+        },
+        onError: (e: any) => toast.error(e.message),
+      },
+    );
+  };
 
   const stages = useMemo(() => {
     if (!launch || rawStages.length === 0) return rawStages;
@@ -191,7 +255,11 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   useEffect(() => {
     if (!launch || stages.length === 0) return;
-    const changed = stages.some((s, i) => s.planned_start !== rawStages[i]?.planned_start || s.planned_end !== rawStages[i]?.planned_end);
+    const rawMap = new Map(rawStages.map(s => [s.id, s]));
+    const changed = stages.some((s) => {
+      const raw = rawMap.get(s.id);
+      return !raw || s.planned_start !== raw.planned_start || s.planned_end !== raw.planned_end;
+    });
     if (changed) persistRecalc.mutate({ launchId: launch.id, stages });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(stages.map(s => [s.id, s.planned_start, s.planned_end, s.actual_end, s.duration_days]))]);
@@ -272,6 +340,14 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
         actions={
           <>
             <Button variant="outline" size="sm" onClick={onBack}>← Voltar</Button>
+            <Button variant="outline" size="sm" onClick={() => setChecklistDialog(true)}>
+              <ClipboardCheck className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Criar checklist</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleCreateCalendarEvent} disabled={createEvent.isPending}>
+              <CalendarPlus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Calendário</span>
+            </Button>
             <Button size="sm" onClick={openNewStage}>
               <Plus className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Nova etapa</span>
@@ -428,6 +504,32 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
           </div>
         </Card>
       )}
+
+      {/* Cross-module links */}
+      <LinkedItems sourceType="launch" sourceId={id} className="px-1" />
+
+      {/* Checklist template selection dialog */}
+      <Dialog open={checklistDialog} onOpenChange={setChecklistDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Criar checklist para este lançamento</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Template (opcional)</Label>
+              <Select value={selectedTemplate || 'none'} onValueChange={v => setSelectedTemplate(v === 'none' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Sem template" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Sem template —</SelectItem>
+                  {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChecklistDialog(false)}>Cancelar</Button>
+            <Button onClick={handleCreateChecklist} disabled={createChecklist.isPending}>Criar checklist</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stage sheet */}
       <Sheet open={creating} onOpenChange={setCreating}>

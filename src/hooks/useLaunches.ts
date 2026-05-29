@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { notifyUser } from '@/hooks/useNotifications';
 
 export type Launch = {
   id: string;
@@ -134,15 +135,75 @@ export function useDeleteLaunch() {
 
 export function useUpsertStage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (stage: Partial<LaunchStage> & { launch_id: string; name: string; position: number; duration_days: number }) => {
       if (stage.id) {
+        // Fetch original for change detection
+        const { data: prev } = await supabase.from('launch_stages').select('*').eq('id', stage.id).single();
+
         const { data, error } = await supabase.from('launch_stages').update(stage).eq('id', stage.id).select().single();
         if (error) throw error;
+
+        const old = prev as LaunchStage | null;
+        if (old && user) {
+          // Stage completed → notify next stage's assignee
+          if (stage.status === 'done' && old.status !== 'done') {
+            const { data: allStages } = await supabase.from('launch_stages')
+              .select('*').eq('launch_id', stage.launch_id).order('position');
+            const { data: launch } = await supabase.from('launches')
+              .select('name').eq('id', stage.launch_id).single();
+
+            if (allStages) {
+              const idx = (allStages as LaunchStage[]).findIndex(s => s.id === stage.id);
+              const next = (allStages as LaunchStage[])[idx + 1];
+              if (next?.assignee_id && next.assignee_id !== user.id) {
+                notifyUser({
+                  userId: next.assignee_id,
+                  type: 'launch_stage_ready',
+                  title: `Sua etapa está pronta: ${next.name}`,
+                  message: `Lançamento: ${(launch as any)?.name ?? ''}`,
+                  link: '/lancamentos',
+                  metadata: { module: 'launches', entity_id: stage.launch_id },
+                });
+              }
+            }
+          }
+
+          // Assignee changed → notify new assignee
+          if (stage.assignee_id && stage.assignee_id !== old.assignee_id && stage.assignee_id !== user.id) {
+            const { data: launch } = await supabase.from('launches')
+              .select('name').eq('id', stage.launch_id).single();
+            notifyUser({
+              userId: stage.assignee_id,
+              type: 'launch_stage_assigned',
+              title: `Etapa atribuída: ${stage.name}`,
+              message: `Lançamento: ${(launch as any)?.name ?? ''}`,
+              link: '/lancamentos',
+              metadata: { module: 'launches', entity_id: stage.launch_id },
+            });
+          }
+        }
+
         return data;
       } else {
         const { data, error } = await supabase.from('launch_stages').insert(stage).select().single();
         if (error) throw error;
+
+        // New stage with assignee → notify
+        if (user && stage.assignee_id && stage.assignee_id !== user.id) {
+          const { data: launch } = await supabase.from('launches')
+            .select('name').eq('id', stage.launch_id).single();
+          notifyUser({
+            userId: stage.assignee_id,
+            type: 'launch_stage_assigned',
+            title: `Etapa atribuída: ${stage.name}`,
+            message: `Lançamento: ${(launch as any)?.name ?? ''}`,
+            link: '/lancamentos',
+            metadata: { module: 'launches', entity_id: stage.launch_id },
+          });
+        }
+
         return data;
       }
     },

@@ -144,7 +144,7 @@ export default function OrdersPage() {
     queryKey: ['order-profiles', userIds.sort().join(',')],
     queryFn: async () => {
       if (!userIds.length) return [];
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+      const { data } = await supabase.from('profiles').select('id, full_name, department').in('id', userIds);
       return data || [];
     },
     enabled: userIds.length > 0,
@@ -408,7 +408,7 @@ export default function OrdersPage() {
                     <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
                       <span>{sourceLabels[o.source]}</span>
                       <span>•</span>
-                      <span>Aberto por {author?.full_name || 'Usuário'}</span>
+                      <span>Aberto por {author?.full_name || 'Usuário'}{author?.department ? ` (${author.department})` : ''}</span>
                       <span>•</span>
                       <span title={format(new Date(o.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}>
                         {format(new Date(o.created_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
