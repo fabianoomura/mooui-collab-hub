@@ -310,12 +310,20 @@ export function AppSidebar() {
               )}
               title={currentOrg?.name}
             >
-              <div
-                className="h-7 w-7 rounded-md flex items-center justify-center text-[11px] font-bold text-primary-foreground shrink-0"
-                style={{ backgroundColor: currentOrg?.color || 'hsl(var(--primary))' }}
-              >
-                {orgInitial}
-              </div>
+              {currentOrg?.logo_url ? (
+                <img
+                  src={currentOrg.logo_url}
+                  alt={currentOrg.name}
+                  className="h-7 w-7 rounded-md object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  className="h-7 w-7 rounded-md flex items-center justify-center text-[11px] font-bold text-primary-foreground shrink-0"
+                  style={{ backgroundColor: currentOrg?.color || 'hsl(var(--primary))' }}
+                >
+                  {orgInitial}
+                </div>
+              )}
               {!collapsed && (
                 <>
                   <div className="flex-1 min-w-0">
@@ -339,12 +347,20 @@ export function AppSidebar() {
                 onClick={() => setCurrentOrg(org)}
                 className="flex items-center gap-2"
               >
-                <div
-                  className="h-6 w-6 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0"
-                  style={{ backgroundColor: org.color || 'hsl(var(--primary))' }}
-                >
-                  {org.name.charAt(0).toUpperCase()}
-                </div>
+                {org.logo_url ? (
+                  <img
+                    src={org.logo_url}
+                    alt={org.name}
+                    className="h-6 w-6 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="h-6 w-6 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0"
+                    style={{ backgroundColor: org.color || 'hsl(var(--primary))' }}
+                  >
+                    {org.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <span className="flex-1 truncate">{org.name}</span>
                 <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 capitalize">
                   {org.role === 'admin' ? 'Admin' : 'Membro'}
