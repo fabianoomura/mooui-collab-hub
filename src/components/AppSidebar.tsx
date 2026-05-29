@@ -347,12 +347,20 @@ export function AppSidebar() {
                 onClick={() => setCurrentOrg(org)}
                 className="flex items-center gap-2"
               >
-                <div
-                  className="h-6 w-6 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0"
-                  style={{ backgroundColor: org.color || 'hsl(var(--primary))' }}
-                >
-                  {org.name.charAt(0).toUpperCase()}
-                </div>
+                {org.logo_url ? (
+                  <img
+                    src={org.logo_url}
+                    alt={org.name}
+                    className="h-6 w-6 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="h-6 w-6 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0"
+                    style={{ backgroundColor: org.color || 'hsl(var(--primary))' }}
+                  >
+                    {org.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <span className="flex-1 truncate">{org.name}</span>
                 <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 capitalize">
                   {org.role === 'admin' ? 'Admin' : 'Membro'}
