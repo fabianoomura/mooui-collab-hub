@@ -58,10 +58,11 @@ export default function SettingsPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
             <SettingsIcon className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold">Configurações</h1>
             <p className="text-xs sm:text-sm text-muted-foreground">{currentOrg.name}</p>
           </div>
+          {isAdmin && <OrgLogoUploader />}
         </div>
       </div>
 
