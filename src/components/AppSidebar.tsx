@@ -310,12 +310,20 @@ export function AppSidebar() {
               )}
               title={currentOrg?.name}
             >
-              <div
-                className="h-7 w-7 rounded-md flex items-center justify-center text-[11px] font-bold text-primary-foreground shrink-0"
-                style={{ backgroundColor: currentOrg?.color || 'hsl(var(--primary))' }}
-              >
-                {orgInitial}
-              </div>
+              {currentOrg?.logo_url ? (
+                <img
+                  src={currentOrg.logo_url}
+                  alt={currentOrg.name}
+                  className="h-7 w-7 rounded-md object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  className="h-7 w-7 rounded-md flex items-center justify-center text-[11px] font-bold text-primary-foreground shrink-0"
+                  style={{ backgroundColor: currentOrg?.color || 'hsl(var(--primary))' }}
+                >
+                  {orgInitial}
+                </div>
+              )}
               {!collapsed && (
                 <>
                   <div className="flex-1 min-w-0">
