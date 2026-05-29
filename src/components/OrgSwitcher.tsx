@@ -30,12 +30,20 @@ export function OrgSwitcher({ className }: Props) {
           )}
           aria-label="Trocar workspace"
         >
-          <div
-            className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0"
-            style={{ backgroundColor: currentOrg.color || 'hsl(var(--primary))' }}
-          >
-            {initial}
-          </div>
+          {currentOrg.logo_url ? (
+            <img
+              src={currentOrg.logo_url}
+              alt={currentOrg.name}
+              className="h-5 w-5 rounded object-cover shrink-0"
+            />
+          ) : (
+            <div
+              className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0"
+              style={{ backgroundColor: currentOrg.color || 'hsl(var(--primary))' }}
+            >
+              {initial}
+            </div>
+          )}
           <span className="font-medium truncate max-w-[120px]">{currentOrg.name}</span>
           <Badge variant="outline" className="hidden sm:inline-flex text-[9px] px-1 py-0 h-4 capitalize">
             {currentOrg.role === 'admin' ? 'Admin' : 'Membro'}
