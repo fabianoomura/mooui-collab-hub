@@ -396,6 +396,42 @@ export type Database = {
         }
         Relationships: []
       }
+      email_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          notify_directors: boolean
+          notify_on_assignment: boolean
+          notify_on_deadline: boolean
+          notify_on_mention: boolean
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notify_directors?: boolean
+          notify_on_assignment?: boolean
+          notify_on_deadline?: boolean
+          notify_on_mention?: boolean
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notify_directors?: boolean
+          notify_on_assignment?: boolean
+          notify_on_deadline?: boolean
+          notify_on_mention?: boolean
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       launch_checklist_items: {
         Row: {
           assignee_id: string | null
@@ -878,6 +914,39 @@ export type Database = {
         }
         Relationships: []
       }
+      module_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          organization_id: string
+          source_id: string
+          source_type: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          organization_id: string
+          source_id: string
+          source_type: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          organization_id?: string
+          source_id?: string
+          source_type?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -885,6 +954,7 @@ export type Database = {
           is_read: boolean
           link: string | null
           message: string | null
+          metadata: Json
           title: string
           type: string
           user_id: string
@@ -895,6 +965,7 @@ export type Database = {
           is_read?: boolean
           link?: string | null
           message?: string | null
+          metadata?: Json
           title: string
           type: string
           user_id: string
@@ -905,6 +976,7 @@ export type Database = {
           is_read?: boolean
           link?: string | null
           message?: string | null
+          metadata?: Json
           title?: string
           type?: string
           user_id?: string
@@ -2120,16 +2192,28 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
-      notify_user: {
-        Args: {
-          _link?: string
-          _message?: string
-          _title: string
-          _type: string
-          _user_id: string
-        }
-        Returns: string
-      }
+      notify_user:
+        | {
+            Args: {
+              _link?: string
+              _message?: string
+              _title: string
+              _type: string
+              _user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _link?: string
+              _message?: string
+              _metadata?: Json
+              _title: string
+              _type: string
+              _user_id: string
+            }
+            Returns: string
+          }
       unread_count: {
         Args: { _channel_id: string; _user_id: string }
         Returns: number
