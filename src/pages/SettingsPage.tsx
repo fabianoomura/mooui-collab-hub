@@ -784,19 +784,18 @@ function EmailsTab() {
       supabase.auth.getUser().then(({ data: ud }) => {
         if (!ud?.user) return;
         supabase
-          .from('email_preferences' as any)
+          .from('email_preferences')
           .select('*')
           .eq('user_id', ud.user.id)
           .eq('organization_id', currentOrg.id)
           .maybeSingle()
           .then(({ data }) => {
             if (data) {
-              const d = data as Record<string, any>;
               setPrefs({
-                notify_on_assignment: d.notify_on_assignment ?? true,
-                notify_on_deadline: d.notify_on_deadline ?? true,
-                notify_on_mention: d.notify_on_mention ?? true,
-                notify_directors: d.notify_directors ?? false,
+                notify_on_assignment: data.notify_on_assignment ?? true,
+                notify_on_deadline: data.notify_on_deadline ?? true,
+                notify_on_mention: data.notify_on_mention ?? true,
+                notify_directors: data.notify_directors ?? false,
               });
             }
             setLoaded(true);
@@ -810,12 +809,12 @@ function EmailsTab() {
     const { data: ud } = await supabase.auth.getUser();
     if (!ud?.user || !currentOrg) return;
     const { error } = await supabase
-      .from('email_preferences' as any)
+      .from('email_preferences')
       .upsert({
         user_id: ud.user.id,
         organization_id: currentOrg.id,
         ...prefs,
-      } as any, { onConflict: 'organization_id,user_id' });
+      }, { onConflict: 'organization_id,user_id' });
     if (error) toast.error('Erro ao salvar preferências');
     else toast.success('Preferências salvas');
   };

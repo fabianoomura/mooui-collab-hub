@@ -135,7 +135,7 @@ export async function notifyUser(params: {
   link?: string;
   metadata?: NotificationMetadata;
 }) {
-  const { error } = await supabase.rpc('notify_user' as any, {
+  const { error } = await supabase.rpc('notify_user', {
     _user_id: params.userId,
     _type: params.type,
     _title: params.title,

@@ -21,13 +21,13 @@ export function useLinksFrom(sourceType: string, sourceId: string | undefined) {
     queryFn: async () => {
       if (!currentOrg || !sourceId) return [];
       const { data, error } = await supabase
-        .from('module_links' as any)
+        .from('module_links')
         .select('*')
         .eq('organization_id', currentOrg.id)
         .eq('source_type', sourceType)
         .eq('source_id', sourceId);
       if (error) throw error;
-      return (data || []) as unknown as ModuleLink[];
+      return (data || []) as ModuleLink[];
     },
     enabled: !!currentOrg && !!sourceId,
   });
@@ -40,13 +40,13 @@ export function useLinksTo(targetType: string, targetId: string | undefined) {
     queryFn: async () => {
       if (!currentOrg || !targetId) return [];
       const { data, error } = await supabase
-        .from('module_links' as any)
+        .from('module_links')
         .select('*')
         .eq('organization_id', currentOrg.id)
         .eq('target_type', targetType)
         .eq('target_id', targetId);
       if (error) throw error;
-      return (data || []) as unknown as ModuleLink[];
+      return (data || []) as ModuleLink[];
     },
     enabled: !!currentOrg && !!targetId,
   });
@@ -65,16 +65,16 @@ export function useCreateLink() {
     }) => {
       if (!currentOrg || !user) throw new Error('Sem organização');
       const { data, error } = await supabase
-        .from('module_links' as any)
+        .from('module_links')
         .insert({
           organization_id: currentOrg.id,
           created_by: user.id,
           ...input,
-        } as any)
+        })
         .select()
         .single();
       if (error) throw error;
-      return data as unknown as ModuleLink;
+      return data as ModuleLink;
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['module-links', 'from', vars.source_type, vars.source_id] });
@@ -87,7 +87,7 @@ export function useDeleteLink() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('module_links' as any).delete().eq('id', id);
+      const { error } = await supabase.from('module_links').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
