@@ -4,6 +4,7 @@ import {
   ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import mooUiLogo from '@/assets/mooui-logo.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useProjectsByOrg, useCreateProject, useDeleteProject } from '@/hooks/useProjectData';
@@ -142,9 +143,7 @@ export function AppSidebar() {
         'flex items-center gap-2 px-3 h-12 border-b border-sidebar-border/50',
         collapsed && 'justify-center px-0'
       )}>
-        <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">
-          M
-        </div>
+        <img src={mooUiLogo} alt="MOOUI" className="h-7 w-7 shrink-0 object-contain" />
         {!collapsed && (
           <span className="text-sidebar-foreground font-semibold text-sm tracking-tight">MOOUI</span>
         )}
