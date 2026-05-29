@@ -38,6 +38,101 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
+
+function OrgLogoUploader() {
+  const { currentOrg } = useOrganization();
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  if (!currentOrg) return null;
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Envie um arquivo de imagem');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Máx. 2MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `org-logos/${currentOrg.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+      const { error: updErr } = await supabase
+        .from('organizations')
+        .update({ logo_url: pub.publicUrl } as any)
+        .eq('id', currentOrg.id);
+      if (updErr) throw updErr;
+      await qc.invalidateQueries({ queryKey: ['organizations'] });
+      toast.success('Logo atualizada');
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Falha ao enviar logo'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeLogo = async () => {
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({ logo_url: null } as any)
+        .eq('id', currentOrg.id);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ['organizations'] });
+      toast.success('Logo removida');
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Falha ao remover'));
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {currentOrg.logo_url && (
+        <img
+          src={currentOrg.logo_url}
+          alt={currentOrg.name}
+          className="h-10 w-10 rounded-md object-cover border"
+        />
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+          e.target.value = '';
+        }}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+      >
+        {uploading ? 'Enviando…' : currentOrg.logo_url ? 'Trocar logo' : 'Enviar logo'}
+      </Button>
+      {currentOrg.logo_url && (
+        <Button type="button" variant="ghost" size="sm" onClick={removeLogo}>
+          Remover
+        </Button>
+      )}
+    </div>
+  );
+}
 
 type AppRole = 'admin' | 'manager' | 'member' | 'director' | 'operator';
 
@@ -58,10 +153,11 @@ export default function SettingsPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
             <SettingsIcon className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold">Configurações</h1>
             <p className="text-xs sm:text-sm text-muted-foreground">{currentOrg.name}</p>
           </div>
+          {isAdmin && <OrgLogoUploader />}
         </div>
       </div>
 

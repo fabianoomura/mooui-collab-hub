@@ -8,6 +8,7 @@ export interface Organization {
   name: string;
   slug: string;
   color: string;
+  logo_url?: string | null;
   role: string; // user's role in this org
 }
 

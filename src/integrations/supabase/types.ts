@@ -1263,6 +1263,7 @@ export type Database = {
           color: string
           created_at: string
           id: string
+          logo_url: string | null
           name: string
           slug: string
           updated_at: string
@@ -1271,6 +1272,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          logo_url?: string | null
           name: string
           slug: string
           updated_at?: string
@@ -1279,6 +1281,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          logo_url?: string | null
           name?: string
           slug?: string
           updated_at?: string
