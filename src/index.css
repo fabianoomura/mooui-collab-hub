@@ -115,6 +115,59 @@
   * {
     @apply border-border;
   }
+
+  .dim {
+    --background: 220 18% 22%;
+    --foreground: 220 14% 92%;
+
+    --card: 220 17% 26%;
+    --card-foreground: 220 14% 92%;
+
+    --popover: 220 17% 26%;
+    --popover-foreground: 220 14% 92%;
+
+    --primary: 338 70% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 30%;
+    --secondary-foreground: 220 14% 92%;
+
+    --muted: 220 16% 28%;
+    --muted-foreground: 220 12% 70%;
+
+    --accent: 220 16% 32%;
+    --accent-foreground: 220 14% 92%;
+
+    --destructive: 0 84% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 32%;
+    --input: 220 14% 32%;
+    --ring: 338 70% 58%;
+
+    --sidebar-background: 220 18% 24%;
+    --sidebar-foreground: 220 14% 85%;
+    --sidebar-primary: 338 70% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 16% 30%;
+    --sidebar-accent-foreground: 220 14% 92%;
+    --sidebar-border: 220 14% 32%;
+    --sidebar-ring: 338 70% 58%;
+    --sidebar-muted: 220 12% 60%;
+
+    --success: 142 71% 48%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 100%;
+    --info: 210 100% 58%;
+    --info-foreground: 0 0% 100%;
+
+    --priority-critical: 0 84% 62%;
+    --priority-high: 25 95% 58%;
+    --priority-medium: 38 92% 55%;
+    --priority-low: 142 71% 48%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
