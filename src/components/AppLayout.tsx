@@ -2,14 +2,21 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { Outlet } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Moon, Search, Sun } from 'lucide-react';
+import { Moon, Search, Sun, SunMoon, Monitor, Check } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { CommandPalette } from '@/components/CommandPalette';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function AppLayout() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, preference, setTheme } = useTheme();
+
   const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
   return (
     <SidebarProvider>
