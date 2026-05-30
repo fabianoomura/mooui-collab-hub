@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowUpDown, History } from 'lucide-react';
+import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowUpDown, History, Paperclip, Download, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useOrderAttachments } from '@/hooks/useOrderAttachments';
 import { useDepartments } from '@/hooks/useOrgSettings';
 import { cn } from '@/lib/utils';
 
@@ -80,6 +81,30 @@ const priorityColors: Record<OrderPriority, string> = {
 
 function initials(name?: string | null) {
   return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+/** SLA badge for orders — visual timer since creation */
+function OrderSlaBadge({ order }: { order: Order }) {
+  if (FINAL_STATUSES.includes(order.status)) return null;
+  const elapsed = Date.now() - new Date(order.created_at).getTime();
+  const hours = elapsed / 3_600_000;
+  const label = hours < 1
+    ? `${Math.round(hours * 60)}min`
+    : hours < 24
+    ? `${Math.round(hours)}h`
+    : `${Math.round(hours / 24)}d`;
+  const cls = hours > 48
+    ? 'bg-destructive/15 text-destructive border-destructive/30'
+    : hours > 24
+    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
+  const Icon = hours > 48 ? AlertTriangle : Clock;
+  return (
+    <Badge variant="outline" className={cn('text-[10px] gap-1', cls)}>
+      <Icon className="h-3 w-3" />
+      {label}
+    </Badge>
+  );
 }
 
 function describeActivity(a: { action: string; from_value: string | null; to_value: string | null }): string {
@@ -428,6 +453,7 @@ export default function OrdersPage() {
                       <Badge variant="outline" className={cn('text-[10px]', statusColors[o.status])}>
                         {statusLabels[o.status]}
                       </Badge>
+                      <OrderSlaBadge order={o} />
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground flex-wrap">
                       {o.shopify_order && <span>Shopify: <span className="font-mono">{o.shopify_order}</span></span>}
@@ -565,8 +591,21 @@ function OrderDetail({
   const { data: comments = [] } = useOrderComments(order.id);
   const { data: activity = [] } = useOrderActivity(order.id);
   const addComment = useAddOrderComment();
+  const { attachments, uploadFile, deleteAttachment } = useOrderAttachments(order.id);
   const [newComment, setNewComment] = useState('');
   const [notes, setNotes] = useState(order.notes || '');
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      uploadFile.mutate({ orderId: order.id, file }, {
+        onSuccess: () => toast.success(`"${file.name}" enviado`),
+        onError: (err: any) => toast.error(err?.message || 'Erro ao enviar arquivo'),
+      });
+    }
+    e.target.value = '';
+  };
 
   const author = profileMap.get(order.created_by) as any;
   const assignee = order.assigned_to ? (profileMap.get(order.assigned_to) as any) : null;
@@ -676,6 +715,45 @@ function OrderDetail({
                 rows={3}
                 placeholder="Tratativa, contato com cliente, etc."
               />
+            </div>
+
+            {/* Anexos */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[11px] text-muted-foreground">Anexos ({attachments.length})</Label>
+                <label className="cursor-pointer">
+                  <input type="file" multiple className="hidden" onChange={handleFileUpload} />
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" asChild>
+                    <span><Paperclip className="h-3 w-3" /> Anexar</span>
+                  </Button>
+                </label>
+              </div>
+              {attachments.length > 0 && (
+                <div className="space-y-1">
+                  {attachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 text-xs group">
+                      <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="flex-1 truncate">{att.file_name}</span>
+                      <span className="text-muted-foreground text-[10px] shrink-0">
+                        {att.file_size ? `${(att.file_size / 1024).toFixed(0)}KB` : ''}
+                      </span>
+                      {att.signed_url && (
+                        <a href={att.signed_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                          <Download className="h-3 w-3" />
+                        </a>
+                      )}
+                      {att.user_id === currentUserId && (
+                        <button
+                          className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => deleteAttachment.mutate(att.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Comentários */}
@@ -811,6 +889,7 @@ function OrderDetail({
                 </span>
                 {' '}({formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR })})
               </p>
+              <div className="pt-1"><OrderSlaBadge order={order} /></div>
               {order.closed_at && (
                 <p>
                   Encerrado em:{' '}

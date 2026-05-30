@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, Hash, FileText, Activity, Info, Send, Link2 } from 'lucide-react';
+import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, Hash, FileText, Activity, Info, Send, Link2, ListTree, Plus, CheckCircle2, Circle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { TaskFilesTab } from './TaskFilesTab';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -58,13 +59,20 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onUpdate: (updates: Record<string, unknown>) => void;
+  onAddSubtask?: (title: string) => void;
+  onUpdateSubtask?: (taskId: string, updates: Record<string, unknown>) => void;
 }
 
-export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate }: Props) {
+export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate, onAddSubtask, onUpdateSubtask }: Props) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [ticketNumber, setTicketNumber] = useState(task.ticket_number || '');
   const [comment, setComment] = useState('');
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+
+  const subtasks = task.subtasks || [];
+  const subtaskDone = subtasks.filter(s => s.status === 'done').length;
+  const subtaskPct = subtasks.length > 0 ? Math.round((subtaskDone / subtasks.length) * 100) : 0;
   const { members, addAssignee, removeAssignee } = useProjectMembers(projectId);
   const { comments, addComment } = useTaskComments(task.id);
   const { data: activityLog } = useTaskActivity(task.id);
@@ -135,6 +143,12 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
           <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
             <Link2 className="h-3 w-3 mr-1" /> Links
           </TabsTrigger>
+          {!parentTask && (
+            <TabsTrigger value="subtasks" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
+              <ListTree className="h-3 w-3 mr-1" /> Subelementos
+              {subtasks.length > 0 && <span className="ml-1 text-muted-foreground">/{subtasks.length}</span>}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
             <Info className="h-3 w-3 mr-1" /> Informações
           </TabsTrigger>
@@ -250,6 +264,80 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
                 </Button>
               </div>
               <LinkedItems sourceType="task" sourceId={task.id} />
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        {/* Subtasks Tab */}
+        <TabsContent value="subtasks" className="flex-1 m-0">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              {subtasks.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{subtaskDone} de {subtasks.length} concluídos</span>
+                    <span className="font-medium">{subtaskPct}%</span>
+                  </div>
+                  <Progress value={subtaskPct} className="h-2" />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                {subtasks.map((sub) => {
+                  const isDone = sub.status === 'done';
+                  return (
+                    <div key={sub.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors group">
+                      <button
+                        className="shrink-0"
+                        onClick={() => onUpdateSubtask?.(sub.id, { status: isDone ? 'todo' : 'done' })}
+                        title={isDone ? 'Reabrir' : 'Concluir'}
+                      >
+                        {isDone
+                          ? <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          : <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                        }
+                      </button>
+                      <span className={`text-sm flex-1 ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                        {sub.title}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {subtasks.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6">Nenhum subelemento ainda</p>
+              )}
+
+              {onAddSubtask && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newSubtaskTitle.trim()) {
+                        onAddSubtask(newSubtaskTitle.trim());
+                        setNewSubtaskTitle('');
+                      }
+                    }}
+                    placeholder="Novo subelemento..."
+                    className="h-8 text-sm flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 px-2"
+                    disabled={!newSubtaskTitle.trim()}
+                    onClick={() => {
+                      if (newSubtaskTitle.trim()) {
+                        onAddSubtask(newSubtaskTitle.trim());
+                        setNewSubtaskTitle('');
+                      }
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </TabsContent>

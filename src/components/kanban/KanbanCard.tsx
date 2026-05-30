@@ -3,7 +3,7 @@ import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from 'lucide-react';
+import { Calendar, CheckSquare } from 'lucide-react';
 import { useMemo } from 'react';
 
 const priorityConfig: Record<TaskPriority, { label: string; className: string }> = {
@@ -23,6 +23,9 @@ export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDr
   const isOverdue = task.due_date && new Date(task.due_date) < new Date();
   const assignees = task.task_assignees || [];
   const labels = task.task_label_assignments || [];
+
+  const subtasks = task.subtasks || [];
+  const subtaskDone = subtasks.filter(s => s.status === 'done').length;
 
   const assigneeIds = useMemo(() => assignees.map(a => a.user_id), [assignees]);
   const { data: profilesMap } = useAssigneeProfiles(assigneeIds);
@@ -56,6 +59,12 @@ export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDr
             <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
               <Calendar className="h-3 w-3" />
               {new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+            </span>
+          )}
+          {subtasks.length > 0 && (
+            <span className={`text-xs flex items-center gap-1 ${subtaskDone === subtasks.length ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+              <CheckSquare className="h-3 w-3" />
+              {subtaskDone}/{subtasks.length}
             </span>
           )}
         </div>

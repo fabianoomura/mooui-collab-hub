@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -35,15 +36,19 @@ const COLORS: Record<AgendaItem['kind'], string> = {
   checklist: 'text-teal-600',
 };
 
+type WindowDays = 1 | 7 | 30;
+const WINDOW_LABELS: Record<WindowDays, string> = { 1: 'Hoje', 7: '7 dias', 30: '30 dias' };
+
 export function PersonalPanel() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
+  const [windowDays, setWindowDays] = useState<WindowDays>(7);
 
   const today = todayISO();
-  const window7 = addDaysISO(today, 7);
+  const windowEnd = addDaysISO(today, windowDays);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['personal-panel', user?.id, currentOrg?.id, today],
+    queryKey: ['personal-panel', user?.id, currentOrg?.id, today, windowDays],
     queryFn: async () => {
       if (!user || !currentOrg) return null;
 
@@ -55,7 +60,7 @@ export function PersonalPanel() {
       if (taskIds.length) {
         const { data } = await supabase
           .from('tasks')
-          .select('id, title, due_date, status, project_id, projects(name)')
+          .select('id, title, due_date, status, priority, project_id, projects(name)')
           .in('id', taskIds).neq('status', 'done');
         myTasks = data || [];
       }
@@ -82,7 +87,7 @@ export function PersonalPanel() {
         .select('id, title, start_date, end_date, color')
         .eq('organization_id', currentOrg.id)
         .gte('start_date', today)
-        .lte('start_date', window7)
+        .lte('start_date', windowEnd)
         .order('start_date');
       const orgEvents = orgEventsData || [];
 
@@ -122,34 +127,38 @@ export function PersonalPanel() {
       const myOrders = (myOrdersData || []) as any[];
 
       // ---- Build derived sets ----
+      const priorityWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
       const overdue = [
         ...myTasks.filter((t) => isOverdue(t.due_date)).map((t) => ({
           kind: 'task' as const, id: t.id, title: t.title,
           subtitle: t.projects?.name ?? null, when: t.due_date,
           href: '/projetos', sortKey: toMs(t.due_date),
+          priority: (t.priority as string) || 'medium',
         })),
         ...myStages.filter((s) => s.planned_end && isOverdue(s.planned_end)).map((s) => ({
           kind: 'stage' as const, id: s.id, title: s.name,
           subtitle: s.launches?.name ?? null, when: s.planned_end!,
           href: '/lancamentos', sortKey: toMs(s.planned_end!),
+          priority: 'medium' as string,
         })),
         ...myCheckItems.filter((i) => i.due_date && isOverdue(i.due_date)).map((i) => ({
           kind: 'checklist' as const, id: i.id, title: i.label,
           subtitle: i.launch_checklists?.name ?? null, when: i.due_date!,
           href: '/checagens', sortKey: toMs(i.due_date!),
+          priority: 'medium' as string,
         })),
-      ].sort((a, b) => a.sortKey - b.sortKey);
+      ].sort((a, b) => (priorityWeight[a.priority] ?? 2) - (priorityWeight[b.priority] ?? 2) || a.sortKey - b.sortKey);
 
       const upcoming: AgendaItem[] = [
         ...myTasks
-          .filter((t) => t.due_date && t.due_date >= today && t.due_date <= window7)
+          .filter((t) => t.due_date && t.due_date >= today && t.due_date <= windowEnd)
           .map((t) => ({
             kind: 'task' as const, id: t.id, title: t.title,
             subtitle: t.projects?.name ?? null, when: t.due_date,
             href: '/projetos', sortKey: toMs(t.due_date),
           })),
         ...myStages
-          .filter((s) => s.planned_end && s.planned_end >= today && s.planned_end <= window7)
+          .filter((s) => s.planned_end && s.planned_end >= today && s.planned_end <= windowEnd)
           .map((s) => ({
             kind: 'stage' as const, id: s.id, title: s.name,
             subtitle: s.launches?.name ?? null, when: s.planned_end!,
@@ -158,7 +167,7 @@ export function PersonalPanel() {
         ...myBookings
           .filter((b) => {
             const day = b.starts_at.split('T')[0];
-            return day >= today && day <= window7;
+            return day >= today && day <= windowEnd;
           })
           .map((b) => ({
             kind: 'booking' as const, id: b.id, title: b.title || 'Reunião',
@@ -171,7 +180,7 @@ export function PersonalPanel() {
           href: '/calendario', sortKey: toMs(e.start_date),
         })),
         ...myCheckItems
-          .filter((i) => i.due_date && i.due_date >= today && i.due_date <= window7)
+          .filter((i) => i.due_date && i.due_date >= today && i.due_date <= windowEnd)
           .map((i) => ({
             kind: 'checklist' as const, id: i.id, title: i.label,
             subtitle: i.launch_checklists?.name ?? null, when: i.due_date!,
@@ -325,10 +334,11 @@ export function PersonalPanel() {
             <div className="space-y-1.5">
               {data.overdue.slice(0, 6).map((it) => {
                 const Icon = ICONS[it.kind];
+                const isHighPriority = it.priority === 'critical' || it.priority === 'high';
                 return (
                   <div
                     key={`${it.kind}-${it.id}`}
-                    className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors group"
+                    className={`flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors group ${isHighPriority ? 'border-l-2 border-l-destructive' : ''}`}
                   >
                     {canComplete(it.kind) && (
                       <Button
@@ -343,7 +353,14 @@ export function PersonalPanel() {
                     <Link to={it.href} className="flex items-center gap-3 flex-1 min-w-0">
                       <Icon className={`h-4 w-4 shrink-0 ${COLORS[it.kind]}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate group-hover:text-primary">{it.title}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium truncate group-hover:text-primary">{it.title}</p>
+                          {isHighPriority && (
+                            <Badge variant="destructive" className="text-[9px] px-1 py-0 shrink-0">
+                              {it.priority === 'critical' ? 'Crítica' : 'Alta'}
+                            </Badge>
+                          )}
+                        </div>
                         {it.subtitle && (
                           <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
                         )}
@@ -364,11 +381,28 @@ export function PersonalPanel() {
           )}
         </Card>
 
-        {/* Agenda 7 dias */}
+        {/* Agenda dinâmica */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3">
             <CalendarClock className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide">Próximos 7 dias</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">
+              {windowDays === 1 ? 'Agenda de hoje' : `Próximos ${windowDays} dias`}
+            </h2>
+            <div className="ml-auto flex items-center gap-1 bg-muted rounded-md p-0.5">
+              {([1, 7, 30] as WindowDays[]).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setWindowDays(d)}
+                  className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors ${
+                    windowDays === d
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {WINDOW_LABELS[d]}
+                </button>
+              ))}
+            </div>
           </div>
           {data.agenda.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem compromissos agendados.</p>

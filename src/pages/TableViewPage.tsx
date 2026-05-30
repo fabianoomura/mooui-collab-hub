@@ -439,14 +439,18 @@ function AddColumnButton({ onAdd }: { onAdd: (name: string, type: ColumnType) =>
 }
 
 // Filter / Sort / Group / Hide popovers (same as before)
-function FilterPopover({ filterStatus, setFilterStatus, filterPriority, setFilterPriority }: {
+function FilterPopover({ filterStatus, setFilterStatus, filterPriority, setFilterPriority, filterAssignee, setFilterAssignee, members, profilesMap }: {
   filterStatus: Set<TaskStatus>; setFilterStatus: (s: Set<TaskStatus>) => void;
   filterPriority: Set<TaskPriority>; setFilterPriority: (s: Set<TaskPriority>) => void;
+  filterAssignee: Set<string>; setFilterAssignee: (s: Set<string>) => void;
+  members: { user_id: string; profile: { full_name: string | null } | null }[];
+  profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
 }) {
   const [open, setOpen] = useState(false);
-  const activeCount = filterStatus.size + filterPriority.size;
+  const activeCount = filterStatus.size + filterPriority.size + filterAssignee.size;
   const toggleStatus = (s: TaskStatus) => { const next = new Set(filterStatus); if (next.has(s)) next.delete(s); else next.add(s); setFilterStatus(next); };
   const togglePriority = (p: TaskPriority) => { const next = new Set(filterPriority); if (next.has(p)) next.delete(p); else next.add(p); setFilterPriority(next); };
+  const toggleAssignee = (uid: string) => { const next = new Set(filterAssignee); if (next.has(uid)) next.delete(uid); else next.add(uid); setFilterAssignee(next); };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -456,7 +460,7 @@ function FilterPopover({ filterStatus, setFilterStatus, filterPriority, setFilte
           {activeCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center">{activeCount}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-3" align="start">
+      <PopoverContent className="w-56 p-3 max-h-[70vh] overflow-y-auto" align="start">
         <div className="space-y-3">
           <div>
             <p className="text-xs font-semibold text-muted-foreground mb-2">Status</p>
@@ -476,8 +480,25 @@ function FilterPopover({ filterStatus, setFilterStatus, filterPriority, setFilte
               </label>
             ))}
           </div>
+          {members.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Responsável</p>
+              {members.map(m => {
+                const name = m.profile?.full_name || profilesMap.get(m.user_id)?.full_name || 'Usuário';
+                return (
+                  <label key={m.user_id} className="flex items-center gap-2 py-1 cursor-pointer">
+                    <Checkbox checked={filterAssignee.has(m.user_id)} onCheckedChange={() => toggleAssignee(m.user_id)} />
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">{getInitials(name)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs truncate">{name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
           {activeCount > 0 && (
-            <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => { setFilterStatus(new Set()); setFilterPriority(new Set()); }}>
+            <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => { setFilterStatus(new Set()); setFilterPriority(new Set()); setFilterAssignee(new Set()); }}>
               <X className="h-3 w-3 mr-1" /> Limpar filtros
             </Button>
           )}
@@ -730,6 +751,7 @@ export default function TableViewPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<Set<TaskStatus>>(new Set());
   const [filterPriority, setFilterPriority] = useState<Set<TaskPriority>>(new Set());
+  const [filterAssignee, setFilterAssignee] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
@@ -795,8 +817,9 @@ export default function TableViewPage() {
     }
     if (filterStatus.size > 0) result = result.filter(t => filterStatus.has(t.status));
     if (filterPriority.size > 0) result = result.filter(t => filterPriority.has(t.priority));
+    if (filterAssignee.size > 0) result = result.filter(t => t.task_assignees.some(a => filterAssignee.has(a.user_id)));
     return result;
-  }, [tasks, searchText, filterStatus, filterPriority]);
+  }, [tasks, searchText, filterStatus, filterPriority, filterAssignee]);
 
   const sortedTasks = useMemo(() => {
     if (!sortField) return filteredTasks;
@@ -947,7 +970,7 @@ export default function TableViewPage() {
           <Button variant="ghost" size="sm" className={`gap-1.5 text-xs h-8 ${searchOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchText(''); }}>
             <Search className="h-3.5 w-3.5" /> Pesquisar
           </Button>
-          <FilterPopover filterStatus={filterStatus} setFilterStatus={setFilterStatus} filterPriority={filterPriority} setFilterPriority={setFilterPriority} />
+          <FilterPopover filterStatus={filterStatus} setFilterStatus={setFilterStatus} filterPriority={filterPriority} setFilterPriority={setFilterPriority} filterAssignee={filterAssignee} setFilterAssignee={setFilterAssignee} members={projectMembers} profilesMap={profilesMap || new Map()} />
           <SortPopover sortField={sortField} sortDir={sortDir} onSort={(f, d) => { setSortField(f); setSortDir(d); }} />
           <HideColumnsPopover visible={visibleColumns} onToggle={toggleColumn} />
           <GroupByPopover groupBy={groupBy} onGroupBy={setGroupBy} />
@@ -1082,6 +1105,12 @@ export default function TableViewPage() {
             task={sidePanelTask.task} parentTask={sidePanelTask.parent} projectId={activeProjectId}
             open={!!sidePanelTask} onClose={() => setSidePanelTask(null)}
             onUpdate={(updates) => { updateTask.mutate({ taskId: sidePanelTask.task.id, updates }); }}
+            onAddSubtask={(title) => {
+              addTask.mutate({ title, status: sidePanelTask.task.status, priority: 'medium', parent_task_id: sidePanelTask.task.id });
+            }}
+            onUpdateSubtask={(taskId, updates) => {
+              updateTask.mutate({ taskId, updates });
+            }}
           />
         </>
       )}

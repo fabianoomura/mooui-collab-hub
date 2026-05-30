@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   useChecklists, useChecklistItems, useTemplates,
   useCreateChecklistFromTemplate, useUpdateChecklistItem, useSaveAsTemplate,
+  useDeleteChecklist, useDeleteChecklistItem,
 } from '@/hooks/useChecklists';
 import { useLaunches } from '@/hooks/useLaunches';
 import { Card } from '@/components/ui/card';
@@ -14,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Plus, CheckCircle2, Circle, MinusCircle, AlertOctagon, FileText, Save,
-  ListChecks, Filter,
+  ListChecks, Filter, Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const CATS: Record<string, { label: string; color: string }> = {
   geral: { label: 'Geral', color: 'bg-slate-500' },
@@ -65,6 +67,9 @@ export default function ChecklistPage() {
   const updateItem = useUpdateChecklistItem();
   const createCl = useCreateChecklistFromTemplate();
   const saveTpl = useSaveAsTemplate();
+  const deleteChecklist = useDeleteChecklist();
+  const deleteItem = useDeleteChecklistItem();
+  const confirm = useConfirm();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -119,12 +124,28 @@ export default function ChecklistPage() {
               <Card
                 key={c.id}
                 className={cn(
-                  'p-3 cursor-pointer transition-all hover:border-primary/50',
+                  'p-3 cursor-pointer transition-all hover:border-primary/50 group',
                   activeId === c.id && 'border-primary bg-primary/5',
                 )}
                 onClick={() => { setActiveId(c.id); setDrawerOpen(false); }}
               >
-                <div className="font-medium text-sm">{c.name}</div>
+                <div className="flex items-start justify-between gap-1">
+                  <div className="font-medium text-sm flex-1 min-w-0 truncate">{c.name}</div>
+                  <button
+                    className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const ok = await confirm({ title: `Excluir "${c.name}"?`, description: 'Todos os itens desta checagem serão removidos.', confirmText: 'Excluir', destructive: true });
+                      if (ok) {
+                        deleteChecklist.mutate(c.id, {
+                          onSuccess: () => { if (activeId === c.id) setActiveId(undefined); toast.success('Checagem excluída'); },
+                        });
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {l && <div className="text-xs text-muted-foreground mt-1 truncate">📦 {l.name}</div>}
                 {c.expected_arrival_date && (
                   <div className="text-xs text-muted-foreground">
@@ -309,6 +330,13 @@ export default function ChecklistPage() {
                                   {new Date(it.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </span>
                               )}
+                              <button
+                                className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                onClick={() => deleteItem.mutate(it.id, { onSuccess: () => toast.success('Item excluído') })}
+                                title="Excluir item"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             </div>
                           );
                         })}

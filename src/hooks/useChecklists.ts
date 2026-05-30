@@ -163,6 +163,32 @@ export function useUpdateChecklistItem() {
   });
 }
 
+export function useDeleteChecklist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (checklistId: string) => {
+      // Items are cascade-deleted by FK
+      const { error } = await supabase.from('launch_checklists').delete().eq('id', checklistId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['launch_checklists'] });
+      qc.invalidateQueries({ queryKey: ['launch_checklist_items'] });
+    },
+  });
+}
+
+export function useDeleteChecklistItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase.from('launch_checklist_items').delete().eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['launch_checklist_items'] }),
+  });
+}
+
 export function useCreateTemplate() {
   const { currentOrg } = useOrganization();
   const { user } = useAuth();

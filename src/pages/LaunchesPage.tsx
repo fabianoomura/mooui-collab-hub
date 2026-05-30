@@ -71,6 +71,27 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', start_date: todayStr() });
 
+  const launchIds = useMemo(() => launches.map(l => l.id), [launches]);
+  const { data: stageProgress } = useQuery({
+    queryKey: ['launch-stage-progress', launchIds.join(',')],
+    queryFn: async () => {
+      if (!launchIds.length) return new Map<string, { done: number; total: number }>();
+      const { data } = await supabase
+        .from('launch_stages')
+        .select('launch_id, status')
+        .in('launch_id', launchIds);
+      const map = new Map<string, { done: number; total: number }>();
+      (data || []).forEach((s: any) => {
+        if (!map.has(s.launch_id)) map.set(s.launch_id, { done: 0, total: 0 });
+        const e = map.get(s.launch_id)!;
+        e.total++;
+        if (s.status === 'done') e.done++;
+      });
+      return map;
+    },
+    enabled: launchIds.length > 0,
+  });
+
   const handleCreate = () => {
     if (!form.name.trim()) return;
     createMut.mutate({ ...form, instance_id: activeInstance ?? null }, {
@@ -152,6 +173,22 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
             <div className="mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground flex items-center gap-1.5">
               <CalIcon className="h-3.5 w-3.5" /> Início: {fmtDate(l.start_date)}
             </div>
+            {(() => {
+              const p = stageProgress?.get(l.id);
+              if (!p || p.total === 0) return null;
+              const pct = Math.round((p.done / p.total) * 100);
+              return (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all', pct === 100 ? 'bg-emerald-500' : 'bg-primary')}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground">{p.done}/{p.total}</span>
+                </div>
+              );
+            })()}
           </Card>
         ))}
       </div>
@@ -355,6 +392,30 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
           </>
         }
       />
+
+      {/* Progresso geral */}
+      {stages.length > 0 && (() => {
+        const doneCount = stages.filter(s => s.status === 'done').length;
+        const pct = Math.round((doneCount / stages.length) * 100);
+        return (
+          <Card className="p-4 flex items-center gap-4">
+            <CheckCircle2 className={cn('h-5 w-5', pct === 100 ? 'text-emerald-600' : 'text-muted-foreground')} />
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium">Progresso</span>
+                <span className="text-xs text-muted-foreground">{doneCount} de {stages.length} etapas concluídas</span>
+              </div>
+              <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all', pct === 100 ? 'bg-emerald-500' : 'bg-primary')}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+            <span className="text-lg font-bold text-muted-foreground">{pct}%</span>
+          </Card>
+        );
+      })()}
 
       {/* Lista de etapas */}
       <Card className="p-4">

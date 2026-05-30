@@ -5,11 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOpenDm } from '@/hooks/useChannels';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useTeamWorkload } from '@/hooks/useTeamWorkload';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users, Loader2, Building2, Wrench, MessageSquare, Mail } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Users, Loader2, Building2, Wrench, MessageSquare, Mail, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDepartments, useDepartmentMembers, useOrgMembersFull, type MemberRow } from '@/hooks/useOrgSettings';
 
@@ -18,6 +21,7 @@ export default function TeamPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const openDm = useOpenDm();
+  const { canDo } = usePermissions();
 
   const { data: departments = [], isLoading: l1 } = useDepartments(currentOrg?.id);
   const { data: deptMembers = [], isLoading: l2 } = useDepartmentMembers(currentOrg?.id);
@@ -51,6 +55,9 @@ export default function TeamPage() {
     return members.filter((m) => !assignedIds.has(m.user_id));
   }, [members, deptMembers]);
 
+  const showWorkload = canDo('view_reports');
+  const { data: workloadData } = useTeamWorkload(showWorkload ? memberIds : []);
+
   const handleDm = async (otherUserId: string) => {
     if (!currentOrg) return;
     if (otherUserId === user?.id) {
@@ -83,6 +90,68 @@ export default function TeamPage() {
           Setores e membros de {currentOrg?.name || 'organização'}
         </p>
       </div>
+
+      {showWorkload && workloadData && workloadData.length > 0 && (
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold text-foreground">Carga de Trabalho</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wider">
+                  <th className="text-left py-2 px-2">Membro</th>
+                  <th className="text-center py-2 px-2">Tarefas</th>
+                  <th className="text-center py-2 px-2">Em atraso</th>
+                  <th className="text-center py-2 px-2">Etapas</th>
+                  <th className="text-center py-2 px-2">Checklist</th>
+                  <th className="text-center py-2 px-2 w-40">Carga</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workloadData.map((w) => {
+                  const member = memberMap.get(w.userId);
+                  const name = member?.full_name || 'Sem nome';
+                  const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+                  const barColor = w.total > 10 ? 'bg-destructive' : w.total >= 5 ? 'bg-amber-500' : 'bg-emerald-500';
+                  const barPct = Math.min(w.total * 5, 100); // scale: 20 items = 100%
+                  return (
+                    <tr key={w.userId} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="py-2 px-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7">
+                            {member?.avatar_url && <AvatarImage src={member.avatar_url} alt={name} />}
+                            <AvatarFallback className="text-[9px] bg-primary/10 text-primary">{initials}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium text-foreground truncate">{name}</span>
+                        </div>
+                      </td>
+                      <td className="text-center py-2 px-2 font-medium">{w.openTasks}</td>
+                      <td className="text-center py-2 px-2">
+                        {w.overdueTasks > 0
+                          ? <span className="text-destructive font-semibold">{w.overdueTasks}</span>
+                          : <span className="text-muted-foreground">0</span>
+                        }
+                      </td>
+                      <td className="text-center py-2 px-2 font-medium">{w.openStages}</td>
+                      <td className="text-center py-2 px-2 font-medium">{w.openChecklistItems}</td>
+                      <td className="py-2 px-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${barPct}%` }} />
+                          </div>
+                          <span className="text-xs font-semibold text-muted-foreground w-6 text-right">{w.total}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {grouped.length === 0 && noDept.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-center">

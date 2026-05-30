@@ -1,7 +1,7 @@
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { useProjectTasks, type KanbanColumn, type TaskWithAssignees, type TaskStatus } from '@/hooks/useProjectData';
 import { KanbanCard } from './KanbanCard';
-import { TaskDetailModal } from './TaskDetailModal';
+import { TaskSidePanel } from './TaskSidePanel';
 import { useMemo, useState } from 'react';
 import { Plus, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -94,15 +94,24 @@ export function KanbanBoard({ projectId, search = '' }: Props) {
       </DragDropContext>
 
       {selectedTask && projectId && (
-        <TaskDetailModal
-          task={selectedTask}
-          projectId={projectId}
-          open={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onUpdate={(updates) => {
-            updateTask.mutate({ taskId: selectedTask.id, updates });
-          }}
-        />
+        <>
+          <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setSelectedTask(null)} />
+          <TaskSidePanel
+            task={selectedTask}
+            projectId={projectId}
+            open={!!selectedTask}
+            onClose={() => setSelectedTask(null)}
+            onUpdate={(updates) => {
+              updateTask.mutate({ taskId: selectedTask.id, updates });
+            }}
+            onAddSubtask={(title) => {
+              addTask.mutate({ title, status: selectedTask.status, priority: 'medium', parent_task_id: selectedTask.id });
+            }}
+            onUpdateSubtask={(taskId, updates) => {
+              updateTask.mutate({ taskId, updates });
+            }}
+          />
+        </>
       )}
     </div>
   );
