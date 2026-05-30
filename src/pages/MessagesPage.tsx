@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus, Pencil, Check, Users } from 'lucide-react';
+import { ArrowLeft, Hash, Lock, Plus, Send, Trash2, Paperclip, X, FileText, Download, MessageSquare, MessageSquarePlus, Pencil, Check, Users, Search } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -17,7 +17,7 @@ import {
   useMarkChannelRead,
   useUnreadCounts,
 } from '@/hooks/useChannels';
-import { useMessages, useSendMessage, useDeleteMessage, useThreadMessages, type MessageWithProfile } from '@/hooks/useMessages';
+import { useMessages, useSendMessage, useDeleteMessage, useThreadMessages, useSearchMessages, type MessageWithProfile } from '@/hooks/useMessages';
 import { useChannelReactions, useToggleReaction, useUpdateMessage, type ReactionGroup } from '@/hooks/useMessageReactions';
 import { ReactionBar } from '@/components/messages/ReactionBar';
 import { Button } from '@/components/ui/button';
@@ -371,6 +371,8 @@ export default function MessagesPage() {
   const [newChannelPrivate, setNewChannelPrivate] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [editDescValue, setEditDescValue] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
   const createChannel = useCreateChannel();
   const deleteChannel = useDeleteChannel();
@@ -427,6 +429,7 @@ export default function MessagesPage() {
   const activeDm = dms.find(d => d.id === activeChannelId);
 
   const { data: messages = [] } = useMessages(activeChannelId || undefined);
+  const { data: searchResults = [] } = useSearchMessages(activeChannelId, searchText);
   const { data: threadMessages = [] } = useThreadMessages(threadParentId || undefined);
   const threadParent = messages.find(m => m.id === threadParentId);
 
@@ -753,6 +756,14 @@ export default function MessagesPage() {
               {!activeDm && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
+                    onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchText(''); }}
+                    className={`transition-colors p-1 ${searchOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                    aria-label="Buscar mensagens"
+                    title="Buscar mensagens"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => setShowMembers(true)}
                     className="text-muted-foreground hover:text-foreground transition-colors p-1"
                     aria-label="Membros do canal"
@@ -773,6 +784,55 @@ export default function MessagesPage() {
               )}
             </header>
 
+            {searchOpen && (
+              <div className="border-b border-border px-3 py-2 flex items-center gap-2 bg-muted/30">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Input
+                  autoFocus
+                  value={searchText}
+                  onChange={e => setSearchText(e.target.value)}
+                  placeholder="Buscar mensagens…"
+                  className="h-7 text-sm flex-1"
+                />
+                {searchText && (
+                  <button onClick={() => setSearchText('')} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {searchOpen && searchText.trim().length >= 2 ? (
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
+                {searchResults.length === 0 ? (
+                  <div className="text-center text-sm text-muted-foreground py-8">
+                    Nenhuma mensagem encontrada.
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">{searchResults.length} resultado(s)</p>
+                    {searchResults.map((m) => (
+                      <div key={m.id} className="flex gap-2.5 p-2 rounded-md hover:bg-muted/50">
+                        <Avatar className="h-7 w-7 shrink-0">
+                          <AvatarFallback className="text-[10px] bg-primary/15 text-primary">
+                            {m.profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold">{m.profile?.full_name || 'Usuário'}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(m.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-sm text-foreground whitespace-pre-wrap break-words">{m.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            ) : (
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
               {messages.length === 0 && (
                 <div className="text-center text-sm text-muted-foreground py-8">
@@ -795,6 +855,7 @@ export default function MessagesPage() {
                 />
               ))}
             </div>
+            )}
 
             <Composer
               placeholder={activeDm ? `Mensagem para ${activeDm.partner?.full_name || ''}` : `Mensagem para #${activeChannel.name}`}

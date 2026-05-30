@@ -1,6 +1,7 @@
 import { useProjects, useCreateProject, useProjectTasks, type TaskWithAssignees, type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
 import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
 import { useProjectMembers } from '@/hooks/useProjectMembers';
+import { useProjectTemplates, useSaveProjectAsTemplate, useCreateProjectFromTemplate, useDeleteProjectTemplate } from '@/hooks/useProjectTemplates';
 import { useProjectColumns, type ColumnType, type ProjectColumn } from '@/hooks/useProjectColumns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check, CornerDownRight, ArrowUp } from 'lucide-react';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check, CornerDownRight, ArrowUp, FileStack } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -832,6 +833,10 @@ export default function TableViewPage() {
   const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
   const { members: projectMembers, addAssignee, removeAssignee } = useProjectMembers(activeProjectId);
+  const { data: projectTemplates = [] } = useProjectTemplates();
+  const saveAsTemplate = useSaveProjectAsTemplate();
+  const applyTemplate = useCreateProjectFromTemplate();
+  const deleteTemplate = useDeleteProjectTemplate();
 
   const allAssigneeIds = useMemo(() => {
     const ids = new Set<string>();
@@ -1009,6 +1014,55 @@ export default function TableViewPage() {
           <SortPopover sortField={sortField} sortDir={sortDir} onSort={(f, d) => { setSortField(f); setSortDir(d); }} />
           <HideColumnsPopover visible={visibleColumns} onToggle={toggleColumn} />
           <GroupByPopover groupBy={groupBy} onGroupBy={setGroupBy} />
+          <div className="h-5 w-px bg-border mx-1" />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs h-8">
+                <FileStack className="h-3.5 w-3.5" /> Templates
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="start">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1">Salvar como template</p>
+              <button
+                className="w-full text-left px-3 py-1.5 text-xs rounded-sm hover:bg-accent"
+                onClick={() => {
+                  setPromptState({
+                    title: 'Salvar como Template', label: 'Nome do template', placeholder: 'Ex.: Lançamento Padrão', confirmLabel: 'Salvar',
+                    onSubmit: (name) => {
+                      if (activeProjectId) saveAsTemplate.mutate({ projectId: activeProjectId, name });
+                      setPromptState(null);
+                    },
+                  });
+                }}
+              >
+                Salvar projeto atual como template
+              </button>
+              {projectTemplates.length > 0 && (
+                <>
+                  <div className="border-t border-border my-1.5" />
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1">Aplicar template</p>
+                  {projectTemplates.map(tpl => (
+                    <div key={tpl.id} className="flex items-center gap-1 px-2 py-1 rounded-sm hover:bg-accent group">
+                      <button
+                        className="flex-1 text-left text-xs truncate"
+                        onClick={() => {
+                          if (activeProjectId) applyTemplate.mutate({ templateId: tpl.id, projectId: activeProjectId });
+                        }}
+                      >
+                        {tpl.name}
+                      </button>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-0.5"
+                        onClick={(e) => { e.stopPropagation(); deleteTemplate.mutate(tpl.id); }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       )}
 

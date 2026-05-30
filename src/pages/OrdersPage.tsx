@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowUpDown, History, Paperclip, Download, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { usePermissions } from '@/hooks/usePermissions';
+import { notifyUser } from '@/hooks/useNotifications';
 import { useOrderAttachments } from '@/hooks/useOrderAttachments';
 import { useDepartments } from '@/hooks/useOrgSettings';
 import { cn } from '@/lib/utils';
@@ -144,6 +145,42 @@ export default function OrdersPage() {
   const confirm = useConfirm();
   const { canDo } = usePermissions();
   const { data: departments = [] } = useDepartments(currentOrg?.id);
+
+  // Escalation: notify managers for orders stale > 48h (once per session)
+  const escalatedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!orders.length || !canDo('view_reports') || !currentOrg) return;
+    const STALE_MS = 48 * 3600_000;
+    const stale = orders.filter(o =>
+      !FINAL_STATUSES.includes(o.status) &&
+      (Date.now() - new Date(o.updated_at).getTime()) > STALE_MS &&
+      !escalatedRef.current.has(o.id)
+    );
+    if (!stale.length) return;
+    // Fetch managers/directors to notify
+    (async () => {
+      const { data: managers } = await supabase
+        .from('organization_members')
+        .select('user_id, role')
+        .eq('organization_id', currentOrg.id)
+        .in('role', ['admin', 'director', 'manager']);
+      if (!managers?.length) return;
+      for (const o of stale) {
+        escalatedRef.current.add(o.id);
+        for (const m of managers) {
+          if (m.user_id === user?.id) continue;
+          notifyUser({
+            userId: m.user_id,
+            type: 'order_escalation',
+            title: `Pedido sem atualização > 48h`,
+            message: `${o.title || o.code || 'Pedido'} (${statusLabels[o.status]})`,
+            link: '/pedidos',
+            metadata: { module: 'orders', entity_id: o.id },
+          });
+        }
+      }
+    })();
+  }, [orders, canDo, currentOrg, user]);
 
   // Merge dynamic departments with static fallback for display labels
   const sourceLabels = useMemo(() => {

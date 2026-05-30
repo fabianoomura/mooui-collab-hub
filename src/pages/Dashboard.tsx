@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PersonalPanel } from '@/components/dashboard/PersonalPanel';
+import { KPIPanel } from '@/components/dashboard/KPIPanel';
 
 type ModuleCard = {
   title: string;
@@ -220,6 +221,9 @@ export default function Dashboard() {
           </div>
         </Card>
       ) : null}
+
+      {/* KPIs da semana — visível para managers+ */}
+      <KPIPanel />
 
       {/* Painel pessoal — em atraso, agenda, mensagens, CRM */}
       <PersonalPanel />

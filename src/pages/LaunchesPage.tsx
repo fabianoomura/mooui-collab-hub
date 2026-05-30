@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Plus, Trash2, Rocket, AlertTriangle, CheckCircle2, Calendar as CalIcon,
-  Copy, GripVertical, Sparkles, CalendarPlus, ClipboardCheck,
+  Copy, GripVertical, Sparkles, CalendarPlus, ClipboardCheck, History,
 } from 'lucide-react';
 import {
   useLaunches, useCreateLaunch, useDeleteLaunch,
@@ -34,6 +34,9 @@ import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useLaunchActivity, useLogLaunchActivity } from '@/hooks/useLaunchActivity';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 function useAllOrgMembers(orgId?: string) {
   return useQuery({
@@ -226,6 +229,9 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const createChecklist = useCreateChecklistFromTemplate();
   const createEvent = useCreateAnnualEvent();
   const createLink = useCreateLink();
+
+  const { data: activityLog = [] } = useLaunchActivity(id);
+  const logActivity = useLogLaunchActivity();
 
   const [editing, setEditing] = useState<LaunchStage | null>(null);
   const [creating, setCreating] = useState(false);
@@ -602,6 +608,33 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       {/* Cross-module links */}
       <LinkedItems sourceType="launch" sourceId={id} className="px-1" />
+
+      {/* Activity log */}
+      {activityLog.length > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Histórico de alterações</h3>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {activityLog.slice(0, 20).map(a => (
+              <div key={a.id} className="flex items-start gap-2 text-xs">
+                <span className="text-muted-foreground shrink-0">
+                  {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+                </span>
+                <span className="text-foreground">
+                  <strong>{a.profile?.full_name?.split(' ')[0] || 'Sistema'}</strong>
+                  {' '}
+                  {a.action === 'status' && `mudou status de "${a.from_value}" para "${a.to_value}"`}
+                  {a.action === 'date' && `alterou data: ${a.from_value || '—'} → ${a.to_value || '—'}`}
+                  {a.action === 'assignee' && `reatribuiu etapa`}
+                  {a.action === 'created' && `criou etapa "${a.to_value}"`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Checklist template selection dialog */}
       <Dialog open={checklistDialog} onOpenChange={setChecklistDialog}>

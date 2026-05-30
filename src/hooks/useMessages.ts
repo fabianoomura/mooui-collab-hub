@@ -178,3 +178,21 @@ export function useDeleteMessage() {
     },
   });
 }
+
+export function useSearchMessages(channelId: string | null, searchTerm: string) {
+  return useQuery({
+    queryKey: ['message-search', channelId, searchTerm],
+    queryFn: async () => {
+      if (!searchTerm.trim()) return [];
+      let q = supabase.from('messages').select('*, message_attachments(*)')
+        .ilike('content', `%${searchTerm}%`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (channelId) q = q.eq('channel_id', channelId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return await attachProfilesAndCounts(data || [], false);
+    },
+    enabled: !!searchTerm.trim() && searchTerm.trim().length >= 2,
+  });
+}

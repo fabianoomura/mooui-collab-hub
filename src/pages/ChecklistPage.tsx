@@ -15,8 +15,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Plus, CheckCircle2, Circle, MinusCircle, AlertOctagon, FileText, Save,
-  ListChecks, Filter, Trash2,
+  ListChecks, Filter, Trash2, StickyNote,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { PageHeader } from '@/components/PageHeader';
@@ -330,6 +332,33 @@ export default function ChecklistPage() {
                                   {new Date(it.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </span>
                               )}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button
+                                    className={cn(
+                                      'shrink-0 transition-opacity',
+                                      (it as any).evidence_notes ? 'text-primary' : 'text-muted-foreground opacity-0 group-hover:opacity-100',
+                                    )}
+                                    title="Evidência / Notas"
+                                  >
+                                    <StickyNote className="h-3.5 w-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-72 p-3" align="end" onClick={e => e.stopPropagation()}>
+                                  <p className="text-xs font-semibold text-muted-foreground mb-1.5">Evidência / Notas</p>
+                                  <Textarea
+                                    defaultValue={(it as any).evidence_notes || ''}
+                                    placeholder="Descreva a evidência…"
+                                    className="text-xs min-h-[60px]"
+                                    onBlur={(e) => {
+                                      const val = e.target.value.trim();
+                                      if (val !== ((it as any).evidence_notes || '')) {
+                                        updateItem.mutate({ id: it.id, evidence_notes: val || null } as any);
+                                      }
+                                    }}
+                                  />
+                                </PopoverContent>
+                              </Popover>
                               <button
                                 className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                 onClick={() => deleteItem.mutate(it.id, { onSuccess: () => toast.success('Item excluído') })}
