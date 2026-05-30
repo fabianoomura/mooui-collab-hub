@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, UserPlus, Hash } from 'lucide-react';
+import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, Hash } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -53,7 +53,6 @@ export function TaskDetailModal({ task, projectId, open, onClose, onUpdate }: Pr
   const createLink = useCreateLink();
 
   const assignedUserIds = new Set(task.task_assignees?.map(a => a.user_id) || []);
-  const unassignedMembers = members.filter(m => !assignedUserIds.has(m.user_id));
 
   const sendToCalendar = () => {
     const date = task.due_date || new Date().toISOString().split('T')[0];
@@ -147,55 +146,39 @@ export function TaskDetailModal({ task, projectId, open, onClose, onUpdate }: Pr
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
               <User className="h-3 w-3" /> Responsáveis
             </Label>
-            <div className="flex flex-wrap gap-2">
-              {task.task_assignees?.map(a => {
-                const member = members.find(m => m.user_id === a.user_id);
-                const name = member?.profile?.full_name || 'Usuário';
+            <div className="border rounded-md divide-y max-h-56 overflow-y-auto">
+              {members.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum membro no projeto</p>
+              )}
+              {members.map(m => {
+                const isAssigned = assignedUserIds.has(m.user_id);
+                const name = m.profile?.full_name || 'Usuário';
                 return (
-                  <Badge key={a.user_id} variant="secondary" className="flex items-center gap-1.5 py-1 px-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">
+                  <button
+                    key={m.user_id}
+                    type="button"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-accent/50 transition-colors"
+                    onClick={() => {
+                      if (isAssigned) removeAssignee.mutate({ taskId: task.id, userId: m.user_id });
+                      else addAssignee.mutate({ taskId: task.id, userId: m.user_id });
+                    }}
+                  >
+                    <div className={`h-4.5 w-4.5 rounded border flex items-center justify-center shrink-0 ${isAssigned ? 'bg-primary border-primary' : 'border-muted-foreground/30'}`}>
+                      {isAssigned && <X className="h-3 w-3 text-primary-foreground" />}
+                    </div>
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-[9px] bg-primary text-primary-foreground">
                         {getInitials(name)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-xs">{name}</span>
-                    <button
-                      onClick={() => removeAssignee.mutate({ taskId: task.id, userId: a.user_id })}
-                      className="ml-0.5 hover:text-destructive transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
+                    <span className="text-sm flex-1">{name}</span>
+                    {m.profile?.department && (
+                      <span className="text-xs text-muted-foreground">{m.profile.department}</span>
+                    )}
+                  </button>
                 );
               })}
-              {assignedUserIds.size === 0 && (
-                <span className="text-sm text-muted-foreground">Nenhum responsável</span>
-              )}
             </div>
-
-            {unassignedMembers.length > 0 && (
-              <Select onValueChange={(userId) => addAssignee.mutate({ taskId: task.id, userId })}>
-                <SelectTrigger className="w-full">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <UserPlus className="h-3.5 w-3.5" /> Adicionar responsável
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {unassignedMembers.map(m => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      <span className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">
-                            {getInitials(m.profile?.full_name || null)}
-                          </AvatarFallback>
-                        </Avatar>
-                        {m.profile?.full_name || 'Usuário'}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
 
           {task.task_label_assignments?.length > 0 && (

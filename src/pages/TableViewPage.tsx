@@ -1,5 +1,6 @@
 import { useProjects, useCreateProject, useProjectTasks, type TaskWithAssignees, type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
 import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
+import { useProjectMembers } from '@/hooks/useProjectMembers';
 import { useProjectColumns, type ColumnType, type ProjectColumn } from '@/hooks/useProjectColumns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3 } from 'lucide-react';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -252,6 +253,64 @@ function AssigneeAvatars({ assignees, profilesMap }: { assignees: { user_id: str
         )}
       </div>
     </TooltipProvider>
+  );
+}
+
+function AssigneePickerCell({ task, profilesMap, projectMembers, onAdd, onRemove }: {
+  task: TaskWithAssignees;
+  profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
+  onAdd: (taskId: string, userId: string) => void;
+  onRemove: (taskId: string, userId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const assignedIds = new Set(task.task_assignees.map(a => a.user_id));
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="w-full h-full px-1 py-1 flex items-center justify-center hover:bg-accent/40 rounded-sm transition-colors min-h-[30px]"
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {task.task_assignees.length === 0 ? (
+            <span className="text-muted-foreground text-xs flex items-center gap-1">
+              <UserPlus className="h-3 w-3" /> —
+            </span>
+          ) : (
+            <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} />
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-1" align="start" onClick={(e) => e.stopPropagation()}>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1.5">Responsáveis</p>
+        {projectMembers.map(m => {
+          const checked = assignedIds.has(m.user_id);
+          const name = m.profile?.full_name || 'Usuário';
+          return (
+            <button
+              key={m.user_id}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm hover:bg-accent text-left"
+              onClick={() => {
+                if (checked) onRemove(task.id, m.user_id);
+                else onAdd(task.id, m.user_id);
+              }}
+            >
+              <div className="h-4 w-4 flex items-center justify-center">
+                {checked && <Check className="h-3.5 w-3.5 text-primary" />}
+              </div>
+              <Avatar className="h-5 w-5">
+                <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">{getInitials(name)}</AvatarFallback>
+              </Avatar>
+              <span className="text-xs truncate flex-1">{name}</span>
+            </button>
+          );
+        })}
+        {projectMembers.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-3">Nenhum membro no projeto</p>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -541,6 +600,7 @@ function TaskRow({
   expandedTasks, onToggleExpand, onClickTask, onInlineUpdate, onAddSubtask,
   dynamicColumns, customValues, onSetCustomValue,
   statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
+  projectMembers, onAddAssignee, onRemoveAssignee,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
@@ -561,6 +621,9 @@ function TaskRow({
   priorityLabelsConfig?: LabelOption[];
   onEditStatusLabels?: () => void;
   onEditPriorityLabels?: () => void;
+  projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
+  onAddAssignee: (taskId: string, userId: string) => void;
+  onRemoveAssignee: (taskId: string, userId: string) => void;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
@@ -599,7 +662,7 @@ function TaskRow({
         )}
         {visibleColumns.has('priority') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} customLabels={priorityLabelsConfig} onEditLabels={onEditPriorityLabels} /></div>}
         {visibleColumns.has('status') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} customLabels={statusLabelsConfig} onEditLabels={onEditStatusLabels} /></div>}
-        {visibleColumns.has('assignee') && <div className="px-1 py-1"><AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} /></div>}
+        {visibleColumns.has('assignee') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><AssigneePickerCell task={task} profilesMap={profilesMap} projectMembers={projectMembers} onAdd={onAddAssignee} onRemove={onRemoveAssignee} /></div>}
         {visibleColumns.has('created_at') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.created_at)}</span>}
         {visibleColumns.has('ticket') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{task.ticket_number || '—'}</span>}
         {/* Dynamic columns */}
@@ -641,6 +704,7 @@ function TaskRow({
               onSetCustomValue={onSetCustomValue}
               statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
               onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
+              projectMembers={projectMembers} onAddAssignee={onAddAssignee} onRemoveAssignee={onRemoveAssignee}
             />
           ))}
           <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">
@@ -710,6 +774,7 @@ export default function TableViewPage() {
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
   const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
+  const { members: projectMembers, addAssignee, removeAssignee } = useProjectMembers(activeProjectId);
 
   const allAssigneeIds = useMemo(() => {
     const ids = new Set<string>();
@@ -953,6 +1018,9 @@ export default function TableViewPage() {
                         statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
                         onEditStatusLabels={() => setEditingLabelType('status')}
                         onEditPriorityLabels={() => setEditingLabelType('priority')}
+                        projectMembers={projectMembers}
+                        onAddAssignee={(taskId, userId) => addAssignee.mutate({ taskId, userId })}
+                        onRemoveAssignee={(taskId, userId) => removeAssignee.mutate({ taskId, userId })}
                       />
                     ))}
 

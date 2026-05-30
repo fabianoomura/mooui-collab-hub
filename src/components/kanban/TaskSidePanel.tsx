@@ -1,7 +1,9 @@
 import type { TaskWithAssignees, TaskPriority, TaskStatus } from '@/hooks/useProjectData';
 import { useTaskComments, useTaskActivity } from '@/hooks/useProjectData';
 import { useProjectMembers } from '@/hooks/useProjectMembers';
-import { Badge } from '@/components/ui/badge';
+import { useCreateAnnualEvent } from '@/hooks/useAnnualEvents';
+import { useCreateLink } from '@/hooks/useModuleLinks';
+import { LinkedItems } from '@/components/LinkedItems';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Calendar, User, Flag, Tag, MessageSquare, X, UserPlus, Hash, FileText, Activity, Info, Send } from 'lucide-react';
+import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, Hash, FileText, Activity, Info, Send, Link2 } from 'lucide-react';
 import { TaskFilesTab } from './TaskFilesTab';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -66,9 +68,29 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
   const { members, addAssignee, removeAssignee } = useProjectMembers(projectId);
   const { comments, addComment } = useTaskComments(task.id);
   const { data: activityLog } = useTaskActivity(task.id);
+  const createEvent = useCreateAnnualEvent();
+  const createLink = useCreateLink();
 
   const assignedUserIds = new Set(task.task_assignees?.map(a => a.user_id) || []);
-  const unassignedMembers = members.filter(m => !assignedUserIds.has(m.user_id));
+
+  const sendToCalendar = () => {
+    const date = task.due_date || new Date().toISOString().split('T')[0];
+    createEvent.mutate(
+      { title: task.title, description: task.description || null, category: 'acao', color: '#3b82f6', start_date: date, end_date: null, project_id: null },
+      {
+        onSuccess: (evt) => {
+          createLink.mutate({
+            source_type: 'task',
+            source_id: task.id,
+            target_type: 'calendar',
+            target_id: evt.id,
+          });
+          toast.success('Evento criado no calendário');
+        },
+        onError: (e: any) => toast.error(e.message),
+      },
+    );
+  };
 
   const handleSendComment = () => {
     if (!comment.trim()) return;
@@ -109,6 +131,9 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
           </TabsTrigger>
           <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
             <Activity className="h-3 w-3 mr-1" /> Log
+          </TabsTrigger>
+          <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
+            <Link2 className="h-3 w-3 mr-1" /> Links
           </TabsTrigger>
           <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
             <Info className="h-3 w-3 mr-1" /> Informações
@@ -209,6 +234,26 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
           </ScrollArea>
         </TabsContent>
 
+        {/* Links Tab */}
+        <TabsContent value="links" className="flex-1 m-0">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={sendToCalendar}
+                  disabled={createEvent.isPending}
+                >
+                  <CalendarPlus className="h-4 w-4 mr-1.5" />
+                  Enviar para Calendário
+                </Button>
+              </div>
+              <LinkedItems sourceType="task" sourceId={task.id} />
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
         {/* Info Tab */}
         <TabsContent value="info" className="flex-1 m-0">
           <ScrollArea className="h-full">
@@ -277,45 +322,39 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
                 <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" /> Responsáveis
                 </Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {task.task_assignees?.map(a => {
-                    const member = members.find(m => m.user_id === a.user_id);
-                    const name = member?.profile?.full_name || 'Usuário';
+                <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
+                  {members.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">Nenhum membro no projeto</p>
+                  )}
+                  {members.map(m => {
+                    const isAssigned = assignedUserIds.has(m.user_id);
+                    const name = m.profile?.full_name || 'Usuário';
                     return (
-                      <Badge key={a.user_id} variant="secondary" className="flex items-center gap-1 py-0.5 px-2 text-xs">
-                        <Avatar className="h-4 w-4">
-                          <AvatarFallback className="text-[7px] bg-primary text-primary-foreground">
+                      <button
+                        key={m.user_id}
+                        type="button"
+                        className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-accent/50 transition-colors"
+                        onClick={() => {
+                          if (isAssigned) removeAssignee.mutate({ taskId: task.id, userId: m.user_id });
+                          else addAssignee.mutate({ taskId: task.id, userId: m.user_id });
+                        }}
+                      >
+                        <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isAssigned ? 'bg-primary border-primary' : 'border-muted-foreground/30'}`}>
+                          {isAssigned && <X className="h-2.5 w-2.5 text-primary-foreground" />}
+                        </div>
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">
                             {getInitials(name)}
                           </AvatarFallback>
                         </Avatar>
-                        {name}
-                        <button
-                          onClick={() => removeAssignee.mutate({ taskId: task.id, userId: a.user_id })}
-                          className="ml-0.5 hover:text-destructive"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
+                        <span className="text-xs truncate flex-1">{name}</span>
+                        {m.profile?.department && (
+                          <span className="text-[10px] text-muted-foreground">{m.profile.department}</span>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
-
-                {unassignedMembers.length > 0 && (
-                  <Select onValueChange={(userId) => addAssignee.mutate({ taskId: task.id, userId })}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <UserPlus className="h-3 w-3" /> Adicionar
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unassignedMembers.map(m => (
-                        <SelectItem key={m.user_id} value={m.user_id}>
-                          {m.profile?.full_name || 'Usuário'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
               </div>
 
               {/* Description */}

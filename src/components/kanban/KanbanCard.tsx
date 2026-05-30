@@ -1,7 +1,10 @@
 import type { TaskWithAssignees, TaskPriority } from '@/hooks/useProjectData';
+import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from 'lucide-react';
+import { useMemo } from 'react';
 
 const priorityConfig: Record<TaskPriority, { label: string; className: string }> = {
   critical: { label: 'Crítica', className: 'bg-priority-critical text-destructive-foreground' },
@@ -10,12 +13,19 @@ const priorityConfig: Record<TaskPriority, { label: string; className: string }>
   low: { label: 'Baixa', className: 'bg-priority-low text-success-foreground' },
 };
 
+function getInitials(name: string | null): string {
+  if (!name) return '?';
+  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+}
+
 export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDragging: boolean }) {
   const priority = priorityConfig[task.priority];
   const isOverdue = task.due_date && new Date(task.due_date) < new Date();
-  const assignee = task.task_assignees?.[0];
-  const initials = assignee ? '👤' : '';
+  const assignees = task.task_assignees || [];
   const labels = task.task_label_assignments || [];
+
+  const assigneeIds = useMemo(() => assignees.map(a => a.user_id), [assignees]);
+  const { data: profilesMap } = useAssigneeProfiles(assigneeIds);
 
   return (
     <div className={`kanban-card p-3 cursor-pointer ${isDragging ? 'shadow-lg ring-2 ring-primary/30 rotate-2' : ''}`}>
@@ -49,12 +59,33 @@ export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDr
             </span>
           )}
         </div>
-        {initials && (
-          <Avatar className="h-6 w-6">
-            <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+        {assignees.length > 0 && (
+          <TooltipProvider>
+            <div className="flex -space-x-1.5">
+              {assignees.slice(0, 3).map(a => {
+                const name = profilesMap?.get(a.user_id)?.full_name || null;
+                return (
+                  <Tooltip key={a.user_id}>
+                    <TooltipTrigger asChild>
+                      <Avatar className="h-6 w-6 border-2 border-card">
+                        <AvatarFallback className="text-[9px] bg-primary text-primary-foreground">
+                          {getInitials(name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">{name || 'Usuário'}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+              {assignees.length > 3 && (
+                <Avatar className="h-6 w-6 border-2 border-card">
+                  <AvatarFallback className="text-[9px] bg-muted text-muted-foreground">
+                    +{assignees.length - 3}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+            </div>
+          </TooltipProvider>
         )}
       </div>
     </div>
