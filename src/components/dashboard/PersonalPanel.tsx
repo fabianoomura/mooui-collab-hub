@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertTriangle, CalendarClock, ListTodo, Rocket, Calendar, ClipboardCheck,
-  MessageSquare, Briefcase, Send, CheckCircle2, Package, TrendingUp, Check,
+  MessageSquare, Briefcase, Send, CheckCircle2, Package, TrendingUp, Check, Play,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -260,14 +260,40 @@ export function PersonalPanel() {
     onError: () => toast.error('Erro ao concluir item'),
   });
 
+  const startTask = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase.from('tasks').update({ status: 'in_progress' }).eq('id', taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success('Tarefa em andamento'); invalidate(); },
+    onError: () => toast.error('Erro ao atualizar tarefa'),
+  });
+
+  const startStage = useMutation({
+    mutationFn: async (stageId: string) => {
+      const { error } = await supabase.from('launch_stages').update({ status: 'in_progress' }).eq('id', stageId);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success('Etapa em andamento'); invalidate(); },
+    onError: () => toast.error('Erro ao atualizar etapa'),
+  });
+
   const handleComplete = (kind: AgendaItem['kind'], id: string) => {
     if (kind === 'task') completeTask.mutate(id);
     else if (kind === 'stage') completeStage.mutate(id);
     else if (kind === 'checklist') completeCheckItem.mutate(id);
   };
 
+  const handleStart = (kind: AgendaItem['kind'], id: string) => {
+    if (kind === 'task') startTask.mutate(id);
+    else if (kind === 'stage') startStage.mutate(id);
+  };
+
   const canComplete = (kind: AgendaItem['kind']) =>
     kind === 'task' || kind === 'stage' || kind === 'checklist';
+
+  const canStart = (kind: AgendaItem['kind']) =>
+    kind === 'task' || kind === 'stage';
 
   if (isLoading) {
     return (
@@ -340,16 +366,28 @@ export function PersonalPanel() {
                     key={`${it.kind}-${it.id}`}
                     className={`flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors group ${isHighPriority ? 'border-l-2 border-l-destructive' : ''}`}
                   >
-                    {canComplete(it.kind) && (
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Concluir"
-                        onClick={() => handleComplete(it.kind, it.id)}
-                      >
-                        <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {canStart(it.kind) && (
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-6 w-6"
+                          title="Iniciar (Em andamento)"
+                          onClick={() => handleStart(it.kind, it.id)}
+                        >
+                          <Play className="h-3 w-3 text-amber-600" />
+                        </Button>
+                      )}
+                      {canComplete(it.kind) && (
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-6 w-6"
+                          title="Concluir"
+                          onClick={() => handleComplete(it.kind, it.id)}
+                        >
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        </Button>
+                      )}
+                    </div>
                     <Link to={it.href} className="flex items-center gap-3 flex-1 min-w-0">
                       <Icon className={`h-4 w-4 shrink-0 ${COLORS[it.kind]}`} />
                       <div className="flex-1 min-w-0">
@@ -421,16 +459,28 @@ export function PersonalPanel() {
                           key={`${it.kind}-${it.id}`}
                           className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors group"
                         >
-                          {canComplete(it.kind) && (
-                            <Button
-                              variant="ghost" size="icon"
-                              className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Concluir"
-                              onClick={() => handleComplete(it.kind, it.id)}
-                            >
-                              <Check className="h-3.5 w-3.5 text-emerald-600" />
-                            </Button>
-                          )}
+                          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {canStart(it.kind) && (
+                              <Button
+                                variant="ghost" size="icon"
+                                className="h-6 w-6"
+                                title="Iniciar (Em andamento)"
+                                onClick={() => handleStart(it.kind, it.id)}
+                              >
+                                <Play className="h-3 w-3 text-amber-600" />
+                              </Button>
+                            )}
+                            {canComplete(it.kind) && (
+                              <Button
+                                variant="ghost" size="icon"
+                                className="h-6 w-6"
+                                title="Concluir"
+                                onClick={() => handleComplete(it.kind, it.id)}
+                              >
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              </Button>
+                            )}
+                          </div>
                           <Link to={it.href} className="flex items-center gap-3 flex-1 min-w-0">
                             <Icon className={`h-4 w-4 shrink-0 ${COLORS[it.kind]}`} />
                             <div className="flex-1 min-w-0">

@@ -221,6 +221,19 @@ export function useDeleteChannel() {
   });
 }
 
+export function useUpdateChannel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ channelId, updates }: { channelId: string; updates: { description?: string | null } }) => {
+      const { error } = await supabase.from('channels').update(updates).eq('id', channelId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
 export function useChannelMembersList(channelId: string | null) {
   return useQuery({
     queryKey: ['channel-members', channelId],

@@ -13,6 +13,7 @@ import {
   useOpenDm,
   useCreateChannel,
   useDeleteChannel,
+  useUpdateChannel,
   useMarkChannelRead,
   useUnreadCounts,
 } from '@/hooks/useChannels';
@@ -368,9 +369,12 @@ export default function MessagesPage() {
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDesc, setNewChannelDesc] = useState('');
   const [newChannelPrivate, setNewChannelPrivate] = useState(false);
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [editDescValue, setEditDescValue] = useState('');
 
   const createChannel = useCreateChannel();
   const deleteChannel = useDeleteChannel();
+  const updateChannel = useUpdateChannel();
   const confirm = useConfirm();
   const { canDo } = usePermissions();
   const canCreatePrivate = canDo('create_private_channel');
@@ -707,8 +711,43 @@ export default function MessagesPage() {
                   <Hash className="h-4 w-4 text-muted-foreground" />
                 )}
                 <h1 className="font-semibold truncate">{headerLabel}</h1>
-                {activeChannel.description && !activeDm && (
-                  <span className="hidden sm:inline text-sm text-muted-foreground truncate">— {activeChannel.description}</span>
+                {!activeDm && (
+                  editingDesc ? (
+                    <div className="hidden sm:flex items-center gap-1 flex-1 min-w-0">
+                      <span className="text-muted-foreground">—</span>
+                      <input
+                        autoFocus
+                        value={editDescValue}
+                        onChange={e => setEditDescValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            updateChannel.mutate({ channelId: activeChannel.id, updates: { description: editDescValue || null } });
+                            setEditingDesc(false);
+                          }
+                          if (e.key === 'Escape') setEditingDesc(false);
+                        }}
+                        onBlur={() => {
+                          updateChannel.mutate({ channelId: activeChannel.id, updates: { description: editDescValue || null } });
+                          setEditingDesc(false);
+                        }}
+                        placeholder="Adicionar descrição…"
+                        className="text-sm bg-transparent border-b border-primary outline-none text-muted-foreground flex-1 min-w-0"
+                      />
+                    </div>
+                  ) : (
+                    <span
+                      className="hidden sm:inline text-sm text-muted-foreground truncate cursor-pointer hover:text-foreground"
+                      onClick={() => {
+                        if (activeChannel.created_by === user?.id || isAdmin) {
+                          setEditDescValue(activeChannel.description || '');
+                          setEditingDesc(true);
+                        }
+                      }}
+                      title={(activeChannel.created_by === user?.id || isAdmin) ? 'Clique para editar descrição' : undefined}
+                    >
+                      {activeChannel.description ? `— ${activeChannel.description}` : (activeChannel.created_by === user?.id || isAdmin) ? '— Adicionar descrição…' : ''}
+                    </span>
+                  )
                 )}
               </div>
               {!activeDm && (
