@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { notifyUser } from '@/hooks/useNotifications';
+import { autoPostToChannel } from '@/hooks/useAutoPost';
 
 export type OrderStatus = 'open' | 'in_progress' | 'waiting' | 'sent' | 'done' | 'cancelled';
 export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -88,6 +89,16 @@ export function useCreateOrder() {
           message: order.code ? `Pedido #${order.code}` : undefined,
           link: '/pedidos',
           metadata: { module: 'orders', entity_id: order.id, entity_code: order.code ?? undefined },
+        });
+      }
+
+      // Auto-post to channel
+      if (currentOrg && user) {
+        autoPostToChannel({
+          orgId: currentOrg.id,
+          channelName: 'expedição',
+          userId: user.id,
+          content: `📦 Novo pedido: ${order.title}${order.code ? ` (#${order.code})` : ''} — Prioridade: ${order.priority}`,
         });
       }
 

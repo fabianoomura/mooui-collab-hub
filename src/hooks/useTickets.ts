@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { notifyUser } from '@/hooks/useNotifications';
+import { autoPostToChannel } from '@/hooks/useAutoPost';
 
 async function getITMemberIds(orgId: string): Promise<string[]> {
   const { data } = await supabase.rpc('get_dept_member_ids', { _org_id: orgId, _dept_name: 'TI' });
@@ -155,6 +156,17 @@ export function useCreateTicket() {
           )
         );
       } catch (e) { console.warn('ticket notify failed', e); }
+
+      // Auto-post to #ti channel for urgent/high priority tickets
+      if (currentOrg && user && (data.priority === 'high' || data.priority === 'urgent')) {
+        autoPostToChannel({
+          orgId: currentOrg.id,
+          channelName: 'ti',
+          userId: user.id,
+          content: `🎫 Ticket ${data.priority === 'urgent' ? '🚨 URGENTE' : 'prioritário'}: ${data.title}`,
+        });
+      }
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),

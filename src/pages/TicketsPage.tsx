@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle, Paperclip } from 'lucide-react';
+import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle, Paperclip, BarChart3 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +30,8 @@ import { TicketFilesTab } from '@/components/tickets/TicketFilesTab';
 import { SlaBadge, useSlaBreached } from '@/components/tickets/SlaBadge';
 import { TicketLabelChips, TicketLabelPicker } from '@/components/tickets/TicketLabelPicker';
 import { useTicketLabelAssignments, useTicketLabels } from '@/hooks/useTicketLabels';
+import { TicketsReport } from '@/components/tickets/TicketsReport';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const priorityColors: Record<TicketPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
@@ -68,7 +70,9 @@ export default function TicketsPage() {
   const updateMut = useUpdateTicket();
   const deleteMut = useDeleteTicket();
   const confirm = useConfirm();
+  const { canDo } = usePermissions();
 
+  const [viewMode, setViewMode] = useState<'list' | 'report'>('list');
   const [view, setView] = useState<'mine' | 'manage'>('mine');
   const [filter, setFilter] = useState<'all' | TicketStatus>('all');
   const [showNew, setShowNew] = useState(false);
@@ -224,12 +228,26 @@ export default function TicketsPage() {
               : 'Abra um chamado e acompanhe o status dele.'}
           </p>
         </div>
-        <Button onClick={() => setShowNew(true)}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          Abrir ticket
-        </Button>
+        <div className="flex items-center gap-2">
+          {canDo('view_reports') && (
+            <Button
+              variant={viewMode === 'report' ? 'default' : 'outline'}
+              onClick={() => setViewMode(v => v === 'list' ? 'report' : 'list')}
+            >
+              <BarChart3 className="h-4 w-4 mr-1.5" />
+              Relatório
+            </Button>
+          )}
+          <Button onClick={() => setShowNew(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Abrir ticket
+          </Button>
+        </div>
       </div>
 
+      {viewMode === 'report' ? (
+        <TicketsReport />
+      ) : (<>
       {/* View switcher: Meus tickets / Gestão TI (apenas TI vê gestão) */}
       {isIT && (
         <Tabs value={view} onValueChange={(v) => setView(v as any)}>
@@ -407,6 +425,8 @@ export default function TicketsPage() {
         </>
       )}
 
+
+      </>)}
 
       {/* New ticket dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>

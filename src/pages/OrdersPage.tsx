@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowUpDown, History, Paperclip, Download, Trash2 } from 'lucide-react';
+import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowUpDown, History, Paperclip, Download, Trash2, BarChart3 } from 'lucide-react';
+import { OrdersReport } from '@/components/orders/OrdersReport';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -196,6 +197,7 @@ export default function OrdersPage() {
     return [...keys];
   }, [departments]);
 
+  const [viewMode, setViewMode] = useState<'list' | 'report'>('list');
   const [showFinished, setShowFinished] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [search, setSearch] = useState('');
@@ -351,6 +353,15 @@ export default function OrdersPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {canDo('view_reports') && (
+            <Button
+              variant={viewMode === 'report' ? 'default' : 'outline'}
+              onClick={() => setViewMode(v => v === 'list' ? 'report' : 'list')}
+            >
+              <BarChart3 className="h-4 w-4 mr-1.5" />
+              Relatório
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setShowFinished(s => !s)}
@@ -366,6 +377,10 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {viewMode === 'report' ? (
+        <OrdersReport />
+      ) : (
+      <>
       {/* Search + filtros */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
         <div className="relative flex-1 min-w-0">
@@ -590,6 +605,8 @@ export default function OrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </>
+      )}
 
       {/* Detail dialog */}
       {openOrder && (
