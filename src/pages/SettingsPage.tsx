@@ -222,7 +222,8 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const confirm = useConfirm();
 
   const [showCreate, setShowCreate] = useState(false);
-  const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(null);
+  const [resetTarget, setResetTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [newPwd, setNewPwd] = useState('');
 
   return (
     <div>
@@ -355,19 +356,9 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                           variant="ghost" size="icon" className="h-8 w-8"
                           title="Resetar senha"
                           disabled={resetPassword.isPending}
-                          onClick={async () => {
-                            const ok = await confirm({
-                              title: `Resetar senha de ${m.full_name || 'usuário'}?`,
-                              description: 'Será gerada uma nova senha temporária. Você poderá copiá-la e enviar à pessoa.',
-                              confirmText: 'Resetar',
-                            });
-                            if (!ok) return;
-                            try {
-                              const res = await resetPassword.mutateAsync({ user_id: m.user_id, organization_id: orgId });
-                              setResetResult({ name: m.full_name || 'Usuário', password: res.password });
-                            } catch (e: unknown) {
-                              toast.error(getErrorMessage(e, 'Erro ao resetar senha'));
-                            }
+                          onClick={() => {
+                            setNewPwd('');
+                            setResetTarget({ userId: m.user_id, name: m.full_name || 'Usuário' });
                           }}
                         ><KeyRound className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
@@ -405,28 +396,43 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
         departments={departments}
       />
 
-      <Dialog open={!!resetResult} onOpenChange={(o) => !o && setResetResult(null)}>
+      <Dialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Nova senha temporária</DialogTitle>
+            <DialogTitle>Resetar senha</DialogTitle>
             <DialogDescription>
-              Compartilhe esta senha com <strong>{resetResult?.name}</strong>. Ela poderá alterá-la depois.
+              Defina uma nova senha temporária para <strong>{resetTarget?.name}</strong>.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center gap-2">
-            <Input readOnly value={resetResult?.password ?? ''} className="font-mono" />
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (resetResult?.password) {
-                  navigator.clipboard.writeText(resetResult.password);
-                  toast.success('Senha copiada');
-                }
-              }}
-            >Copiar</Button>
+          <div className="space-y-2">
+            <Label>Nova senha (mínimo 6 caracteres)</Label>
+            <Input
+              type="text"
+              value={newPwd}
+              onChange={(e) => setNewPwd(e.target.value)}
+              placeholder="Digite a nova senha"
+              className="font-mono"
+            />
           </div>
           <DialogFooter>
-            <Button onClick={() => setResetResult(null)}>Fechar</Button>
+            <Button variant="outline" onClick={() => setResetTarget(null)}>Cancelar</Button>
+            <Button
+              disabled={newPwd.trim().length < 6 || resetPassword.isPending}
+              onClick={async () => {
+                if (!resetTarget) return;
+                try {
+                  await resetPassword.mutateAsync({
+                    user_id: resetTarget.userId,
+                    organization_id: orgId,
+                    new_password: newPwd.trim(),
+                  });
+                  toast.success('Senha resetada com sucesso');
+                  setResetTarget(null);
+                } catch (e: unknown) {
+                  toast.error(getErrorMessage(e, 'Erro ao resetar senha'));
+                }
+              }}
+            >Confirmar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -451,9 +451,9 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
         )}
       </Card>
 
-      {/* Linha cronológica (Gantt) */}
+      {/* Linha cronológica (Gantt) — hidden on mobile, replaced by list below */}
       {range && (
-        <Card className="p-4 overflow-x-auto">
+        <Card className="p-4 overflow-x-auto hidden md:block">
           <h2 className="font-semibold mb-3">Linha cronológica</h2>
           <div className="min-w-[640px] relative">
             {/* eixo */}
@@ -501,6 +501,40 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 );
               })}
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Mobile timeline list — shown only on small screens */}
+      {range && stages.length > 0 && (
+        <Card className="p-4 md:hidden">
+          <h2 className="font-semibold mb-3">Linha cronológica</h2>
+          <div className="space-y-2">
+            {stages.map((s) => {
+              const done = s.status === 'done' || !!s.actual_end;
+              const delayed = s.actual_end && s.planned_end && s.actual_end > s.planned_end;
+              const overdue = !done && s.planned_end && s.planned_end < todayStr();
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => openEditStage(s)}
+                  className="w-full flex items-center gap-3 p-3 rounded-md border bg-card hover:bg-muted/40 text-left transition-colors"
+                >
+                  <div className={cn(
+                    'h-3 w-3 rounded-full shrink-0',
+                    done ? (delayed ? 'bg-destructive' : 'bg-emerald-500') : overdue ? 'bg-destructive' : 'bg-primary',
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{s.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtDate(s.planned_start)} → {fmtDate(s.planned_end)}
+                    </p>
+                  </div>
+                  {done && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
+                  {overdue && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
+                </button>
+              );
+            })}
           </div>
         </Card>
       )}

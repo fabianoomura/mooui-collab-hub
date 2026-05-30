@@ -9,7 +9,7 @@ export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type OrderProblem =
   | 'furo_estoque' | 'aguardando_itens' | 'aguardar_envio'
   | 'presente' | 'troca' | 'devolucao' | 'endereco' | 'outro';
-export type OrderSource = 'expedicao' | 'atendimento' | 'marketing' | 'outro';
+export type OrderSource = string;
 
 export interface Order {
   id: string;

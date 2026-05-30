@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, Check, Trash2, Package, Bug, Rocket, ClipboardCheck,
@@ -6,6 +7,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -19,20 +21,25 @@ import {
 import { cn } from '@/lib/utils';
 
 /* ── icon / colour map keyed by type prefix ── */
-const TYPE_STYLE: Record<string, { icon: typeof Bell; color: string }> = {
-  order:     { icon: Package,        color: 'text-orange-500' },
-  ticket:    { icon: Bug,            color: 'text-red-500' },
-  launch:    { icon: Rocket,         color: 'text-purple-500' },
-  checklist: { icon: ClipboardCheck, color: 'text-green-500' },
-  task:      { icon: ListTodo,       color: 'text-blue-500' },
-  message:   { icon: MessageSquare,  color: 'text-sky-500' },
-  calendar:  { icon: Calendar,       color: 'text-amber-500' },
+const TYPE_STYLE: Record<string, { icon: typeof Bell; color: string; label: string }> = {
+  order:     { icon: Package,        color: 'text-orange-500', label: 'Pedidos' },
+  ticket:    { icon: Bug,            color: 'text-red-500',    label: 'Tickets' },
+  launch:    { icon: Rocket,         color: 'text-purple-500', label: 'Lançamentos' },
+  checklist: { icon: ClipboardCheck, color: 'text-green-500',  label: 'Checagens' },
+  task:      { icon: ListTodo,       color: 'text-blue-500',   label: 'Tarefas' },
+  message:   { icon: MessageSquare,  color: 'text-sky-500',    label: 'Mensagens' },
+  calendar:  { icon: Calendar,       color: 'text-amber-500',  label: 'Calendário' },
 };
 
-function typeStyle(type: string) {
-  const prefix = type.split('_')[0];
-  return TYPE_STYLE[prefix] ?? { icon: Bell, color: 'text-muted-foreground' };
+function getPrefix(type: string) {
+  return type.split('_')[0];
 }
+
+function typeStyle(type: string) {
+  return TYPE_STYLE[getPrefix(type)] ?? { icon: Bell, color: 'text-muted-foreground', label: 'Outros' };
+}
+
+const TAB_ALL = '__all__';
 
 export function NotificationsBell() {
   const navigate = useNavigate();
@@ -41,7 +48,28 @@ export function NotificationsBell() {
   const markOne = useMarkNotificationRead();
   const deleteOne = useDeleteNotification();
 
+  const [activeTab, setActiveTab] = useState(TAB_ALL);
+
   const unread = notifications.filter(n => !n.is_read).length;
+
+  // Group notifications by module prefix
+  const groups = useMemo(() => {
+    const map = new Map<string, { total: number; unread: number }>();
+    for (const n of notifications) {
+      const prefix = getPrefix(n.type);
+      const g = map.get(prefix) ?? { total: 0, unread: 0 };
+      g.total++;
+      if (!n.is_read) g.unread++;
+      map.set(prefix, g);
+    }
+    // Sort by unread desc, then total desc
+    return [...map.entries()]
+      .sort((a, b) => b[1].unread - a[1].unread || b[1].total - a[1].total);
+  }, [notifications]);
+
+  const filtered = activeTab === TAB_ALL
+    ? notifications
+    : notifications.filter(n => getPrefix(n.type) === activeTab);
 
   const handleClick = (n: Notification) => {
     if (!n.is_read) markOne.mutate(n.id);
@@ -76,13 +104,56 @@ export function NotificationsBell() {
           )}
         </div>
 
+        {/* module tabs */}
+        {groups.length > 1 && (
+          <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border overflow-x-auto">
+            <button
+              onClick={() => setActiveTab(TAB_ALL)}
+              className={cn(
+                'text-[11px] px-2 py-1 rounded-md whitespace-nowrap transition-colors',
+                activeTab === TAB_ALL
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+            >
+              Todas
+              {unread > 0 && (
+                <Badge variant="secondary" className="ml-1 h-4 min-w-4 px-1 text-[9px]">{unread}</Badge>
+              )}
+            </button>
+            {groups.map(([prefix, g]) => {
+              const style = TYPE_STYLE[prefix];
+              if (!style) return null;
+              const Icon = style.icon;
+              return (
+                <button
+                  key={prefix}
+                  onClick={() => setActiveTab(prefix)}
+                  className={cn(
+                    'text-[11px] px-2 py-1 rounded-md whitespace-nowrap transition-colors inline-flex items-center gap-1',
+                    activeTab === prefix
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {style.label}
+                  {g.unread > 0 && (
+                    <Badge variant="secondary" className="h-4 min-w-4 px-1 text-[9px]">{g.unread}</Badge>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* list */}
         <ScrollArea className="max-h-[28rem]">
-          {notifications.length === 0 ? (
+          {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Sem notificações</p>
           ) : (
             <ul className="divide-y divide-border">
-              {notifications.map(n => {
+              {filtered.map(n => {
                 const { icon: Icon, color } = typeStyle(n.type);
                 return (
                   <li key={n.id} className="group">

@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { notifyUser } from '@/hooks/useNotifications';
@@ -371,6 +372,8 @@ export default function MessagesPage() {
   const createChannel = useCreateChannel();
   const deleteChannel = useDeleteChannel();
   const confirm = useConfirm();
+  const { canDo } = usePermissions();
+  const canCreatePrivate = canDo('create_private_channel');
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
   const updateMessage = useUpdateMessage();
@@ -851,7 +854,7 @@ export default function MessagesPage() {
                 <Label className="text-sm">Canal privado</Label>
                 <p className="text-xs text-muted-foreground">Apenas membros convidados podem ver.</p>
               </div>
-              <Switch checked={newChannelPrivate} onCheckedChange={setNewChannelPrivate} />
+              <Switch checked={newChannelPrivate} onCheckedChange={setNewChannelPrivate} disabled={!canCreatePrivate} />
             </div>
           </div>
           <DialogFooter>

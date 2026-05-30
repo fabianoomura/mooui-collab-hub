@@ -25,6 +25,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useDepartments } from '@/hooks/useOrgSettings';
 import { cn } from '@/lib/utils';
 
 const problemLabels: Record<OrderProblem, string> = {
@@ -47,7 +49,8 @@ const problemIcon: Record<OrderProblem, any> = {
   endereco: MapPin,
   outro: MoreHorizontal,
 };
-const sourceLabels: Record<OrderSource, string> = {
+/* Static fallback for legacy source values */
+const STATIC_SOURCE_LABELS: Record<string, string> = {
   expedicao: 'Expedição',
   atendimento: 'Atendimento',
   marketing: 'Marketing',
@@ -114,6 +117,22 @@ export default function OrdersPage() {
   const updateMut = useUpdateOrder();
   const deleteMut = useDeleteOrder();
   const confirm = useConfirm();
+  const { canDo } = usePermissions();
+  const { data: departments = [] } = useDepartments(currentOrg?.id);
+
+  // Merge dynamic departments with static fallback for display labels
+  const sourceLabels = useMemo(() => {
+    const map: Record<string, string> = { ...STATIC_SOURCE_LABELS };
+    departments.forEach(d => { map[d.name.toLowerCase()] = d.name; });
+    return map;
+  }, [departments]);
+
+  // Ordered list of source keys for selects
+  const sourceKeys = useMemo(() => {
+    const keys = new Set(Object.keys(STATIC_SOURCE_LABELS));
+    departments.forEach(d => keys.add(d.name.toLowerCase()));
+    return [...keys];
+  }, [departments]);
 
   const [showFinished, setShowFinished] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
@@ -131,7 +150,7 @@ export default function OrdersPage() {
   const [nTotvs, setNTotvs] = useState('');
   const [nCustomer, setNCustomer] = useState('');
   const [nProblem, setNProblem] = useState<OrderProblem>('furo_estoque');
-  const [nSource, setNSource] = useState<OrderSource>('expedicao');
+  const [nSource, setNSource] = useState<OrderSource>('');
   const [nPriority, setNPriority] = useState<OrderPriority>('medium');
   const [nDesc, setNDesc] = useState('');
 
@@ -150,6 +169,19 @@ export default function OrdersPage() {
     enabled: userIds.length > 0,
   });
   const profileMap = useMemo(() => new Map(profiles.map((p: any) => [p.id, p])), [profiles]);
+
+  // Fetch current user's department for auto-filling source
+  const { data: myProfile } = useQuery({
+    queryKey: ['my-profile-dept', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase.from('profiles').select('department').eq('id', user.id).maybeSingle();
+      return data as { department: string | null } | null;
+    },
+    enabled: !!user,
+    staleTime: 300_000,
+  });
+  const defaultSource = myProfile?.department?.toLowerCase() || 'expedicao';
 
   const q = search.trim().toLowerCase();
   const priorityRank: Record<OrderPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
@@ -205,7 +237,7 @@ export default function OrdersPage() {
         totvs_order: nTotvs.trim() || null,
         customer_name: nCustomer.trim() || null,
         problem_type: nProblem,
-        source: nSource,
+        source: nSource || defaultSource,
         priority: nPriority,
         description: nDesc.trim() || null,
       },
@@ -265,7 +297,7 @@ export default function OrdersPage() {
             {showFinished ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Eye className="h-4 w-4 mr-1.5" />}
             {showFinished ? 'Em andamento' : 'Ver finalizados'}
           </Button>
-          <Button onClick={() => setShowNew(true)}>
+          <Button onClick={() => { setNSource(defaultSource); setShowNew(true); }}>
             <Plus className="h-4 w-4 mr-1.5" />
             Sinalizar pedido
           </Button>
@@ -297,7 +329,7 @@ export default function OrdersPage() {
             <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Setor" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Qualquer setor</SelectItem>
-              {(Object.keys(sourceLabels) as OrderSource[]).map(k => (
+              {sourceKeys.map(k => (
                 <SelectItem key={k} value={k}>{sourceLabels[k]}</SelectItem>
               ))}
             </SelectContent>
@@ -406,7 +438,7 @@ export default function OrdersPage() {
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{o.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
-                      <span>{sourceLabels[o.source]}</span>
+                      <span>{sourceLabels[o.source] || o.source}</span>
                       <span>•</span>
                       <span>Aberto por {author?.full_name || 'Usuário'}{author?.department ? ` (${author.department})` : ''}</span>
                       <span>•</span>
@@ -466,7 +498,7 @@ export default function OrdersPage() {
                 <Select value={nSource} onValueChange={(v) => setNSource(v as OrderSource)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(sourceLabels) as OrderSource[]).map(k => (
+                    {sourceKeys.map(k => (
                       <SelectItem key={k} value={k}>{sourceLabels[k]}</SelectItem>
                     ))}
                   </SelectContent>
@@ -506,6 +538,9 @@ export default function OrdersPage() {
           onDelete={() => handleDelete(openOrder)}
           profileMap={profileMap}
           currentUserId={user?.id}
+          canDeleteAny={canDo('delete_any_order')}
+          sourceLabels={sourceLabels}
+          sourceKeys={sourceKeys}
         />
       )}
     </div>
@@ -513,7 +548,8 @@ export default function OrdersPage() {
 }
 
 function OrderDetail({
-  order, onClose, onUpdate, onStatus, onDelete, profileMap, currentUserId,
+  order, onClose, onUpdate, onStatus, onDelete, profileMap, currentUserId, canDeleteAny,
+  sourceLabels, sourceKeys,
 }: {
   order: Order;
   onClose: () => void;
@@ -522,6 +558,9 @@ function OrderDetail({
   onDelete: () => void;
   profileMap: Map<string, any>;
   currentUserId?: string;
+  canDeleteAny?: boolean;
+  sourceLabels: Record<string, string>;
+  sourceKeys: string[];
 }) {
   const { data: comments = [] } = useOrderComments(order.id);
   const { data: activity = [] } = useOrderActivity(order.id);
@@ -587,7 +626,7 @@ function OrderDetail({
                 {priorityLabels[order.priority]}
               </Badge>
               <span>•</span>
-              <span>{sourceLabels[order.source]}</span>
+              <span>{sourceLabels[order.source] || order.source}</span>
             </div>
           </div>
         </DialogHeader>
@@ -757,8 +796,8 @@ function OrderDetail({
               <Select value={order.source} onValueChange={(v) => onUpdate({ source: v as OrderSource })}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(sourceLabels) as OrderSource[]).map(p => (
-                    <SelectItem key={p} value={p}>{sourceLabels[p]}</SelectItem>
+                  {sourceKeys.map(p => (
+                    <SelectItem key={p} value={p}>{sourceLabels[p] || p}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -796,7 +835,7 @@ function OrderDetail({
               </div>
             )}
 
-            {(currentUserId === order.created_by) && (
+            {(currentUserId === order.created_by || canDeleteAny) && (
               <Button variant="ghost" size="sm" className="w-full text-destructive" onClick={onDelete}>
                 Excluir pedido
               </Button>

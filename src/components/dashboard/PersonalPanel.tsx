@@ -1,11 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertTriangle, CalendarClock, ListTodo, Rocket, Calendar, ClipboardCheck,
-  MessageSquare, Briefcase, Send, CheckCircle2, Package, TrendingUp,
+  MessageSquare, Briefcase, Send, CheckCircle2, Package, TrendingUp, Check,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   AgendaItem, todayISO, addDaysISO, toMs, groupByDay, humanDayLabel, isOverdue,
 } from '@/lib/personalAgenda';
+import { toast } from 'sonner';
 
 const fmtBRL = (cents: number) =>
   (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -177,8 +179,30 @@ export function PersonalPanel() {
           })),
       ];
 
+      // 9) Count completed today for summary %
+      const { count: doneTasks } = await supabase
+        .from('tasks')
+        .select('id', { count: 'exact', head: true })
+        .in('id', taskIds.length ? taskIds : ['__none__'])
+        .eq('status', 'done');
+
+      const { count: doneStages } = await supabase
+        .from('launch_stages')
+        .select('id', { count: 'exact', head: true })
+        .eq('assignee_id', user.id)
+        .eq('status', 'done');
+
+      const { count: doneCheckItems } = await supabase
+        .from('launch_checklist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('assignee_id', user.id)
+        .eq('status', 'done');
+
       // Summary counters
       const totalPending = myTasks.length + myStages.length + myCheckItems.length + myOrders.length;
+      const totalDone = (doneTasks ?? 0) + (doneStages ?? 0) + (doneCheckItems ?? 0);
+      const totalAll = totalPending + totalDone;
+      const completionPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 100;
 
       return {
         overdue,
@@ -188,12 +212,53 @@ export function PersonalPanel() {
         myTickets,
         myOrders,
         totalPending,
+        totalDone,
+        completionPct,
         overdueCount: overdue.length,
       };
     },
     enabled: !!user && !!currentOrg,
     staleTime: 60_000,
   });
+
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['personal-panel'] });
+
+  const completeTask = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase.from('tasks').update({ status: 'done' }).eq('id', taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success('Tarefa concluída'); invalidate(); },
+    onError: () => toast.error('Erro ao concluir tarefa'),
+  });
+
+  const completeStage = useMutation({
+    mutationFn: async (stageId: string) => {
+      const { error } = await supabase.from('launch_stages').update({ status: 'done' }).eq('id', stageId);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success('Etapa concluída'); invalidate(); },
+    onError: () => toast.error('Erro ao concluir etapa'),
+  });
+
+  const completeCheckItem = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase.from('launch_checklist_items').update({ status: 'done' }).eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success('Item concluído'); invalidate(); },
+    onError: () => toast.error('Erro ao concluir item'),
+  });
+
+  const handleComplete = (kind: AgendaItem['kind'], id: string) => {
+    if (kind === 'task') completeTask.mutate(id);
+    else if (kind === 'stage') completeStage.mutate(id);
+    else if (kind === 'checklist') completeCheckItem.mutate(id);
+  };
+
+  const canComplete = (kind: AgendaItem['kind']) =>
+    kind === 'task' || kind === 'stage' || kind === 'checklist';
 
   if (isLoading) {
     return (
@@ -216,7 +281,7 @@ export function PersonalPanel() {
       <Card className="p-4 lg:col-span-3 flex items-center gap-6 flex-wrap">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">Resumo</span>
+          <span className="text-sm font-semibold">Resumo do dia</span>
         </div>
         <div className="flex items-center gap-6 text-sm">
           <span className="flex items-center gap-1.5">
@@ -224,9 +289,22 @@ export function PersonalPanel() {
             <span className="font-medium">{data.totalPending}</span> pendências
           </span>
           <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            <span className="font-medium">{data.totalDone}</span> concluídas
+          </span>
+          <span className="flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
             <span className="font-medium">{data.overdueCount}</span> em atraso
           </span>
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all"
+              style={{ width: `${data.completionPct}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground">{data.completionPct}%</span>
         </div>
       </Card>
 
@@ -248,21 +326,33 @@ export function PersonalPanel() {
               {data.overdue.slice(0, 6).map((it) => {
                 const Icon = ICONS[it.kind];
                 return (
-                  <Link
-                    key={`${it.kind}-${it.id}`} to={it.href}
+                  <div
+                    key={`${it.kind}-${it.id}`}
                     className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors group"
                   >
-                    <Icon className={`h-4 w-4 shrink-0 ${COLORS[it.kind]}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate group-hover:text-primary">{it.title}</p>
-                      {it.subtitle && (
-                        <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
-                      )}
-                    </div>
+                    {canComplete(it.kind) && (
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Concluir"
+                        onClick={() => handleComplete(it.kind, it.id)}
+                      >
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      </Button>
+                    )}
+                    <Link to={it.href} className="flex items-center gap-3 flex-1 min-w-0">
+                      <Icon className={`h-4 w-4 shrink-0 ${COLORS[it.kind]}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate group-hover:text-primary">{it.title}</p>
+                        {it.subtitle && (
+                          <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
+                        )}
+                      </div>
+                    </Link>
                     <span className="text-xs text-destructive font-medium shrink-0">
                       {humanDayLabel(it.when.split('T')[0])}
                     </span>
-                  </Link>
+                  </div>
                 );
               })}
               {data.overdue.length > 6 && (
@@ -293,23 +383,35 @@ export function PersonalPanel() {
                     {items.map((it) => {
                       const Icon = ICONS[it.kind];
                       return (
-                        <Link
-                          key={`${it.kind}-${it.id}`} to={it.href}
+                        <div
+                          key={`${it.kind}-${it.id}`}
                           className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors group"
                         >
-                          <Icon className={`h-4 w-4 shrink-0 ${COLORS[it.kind]}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate group-hover:text-primary">{it.title}</p>
-                            {it.subtitle && (
-                              <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
-                            )}
-                          </div>
+                          {canComplete(it.kind) && (
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Concluir"
+                              onClick={() => handleComplete(it.kind, it.id)}
+                            >
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            </Button>
+                          )}
+                          <Link to={it.href} className="flex items-center gap-3 flex-1 min-w-0">
+                            <Icon className={`h-4 w-4 shrink-0 ${COLORS[it.kind]}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate group-hover:text-primary">{it.title}</p>
+                              {it.subtitle && (
+                                <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
+                              )}
+                            </div>
+                          </Link>
                           {fmtTime(it.when) && (
                             <span className="text-xs text-muted-foreground tabular-nums shrink-0">
                               {fmtTime(it.when)}
                             </span>
                           )}
-                        </Link>
+                        </div>
                       );
                     })}
                   </div>

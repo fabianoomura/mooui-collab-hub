@@ -137,15 +137,26 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (prefs && (prefs as any).notify_directors) {
-        // Find org admins/directors
+        // Find org admins + users with director/admin app_role
         const { data: adminMembers } = await admin
           .from('organization_members')
           .select('user_id')
           .eq('organization_id', organization_id)
           .eq('role', 'admin');
 
-        if (adminMembers?.length) {
-          const directorIds = adminMembers.map((m: any) => m.user_id).filter((id: string) => id !== user_id);
+        const { data: directorRoles } = await admin
+          .from('user_roles')
+          .select('user_id')
+          .in('role', ['admin', 'director']);
+
+        const allIds = new Set<string>();
+        adminMembers?.forEach((m: any) => allIds.add(m.user_id));
+        directorRoles?.forEach((r: any) => allIds.add(r.user_id));
+        allIds.delete(user_id); // exclude the original recipient
+
+        const directorIds = [...allIds];
+
+        if (directorIds.length) {
           for (const dirId of directorIds) {
             const { data: dirUser } = await admin.auth.admin.getUserById(dirId);
             if (dirUser?.user?.email) {

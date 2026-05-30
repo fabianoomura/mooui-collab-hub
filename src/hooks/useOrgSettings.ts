@@ -245,7 +245,7 @@ export function useResetUserPassword() {
       const { data, error } = await supabase.functions.invoke('admin-reset-password', { body: input });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      return data as { ok: true; password: string };
+      return data as { ok: true };
     },
   });
 }

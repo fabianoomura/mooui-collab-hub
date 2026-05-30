@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 import { AssigneePicker } from '@/components/AssigneePicker';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const CATS: Record<string, { label: string; color: string }> = {
   geral: { label: 'Geral', color: 'bg-slate-500' },
@@ -54,6 +55,7 @@ export default function ChecklistPage() {
   const [showSaveTpl, setShowSaveTpl] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
+  const { canDo } = usePermissions();
 
   useEffect(() => {
     if (!activeId && checklists.length) setActiveId(checklists[0].id);
@@ -210,9 +212,11 @@ export default function ChecklistPage() {
                     </p>
                   )}
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setShowSaveTpl(true)}>
-                  <Save className="h-4 w-4 mr-2" /> Salvar como template
-                </Button>
+                {canDo('manage_templates') && (
+                  <Button variant="outline" size="sm" onClick={() => setShowSaveTpl(true)}>
+                    <Save className="h-4 w-4 mr-2" /> Salvar como template
+                  </Button>
+                )}
               </div>
 
               <div className="space-y-1.5">
