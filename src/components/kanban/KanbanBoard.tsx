@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function KanbanBoard({ projectId, search = '' }: Props) {
-  const { columns, isLoading, moveTask, addTask, updateTask } = useProjectTasks(projectId);
+  const { columns, tasks: allTasks, isLoading, moveTask, addTask, updateTask } = useProjectTasks(projectId);
   const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
 
   const handleDragEnd = (result: DropResult) => {
@@ -88,6 +88,15 @@ export function KanbanBoard({ projectId, search = '' }: Props) {
               onCardClick={setSelectedTask}
               onQuickAdd={(title) => handleQuickAdd(column.id, title)}
               isFiltered={!!q}
+              allTopLevelTasks={allTasks}
+              onMoveToParent={(taskId, parentId) => {
+                updateTask.mutate({ taskId, updates: { parent_task_id: parentId } });
+                toast.success('Elemento movido!');
+              }}
+              onPromoteToTopLevel={(taskId) => {
+                updateTask.mutate({ taskId, updates: { parent_task_id: null } });
+                toast.success('Elemento promovido!');
+              }}
             />
           ))}
         </div>
@@ -119,6 +128,7 @@ export function KanbanBoard({ projectId, search = '' }: Props) {
 
 function KanbanColumnView({
   column, statusColor, dotColor, onCardClick, onQuickAdd, isFiltered,
+  allTopLevelTasks, onMoveToParent, onPromoteToTopLevel,
 }: {
   column: KanbanColumn;
   statusColor: string;
@@ -126,6 +136,9 @@ function KanbanColumnView({
   onCardClick: (task: TaskWithAssignees) => void;
   onQuickAdd: (title: string) => void;
   isFiltered: boolean;
+  allTopLevelTasks: TaskWithAssignees[];
+  onMoveToParent: (taskId: string, parentId: string) => void;
+  onPromoteToTopLevel: (taskId: string) => void;
 }) {
   const [composing, setComposing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -175,7 +188,7 @@ function KanbanColumnView({
                     {...provided.dragHandleProps}
                     onClick={() => onCardClick(task)}
                   >
-                    <KanbanCard task={task} isDragging={snapshot.isDragging} />
+                    <KanbanCard task={task} isDragging={snapshot.isDragging} allTopLevelTasks={allTopLevelTasks} onMoveToParent={onMoveToParent} onPromoteToTopLevel={onPromoteToTopLevel} />
                   </div>
                 )}
               </Draggable>

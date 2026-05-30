@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check } from 'lucide-react';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check, CornerDownRight, ArrowUp } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -622,6 +622,7 @@ function TaskRow({
   dynamicColumns, customValues, onSetCustomValue,
   statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
   projectMembers, onAddAssignee, onRemoveAssignee,
+  allTopLevelTasks, onMoveToParent, onPromoteToTopLevel,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
@@ -645,6 +646,9 @@ function TaskRow({
   projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
   onAddAssignee: (taskId: string, userId: string) => void;
   onRemoveAssignee: (taskId: string, userId: string) => void;
+  allTopLevelTasks: TaskWithAssignees[];
+  onMoveToParent: (taskId: string, parentId: string) => void;
+  onPromoteToTopLevel: (taskId: string) => void;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
@@ -655,7 +659,7 @@ function TaskRow({
   return (
     <>
       <div
-        className={`grid items-center border-b border-border hover:bg-accent/30 cursor-pointer transition-colors text-sm ${isSubtask ? 'bg-muted/20' : ''}`}
+        className={`group grid items-center border-b border-border hover:bg-accent/30 cursor-pointer transition-colors text-sm ${isSubtask ? 'bg-muted/20' : ''}`}
         style={{ gridTemplateColumns: gridCols }}
         onClick={() => onClickTask(task, parentTask)}
       >
@@ -671,6 +675,36 @@ function TaskRow({
           {!isSubtask && subtaskCount > 0 && (
             <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">{subtaskCount}</span>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-accent rounded shrink-0 ml-auto" onClick={e => e.stopPropagation()}>
+                <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56" onClick={e => e.stopPropagation()}>
+              {isSubtask ? (
+                <DropdownMenuItem onClick={() => onPromoteToTopLevel(task.id)}>
+                  <ArrowUp className="h-3.5 w-3.5 mr-2" /> Promover a elemento principal
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <CornerDownRight className="h-3.5 w-3.5 mr-2" /> Tornar subelemento de…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-64 overflow-y-auto w-56">
+                    {allTopLevelTasks.filter(t => t.id !== task.id).map(t => (
+                      <DropdownMenuItem key={t.id} onClick={() => onMoveToParent(task.id, t.id)}>
+                        <span className="truncate">{t.title}</span>
+                      </DropdownMenuItem>
+                    ))}
+                    {allTopLevelTasks.filter(t => t.id !== task.id).length === 0 && (
+                      <p className="text-xs text-muted-foreground px-3 py-2">Nenhum outro elemento</p>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {visibleColumns.has('due_date') && (
           <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
@@ -726,6 +760,7 @@ function TaskRow({
               statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
               onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
               projectMembers={projectMembers} onAddAssignee={onAddAssignee} onRemoveAssignee={onRemoveAssignee}
+              allTopLevelTasks={allTopLevelTasks} onMoveToParent={onMoveToParent} onPromoteToTopLevel={onPromoteToTopLevel}
             />
           ))}
           <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">
@@ -1044,6 +1079,9 @@ export default function TableViewPage() {
                         projectMembers={projectMembers}
                         onAddAssignee={(taskId, userId) => addAssignee.mutate({ taskId, userId })}
                         onRemoveAssignee={(taskId, userId) => removeAssignee.mutate({ taskId, userId })}
+                        allTopLevelTasks={tasks}
+                        onMoveToParent={(taskId, parentId) => { updateTask.mutate({ taskId, updates: { parent_task_id: parentId } }); toast.success('Elemento movido!'); }}
+                        onPromoteToTopLevel={(taskId) => { updateTask.mutate({ taskId, updates: { parent_task_id: null } }); toast.success('Elemento promovido!'); }}
                       />
                     ))}
 

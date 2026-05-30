@@ -3,7 +3,8 @@ import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, CheckSquare } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
+import { Calendar, CheckSquare, MoreHorizontal, CornerDownRight, ArrowUp } from 'lucide-react';
 import { useMemo } from 'react';
 
 const priorityConfig: Record<TaskPriority, { label: string; className: string }> = {
@@ -18,7 +19,13 @@ function getInitials(name: string | null): string {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDragging: boolean }) {
+export function KanbanCard({ task, isDragging, allTopLevelTasks, onMoveToParent, onPromoteToTopLevel }: {
+  task: TaskWithAssignees;
+  isDragging: boolean;
+  allTopLevelTasks?: TaskWithAssignees[];
+  onMoveToParent?: (taskId: string, parentId: string) => void;
+  onPromoteToTopLevel?: (taskId: string) => void;
+}) {
   const priority = priorityConfig[task.priority];
   const isOverdue = task.due_date && new Date(task.due_date) < new Date();
   const assignees = task.task_assignees || [];
@@ -31,9 +38,41 @@ export function KanbanCard({ task, isDragging }: { task: TaskWithAssignees; isDr
   const { data: profilesMap } = useAssigneeProfiles(assigneeIds);
 
   return (
-    <div className={`kanban-card p-3 cursor-pointer ${isDragging ? 'shadow-lg ring-2 ring-primary/30 rotate-2' : ''}`}>
+    <div className={`kanban-card p-3 cursor-pointer group ${isDragging ? 'shadow-lg ring-2 ring-primary/30 rotate-2' : ''}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <h3 className="text-sm font-medium text-card-foreground leading-snug flex-1">{task.title}</h3>
+        {allTopLevelTasks && onMoveToParent && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-accent rounded shrink-0" onClick={e => e.stopPropagation()}>
+                <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56" onClick={e => e.stopPropagation()}>
+              {task.parent_task_id && onPromoteToTopLevel ? (
+                <DropdownMenuItem onClick={() => onPromoteToTopLevel(task.id)}>
+                  <ArrowUp className="h-3.5 w-3.5 mr-2" /> Promover a elemento principal
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <CornerDownRight className="h-3.5 w-3.5 mr-2" /> Tornar subelemento de…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-64 overflow-y-auto w-56">
+                    {allTopLevelTasks.filter(t => t.id !== task.id).map(t => (
+                      <DropdownMenuItem key={t.id} onClick={() => onMoveToParent(task.id, t.id)}>
+                        <span className="truncate">{t.title}</span>
+                      </DropdownMenuItem>
+                    ))}
+                    {allTopLevelTasks.filter(t => t.id !== task.id).length === 0 && (
+                      <p className="text-xs text-muted-foreground px-3 py-2">Nenhum outro elemento</p>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <Badge className={`${priority.className} text-[10px] px-1.5 py-0 shrink-0`}>
           {priority.label}
         </Badge>
