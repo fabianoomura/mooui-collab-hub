@@ -418,18 +418,19 @@ Tickets ✓ Dashboard               — ✅ KPIs + TicketsReport com métricas
 | Campo de evidência em Checklists | Check | Médio — conformidade | ✅ evidence_notes com Popover |
 | Escalation automático de pedidos | Pedidos | Alto — SLA operacional | ✅ Notifica managers após 48h sem update |
 
-### Horizonte 3: Integração (1-2 meses)
+### Horizonte 3: Integração (1-2 meses) ✅ CONCLUÍDO
 > Conectar módulos entre si e com sistemas externos.
 
-| Item | Módulo | Impacto |
-|------|--------|---------|
-| Sync Produção → Calendário (automático) | Produção + Calendário | Alto — single source of truth |
-| Link Papelinho ↔ Produção (briefings) | Docs + Produção | Médio — contexto |
-| Link Tickets → Papelinho (knowledge base) | Tickets + Docs | Médio — redução de retrabalho |
-| Automações simples (quando/então) | Cross-module | Alto — escalabilidade |
-| Dependências entre tarefas | Sunday | Alto — gestão de projeto real |
-| Timeline unificada | Cross-module | Alto — visão estratégica |
-| Anexos por etapa de lançamento | Produção | Alto — evidência de produção |
+| Item | Módulo | Impacto | Status |
+|------|--------|---------|--------|
+| Sync Produção → Calendário (automático) | Produção + Calendário | Alto — single source of truth | ✅ Já funcional via createEvent + module_links |
+| Link Papelinho ↔ Produção (briefings) | Docs + Produção | Médio — contexto | ✅ Select "Vincular documento" no LaunchDetail |
+| Link Tickets → Papelinho (knowledge base) | Tickets + Docs | Médio — redução de retrabalho | ✅ "Criar artigo na Wiki" em tickets resolvidos |
+| Automações simples (quando/então) | Cross-module | Alto — escalabilidade | ⏳ Parcial: auto-posts, escalation, notificações proativas |
+| Dependências entre tarefas | Sunday | Alto — gestão de projeto real | ✅ task_dependencies + aba Dependências no SidePanel |
+| Timeline unificada | Cross-module | Alto — visão estratégica | ✅ /timeline com grid mensal (eventos + lançamentos + tarefas) |
+| Anexos por etapa de lançamento | Produção | Alto — evidência de produção | ✅ launch_stage_attachments + upload na Sheet de etapa |
+| TeamPage em 2 abas | Equipe | Médio — organização | ✅ Aba Organograma + aba Carga de Trabalho |
 
 ### Horizonte 4: Escala (2-4 meses)
 > Preparar para crescimento e operação internacional.
@@ -513,4 +514,4 @@ O objetivo final: **quando alguém na MOOUI precisa de informação, ela está n
 ---
 
 *Documento gerado em 29/05/2026 com base em análise completa do codebase do MOOUI Collab Hub.*
-*Atualizado em 30/05/2026 — Horizontes 1 e 2 concluídos.*
+*Atualizado em 30/05/2026 — Horizontes 1, 2 e 3 concluídos.*
