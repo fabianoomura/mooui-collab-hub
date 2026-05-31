@@ -1,4 +1,4 @@
-import { Link2, Trash2, Calendar, Rocket, ClipboardCheck, ListTodo } from 'lucide-react';
+import { Link2, Trash2, Calendar, Rocket, ClipboardCheck, ListTodo, BookOpen } from 'lucide-react';
 import { useLinksFrom, useDeleteLink, type ModuleLink } from '@/hooks/useModuleLinks';
 import { cn } from '@/lib/utils';
 
@@ -7,6 +7,7 @@ const MODULE_META: Record<string, { icon: typeof Link2; label: string; color: st
   calendar:  { icon: Calendar,       label: 'Evento',      color: 'text-amber-500',  route: '/calendario' },
   launch:    { icon: Rocket,         label: 'Lançamento',  color: 'text-purple-500', route: '/lancamentos' },
   checklist: { icon: ClipboardCheck, label: 'Checklist',   color: 'text-green-500',  route: '/checagens' },
+  doc:       { icon: BookOpen,       label: 'Documento',   color: 'text-teal-500',   route: '/docs' },
 };
 
 function meta(type: string) {

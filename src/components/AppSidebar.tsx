@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import mooUiLogo from '@/assets/mooui-logo.png';
@@ -65,6 +65,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { title: 'Check Lançamentos', url: '/checagens', icon: ClipboardCheck },
       { title: 'Pedidos', url: '/pedidos', icon: Package },
       { title: 'Tickets de TI', url: '/tickets', icon: Briefcase },
+      { title: 'Timeline', url: '/timeline', icon: Layers },
     ],
   },
 ];

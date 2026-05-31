@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle, Paperclip, BarChart3 } from 'lucide-react';
+import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle, Paperclip, BarChart3, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +32,7 @@ import { TicketLabelChips, TicketLabelPicker } from '@/components/tickets/Ticket
 import { useTicketLabelAssignments, useTicketLabels } from '@/hooks/useTicketLabels';
 import { TicketsReport } from '@/components/tickets/TicketsReport';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useCreateDocPage } from '@/hooks/useDocPages';
 
 const priorityColors: Record<TicketPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
@@ -552,8 +553,11 @@ function TicketDetail({
   authorName: string;
 }) {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
+  const navigate = useNavigate();
   const { data: comments = [] } = useTicketComments(ticket.id);
   const addComment = useAddTicketComment();
+  const createDoc = useCreateDocPage();
   const [text, setText] = useState('');
 
   const commentUserIds = [...new Set(comments.map(c => c.user_id))];
@@ -733,6 +737,38 @@ function TicketDetail({
           {(isIT || isOwner) && (
             <Button variant="outline" onClick={onDelete} className="text-destructive hover:text-destructive">
               <Trash2 className="h-4 w-4 mr-1.5" /> Excluir
+            </Button>
+          )}
+          {isIT && (ticket.status === 'resolved' || ticket.status === 'closed') && currentOrg && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const content = [
+                  `# ${ticket.title}`,
+                  '',
+                  `**Categoria:** ${categoryLabels[ticket.category]}`,
+                  `**Prioridade:** ${priorityLabels[ticket.priority]}`,
+                  '',
+                  '## Problema',
+                  ticket.description || '_Sem descrição_',
+                  '',
+                  '## Solução',
+                  '_Descreva a solução aplicada aqui._',
+                ].join('\n');
+                createDoc.mutate(
+                  { organization_id: currentOrg.id, title: `KB: ${ticket.title}`, content, icon: '📘' },
+                  {
+                    onSuccess: () => {
+                      toast.success('Artigo criado na Wiki');
+                      navigate('/docs');
+                    },
+                    onError: (e: any) => toast.error(e?.message || 'Erro'),
+                  },
+                );
+              }}
+              disabled={createDoc.isPending}
+            >
+              <FileText className="h-4 w-4 mr-1.5" /> Criar artigo na Wiki
             </Button>
           )}
           <Button onClick={onClose}>Fechar</Button>

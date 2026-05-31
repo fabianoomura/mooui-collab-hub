@@ -23,7 +23,7 @@ import {
 } from '@/hooks/useLaunches';
 import { useCreateChecklistFromTemplate, useTemplates } from '@/hooks/useChecklists';
 import { useCreateAnnualEvent } from '@/hooks/useAnnualEvents';
-import { useCreateLink } from '@/hooks/useModuleLinks';
+import { useCreateLink, useLinksFrom } from '@/hooks/useModuleLinks';
 import { LinkedItems } from '@/components/LinkedItems';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useDocPages } from '@/hooks/useDocPages';
 import { useLaunchActivity, useLogLaunchActivity } from '@/hooks/useLaunchActivity';
 import { useStageAttachments } from '@/hooks/useStageAttachments';
 import { formatDistanceToNow } from 'date-fns';
@@ -234,6 +235,8 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const { data: activityLog = [] } = useLaunchActivity(id);
   const logActivity = useLogLaunchActivity();
+  const { data: orgDocs = [] } = useDocPages(currentOrg?.id);
+  const { data: existingLinks = [] } = useLinksFrom('launch', id);
 
   const [editing, setEditing] = useState<LaunchStage | null>(null);
   const [creating, setCreating] = useState(false);
@@ -613,6 +616,35 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       {/* Cross-module links */}
       <LinkedItems sourceType="launch" sourceId={id} className="px-1" />
+
+      {/* Link doc/briefing */}
+      {orgDocs.length > 0 && (
+        <div className="px-1">
+          <Select
+            value=""
+            onValueChange={(docId) => {
+              createLink.mutate({
+                source_type: 'launch',
+                source_id: id,
+                target_type: 'doc',
+                target_id: docId,
+              }, { onSuccess: () => toast.success('Documento vinculado') });
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="📄 Vincular documento…" />
+            </SelectTrigger>
+            <SelectContent>
+              {orgDocs
+                .filter(d => !existingLinks.some(l => l.target_id === d.id))
+                .map(d => (
+                  <SelectItem key={d.id} value={d.id}>{d.icon || '📄'} {d.title}</SelectItem>
+                ))
+              }
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Activity log */}
       {activityLog.length > 0 && (

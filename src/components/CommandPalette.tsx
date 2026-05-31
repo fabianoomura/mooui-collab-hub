@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/command';
 import {
   Table2, MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
-  Briefcase, ClipboardCheck, Home, Users, Settings, ListTodo, Package, Bug,
+  Briefcase, ClipboardCheck, Home, Users, Settings, ListTodo, Package, Bug, Layers,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ const ROUTES = [
   { label: 'Check Lançamentos', href: '/checagens', icon: ClipboardCheck, kw: 'checklist checagem site' },
   { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },
   { label: 'Pedidos', href: '/pedidos', icon: Package, kw: 'orders sac expedição' },
+  { label: 'Timeline', href: '/timeline', icon: Layers, kw: 'timeline visao unificada panorama' },
   { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios' },
   { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings' },
 ];

@@ -20,6 +20,7 @@ import LaunchesPage from "./pages/LaunchesPage";
 import TicketsPage from "./pages/TicketsPage";
 import OrdersPage from "./pages/OrdersPage";
 import ChecklistPage from "./pages/ChecklistPage";
+import TimelinePage from "./pages/TimelinePage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -84,6 +85,7 @@ const App = () => (
               <Route path="/tickets" element={<TicketsPage />} />
               <Route path="/pedidos" element={<OrdersPage />} />
               <Route path="/checagens" element={<ChecklistPage />} />
+              <Route path="/timeline" element={<TimelinePage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 
