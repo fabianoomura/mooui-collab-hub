@@ -80,7 +80,7 @@ export default function RoomsPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={roomId} onValueChange={setRoomId}>
-            <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todas as salas</SelectItem>
               {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
@@ -88,12 +88,14 @@ export default function RoomsPage() {
           </Select>
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setShowManage(true)}>
-              <Settings2 className="h-4 w-4 mr-1" />Gerenciar salas
+              <Settings2 className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Gerenciar salas</span>
             </Button>
           )}
           <Button size="sm" onClick={() => { setPresetStart(undefined); setPresetRoom(roomId === '__all__' ? undefined : roomId); setShowBooking(true); }}
             disabled={rooms.length === 0}>
-            <Plus className="h-4 w-4 mr-1" />Nova reserva
+            <Plus className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Nova reserva</span>
           </Button>
         </div>
       </div>

@@ -57,7 +57,7 @@ export function BookingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
         <DialogHeader><DialogTitle>Nova reserva</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
@@ -77,7 +77,7 @@ export function BookingDialog({
             </Select>
           </div>
           <div><Label>Título</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Reunião de planejamento" /></div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div><Label>Data</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             <div><Label>Início</Label><Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></div>
             <div><Label>Fim</Label><Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></div>

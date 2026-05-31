@@ -188,7 +188,7 @@ export default function CalendarPage() {
       ) : (
         <Tabs defaultValue="agenda" className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="agenda" className="gap-1.5"><CalendarRange className="h-3.5 w-3.5" /> Próximos 30d</TabsTrigger>
+            <TabsTrigger value="agenda" className="gap-1.5"><CalendarRange className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Próximos 30d</span><span className="sm:hidden">30d</span></TabsTrigger>
             <TabsTrigger value="grid" className="gap-1.5"><LayoutGrid className="h-3.5 w-3.5" /> Grade</TabsTrigger>
             <TabsTrigger value="timeline" className="gap-1.5"><GanttChart className="h-3.5 w-3.5" /> Linha</TabsTrigger>
           </TabsList>
@@ -357,34 +357,34 @@ function TimelineView({
 
   return (
     <Card className="p-0 overflow-hidden">
-      {/* Header com meses */}
-      <div className="sticky top-0 z-10 bg-card border-b">
-        <div className="flex">
-          <div className="w-44 sm:w-56 shrink-0 px-3 py-2 text-xs font-semibold text-muted-foreground border-r">
-            Evento
-          </div>
-          <div className="relative flex-1 min-w-[720px]">
-            <div className="flex h-9">
-              {monthMarkers.map((m, i) => (
-                <div
-                  key={m.label}
-                  className={cn(
-                    'flex items-center justify-center text-xs font-medium border-r last:border-r-0',
-                    isCurrentYear && i === new Date().getMonth() ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                  style={{ width: `${m.widthPct}%` }}
-                >
-                  {m.label}
+      <div className="overflow-x-auto">
+        <div className="min-w-[900px]">
+          {/* Header com meses */}
+          <div className="sticky top-0 z-10 bg-card border-b">
+            <div className="flex">
+              <div className="w-44 sm:w-56 shrink-0 px-3 py-2 text-xs font-semibold text-muted-foreground border-r">
+                Evento
+              </div>
+              <div className="relative flex-1">
+                <div className="flex h-9">
+                  {monthMarkers.map((m, i) => (
+                    <div
+                      key={m.label}
+                      className={cn(
+                        'flex items-center justify-center text-xs font-medium border-r last:border-r-0',
+                        isCurrentYear && i === new Date().getMonth() ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                      style={{ width: `${m.widthPct}%` }}
+                    >
+                      {m.label}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Linhas */}
-      <div className="overflow-x-auto">
-        <div className="min-w-full">
+          {/* Linhas */}
           {sorted.length === 0 && (
             <div className="px-4 py-12 text-center text-sm text-muted-foreground">
               Nenhum evento no período
@@ -410,7 +410,7 @@ function TimelineView({
                       <span className="text-xs font-medium truncate">{e.title}</span>
                     </div>
                   </div>
-                  <div className="relative flex-1 min-w-[720px] h-10">
+                  <div className="relative flex-1 h-10">
                     {/* Month gridlines */}
                     {monthMarkers.map((m, i) => (
                       <div
@@ -459,8 +459,6 @@ function TimelineView({
               );
             })}
           </TooltipProvider>
-        </div>
-      </div>
 
       {/* Legenda */}
       <div className="px-3 py-2 border-t flex items-center gap-3 flex-wrap text-xs text-muted-foreground bg-muted/20">
@@ -470,6 +468,8 @@ function TimelineView({
           </span>
         )}
         <span>{sorted.length} evento{sorted.length !== 1 ? 's' : ''} em {year}</span>
+      </div>
+        </div>
       </div>
     </Card>
   );

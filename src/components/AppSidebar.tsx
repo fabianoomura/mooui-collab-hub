@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers, Globe,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import mooUiLogo from '@/assets/mooui-logo.png';
@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { AvatarUploadDialog } from '@/components/AvatarUploadDialog';
+import { useI18n, type Locale } from '@/i18n';
 
 
 type NavItem = { title: string; url: string; icon: any };
@@ -90,6 +91,12 @@ export function AppSidebar() {
   const [projectFilter, setProjectFilter] = useState('');
   const [showProjectSearch, setShowProjectSearch] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const { locale, setLocale } = useI18n();
+
+  const toggleLocale = () => {
+    const next: Locale = locale === 'pt-BR' ? 'es' : 'pt-BR';
+    setLocale(next);
+  };
 
 
   const sortedProjects = useMemo(() => {
@@ -373,6 +380,26 @@ export function AppSidebar() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Language toggle */}
+        <button
+          onClick={toggleLocale}
+          className={cn(
+            'w-full flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-sidebar-accent transition-colors text-left',
+            collapsed && 'justify-center px-0'
+          )}
+          title={locale === 'pt-BR' ? 'Mudar para Español' : 'Cambiar a Português'}
+        >
+          <Globe className="h-4 w-4 shrink-0 text-sidebar-muted" />
+          {!collapsed && (
+            <span className="text-xs font-medium text-sidebar-foreground">
+              {locale === 'pt-BR' ? 'PT' : 'ES'}
+            </span>
+          )}
+          {collapsed && (
+            <span className="sr-only">{locale === 'pt-BR' ? 'PT' : 'ES'}</span>
+          )}
+        </button>
 
         {/* User menu */}
         <DropdownMenu>

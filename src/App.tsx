@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { I18nProvider } from "@/i18n";
 import { AppLayout } from "@/components/AppLayout";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import Dashboard from "./pages/Dashboard";
@@ -59,6 +60,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
+    <I18nProvider>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -96,6 +98,7 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </I18nProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
