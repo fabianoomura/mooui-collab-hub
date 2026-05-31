@@ -30,7 +30,7 @@ export function useStageAttachments(stageId: string | undefined) {
       if (error) throw error;
 
       const userIds = [...new Set((data || []).map((a: any) => a.user_id))];
-      if (userIds.length === 0) return data as StageAttachment[];
+      if (userIds.length === 0) return (data as any) as StageAttachment[];
 
       const { data: profiles } = await supabase
         .from('profiles')
