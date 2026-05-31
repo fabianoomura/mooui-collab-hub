@@ -435,16 +435,16 @@ Tickets ✓ Dashboard               — ✅ KPIs + TicketsReport com métricas
 ### Horizonte 4: Escala (2-4 meses)
 > Preparar para crescimento e operação internacional.
 
-| Item | Módulo | Impacto |
-|------|--------|---------|
-| Integração Shopify (pedidos automáticos) | Pedidos | Alto — elimina digitação manual |
-| Editor rico no Papelinho (TipTap) | Docs | Alto — documentação profissional |
-| Mobile-first views | Produção, Salas, Calendário | Alto — acessibilidade |
-| Notificações push/desktop | Speaks + Notificações | Médio — responsividade |
-| i18n (Português + Espanhol/Catalão) | Global | Médio — Barcelona |
-| Integração Google Calendar | Salas | Médio — elimina sistema paralelo |
-| Dashboard executivo para diretoria | Dashboard | Alto — visão C-level |
-| Onboarding guiado | Global | Médio — reduz curva de aprendizado |
+| Item | Módulo | Impacto | Status |
+|------|--------|---------|--------|
+| Integração Shopify (pedidos automáticos) | Pedidos | Alto — elimina digitação manual | 🔜 Pendente |
+| ✅ Editor rico no Papelinho (TipTap) | Docs | Alto — documentação profissional | `RichTextEditor.tsx` com toolbar completa, upload de imagens, tabelas, checklists |
+| ✅ Mobile-first views | Produção, Salas, Calendário | Alto — acessibilidade | CalendarPage scroll sync, RoomsPage/BookingDialog responsivos |
+| ✅ Notificações push/desktop | Speaks + Notificações | Médio — responsividade | `useDesktopNotifications` + Realtime listener + banner de permissão |
+| ✅ i18n (Português + Espanhol) | Global | Médio — Barcelona | I18nProvider, traduções PT-BR/ES, toggle no sidebar |
+| Integração Google Calendar | Salas | Médio — elimina sistema paralelo | 🔜 Pendente |
+| ✅ Dashboard executivo para diretoria | Dashboard | Alto — visão C-level | `ExecutivePanel` com KPIs, gráfico semanal, saúde dos módulos |
+| ✅ Onboarding guiado | Global | Médio — reduz curva de aprendizado | `OnboardingTour` com 6 passos, persistência em localStorage |
 
 ---
 
