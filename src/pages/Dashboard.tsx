@@ -12,6 +12,10 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PersonalPanel } from '@/components/dashboard/PersonalPanel';
 import { KPIPanel } from '@/components/dashboard/KPIPanel';
+import { ExecutivePanel } from '@/components/dashboard/ExecutivePanel';
+import { useNotificationListener } from '@/hooks/useDesktopNotifications';
+import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
+import { OnboardingTour } from '@/components/OnboardingTour';
 
 type ModuleCard = {
   title: string;
@@ -33,6 +37,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
   const qc = useQueryClient();
+
+  useNotificationListener();
 
   // Atualização dinâmica: invalida estatísticas quando dados mudam
   useEffect(() => {
@@ -155,6 +161,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <NotificationPermissionBanner />
+
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
@@ -225,6 +233,9 @@ export default function Dashboard() {
       {/* KPIs da semana — visível para managers+ */}
       <KPIPanel />
 
+      {/* Painel executivo — visível para directors+ */}
+      <ExecutivePanel />
+
       {/* Painel pessoal — em atraso, agenda, mensagens, CRM */}
       <PersonalPanel />
 
@@ -252,6 +263,7 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+      <OnboardingTour />
     </div>
   );
 }

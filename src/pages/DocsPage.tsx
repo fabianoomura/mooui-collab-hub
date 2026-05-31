@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MarkdownEditor } from '@/components/docs/MarkdownEditor';
+import { RichTextEditor } from '@/components/docs/RichTextEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon, Star, Download, FileArchive, LayoutTemplate, Lock } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -466,10 +466,10 @@ export default function DocsPage() {
               placeholder="Sem título"
               className="text-2xl sm:text-4xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0 h-auto py-2 mb-4 placeholder:text-muted-foreground/40"
             />
-            <MarkdownEditor
+            <RichTextEditor
               value={content}
               onChange={setContent}
-              placeholder="Comece a escrever em Markdown… use a barra de ferramentas para inserir tabelas, checklists, código, citações e mais."
+              placeholder="Comece a escrever… use a barra de ferramentas para inserir tabelas, checklists, código, citações e mais."
             />
           </div>
         ) : (
