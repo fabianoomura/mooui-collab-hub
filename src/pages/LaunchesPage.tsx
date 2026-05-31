@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import { Card } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Plus, Trash2, Rocket, AlertTriangle, CheckCircle2, Calendar as CalIcon,
   Copy, GripVertical, Sparkles, CalendarPlus, ClipboardCheck, History,
+  Paperclip, Download, X as XIcon,
 } from 'lucide-react';
 import {
   useLaunches, useCreateLaunch, useDeleteLaunch,
@@ -35,6 +36,7 @@ import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanc
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useLaunchActivity, useLogLaunchActivity } from '@/hooks/useLaunchActivity';
+import { useStageAttachments } from '@/hooks/useStageAttachments';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -238,6 +240,9 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [form, setForm] = useState({ name: '', duration_days: 1, assignee_id: '', actual_end: '', status: 'pending' });
   const [checklistDialog, setChecklistDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+
+  const { attachments: stageFiles, uploadFile: uploadStageFile, deleteAttachment: deleteStageFile } = useStageAttachments(editing?.id);
+  const stageFileRef = useRef<HTMLInputElement>(null);
 
   const handleCreateChecklist = () => {
     if (!launch) return;
@@ -700,6 +705,59 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <Input type="date" value={form.actual_end} onChange={e => setForm({ ...form, actual_end: e.target.value })} />
               <p className="text-[11px] text-muted-foreground mt-1">Se posterior ao prazo, as etapas seguintes são recalculadas.</p>
             </div>
+
+            {/* Anexos da etapa */}
+            {editing && (
+              <div>
+                <Label>Anexos</Label>
+                <input
+                  ref={stageFileRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && editing) {
+                      Array.from(e.target.files).forEach(file => {
+                        uploadStageFile.mutate({ stageId: editing.id, file }, {
+                          onError: () => toast.error('Erro ao enviar arquivo'),
+                        });
+                      });
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => stageFileRef.current?.click()}
+                  className="mt-1 w-full border-2 border-dashed rounded-md p-2.5 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors flex items-center justify-center gap-2"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  Anexar arquivos
+                </button>
+                {stageFiles.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {stageFiles.map((f) => (
+                      <li key={f.id} className="flex items-center gap-2 text-xs group">
+                        <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="truncate flex-1 hover:underline text-primary">
+                          {f.file_name}
+                        </a>
+                        <span className="text-muted-foreground shrink-0">
+                          {f.file_size ? `${(f.file_size / 1024).toFixed(0)} KB` : ''}
+                        </span>
+                        <button
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteStageFile.mutate(f.id)}
+                          title="Remover"
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter className="flex justify-between sm:justify-between mt-4">
             {editing && (

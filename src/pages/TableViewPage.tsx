@@ -1203,6 +1203,7 @@ export default function TableViewPage() {
             onUpdateSubtask={(taskId, updates) => {
               updateTask.mutate({ taskId, updates });
             }}
+            allTasks={tasks}
           />
         </>
       )}

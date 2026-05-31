@@ -119,6 +119,7 @@ export function KanbanBoard({ projectId, search = '' }: Props) {
             onUpdateSubtask={(taskId, updates) => {
               updateTask.mutate({ taskId, updates });
             }}
+            allTasks={allTasks}
           />
         </>
       )}

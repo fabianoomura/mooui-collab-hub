@@ -12,9 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, Hash, FileText, Activity, Info, Send, Link2, ListTree, Plus, CheckCircle2, Circle } from 'lucide-react';
+import { Calendar, CalendarPlus, User, Flag, Tag, MessageSquare, X, Hash, FileText, Activity, Info, Send, Link2, ListTree, Plus, CheckCircle2, Circle, GitBranch, Trash2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { TaskFilesTab } from './TaskFilesTab';
+import { useTaskDependencies, useAddDependency, useRemoveDependency } from '@/hooks/useTaskDependencies';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -61,9 +62,10 @@ interface Props {
   onUpdate: (updates: Record<string, unknown>) => void;
   onAddSubtask?: (title: string) => void;
   onUpdateSubtask?: (taskId: string, updates: Record<string, unknown>) => void;
+  allTasks?: TaskWithAssignees[];
 }
 
-export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate, onAddSubtask, onUpdateSubtask }: Props) {
+export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate, onAddSubtask, onUpdateSubtask, allTasks = [] }: Props) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [ticketNumber, setTicketNumber] = useState(task.ticket_number || '');
@@ -78,6 +80,9 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
   const { data: activityLog } = useTaskActivity(task.id);
   const createEvent = useCreateAnnualEvent();
   const createLink = useCreateLink();
+  const { data: dependencies = [] } = useTaskDependencies(task.id);
+  const addDep = useAddDependency();
+  const removeDep = useRemoveDependency();
 
   const assignedUserIds = new Set(task.task_assignees?.map(a => a.user_id) || []);
 
@@ -142,6 +147,10 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
           </TabsTrigger>
           <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
             <Link2 className="h-3 w-3 mr-1" /> Links
+          </TabsTrigger>
+          <TabsTrigger value="deps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
+            <GitBranch className="h-3 w-3 mr-1" /> Dependências
+            {dependencies.length > 0 && <span className="ml-1 text-muted-foreground">/{dependencies.length}</span>}
           </TabsTrigger>
           {!parentTask && (
             <TabsTrigger value="subtasks" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs py-2 px-3">
@@ -264,6 +273,68 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
                 </Button>
               </div>
               <LinkedItems sourceType="task" sourceId={task.id} />
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        {/* Dependencies Tab */}
+        <TabsContent value="deps" className="flex-1 m-0">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              {dependencies.length > 0 ? (
+                <div className="space-y-1">
+                  {dependencies.map(dep => (
+                    <div key={dep.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 group">
+                      {dep.task_status === 'done'
+                        ? <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        : <Circle className="h-4 w-4 text-amber-500 shrink-0" />
+                      }
+                      <span className={`text-sm flex-1 ${dep.task_status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
+                        {dep.task_title}
+                      </span>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeDep.mutate({ id: dep.id, taskId: task.id })}
+                        title="Remover dependência"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-6">Nenhuma dependência</p>
+              )}
+
+              {allTasks.length > 0 && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Adicionar dependência</Label>
+                  <Select
+                    value=""
+                    onValueChange={(depId) => {
+                      if (depId) addDep.mutate({ task_id: task.id, depends_on_id: depId });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Selecionar tarefa…" /></SelectTrigger>
+                    <SelectContent>
+                      {allTasks
+                        .filter(t => t.id !== task.id && !dependencies.some(d => d.depends_on_id === t.id))
+                        .map(t => (
+                          <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                        ))
+                      }
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {dependencies.some(d => d.task_status !== 'done') && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Esta tarefa está bloqueada por {dependencies.filter(d => d.task_status !== 'done').length} dependência(s) não concluída(s).
+                  </p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </TabsContent>
