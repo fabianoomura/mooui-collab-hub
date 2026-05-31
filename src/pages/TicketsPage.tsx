@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Bug, HelpCircle, Wrench, MoreHorizontal, Trash2, Send, Search, X, Inbox, Headset, UserCheck, Clock, CheckCircle2, AlertCircle, Paperclip, BarChart3, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
