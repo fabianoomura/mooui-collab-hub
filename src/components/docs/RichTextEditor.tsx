@@ -278,6 +278,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
             '[&_table]:border-collapse [&_table]:w-full',
             '[&_td]:border [&_td]:border-border [&_td]:p-2',
             '[&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_th]:font-semibold',
+            mode === 'preview' && 'prose-lg prose-headings:font-bold prose-h1:text-4xl prose-h2:text-2xl prose-h2:mt-10 prose-h2:pb-2 prose-h2:border-b prose-h2:border-border prose-a:text-primary prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground prose-img:rounded-lg prose-img:shadow-md leading-relaxed',
           )}
         />
       </div>
