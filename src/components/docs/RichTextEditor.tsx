@@ -44,6 +44,7 @@ interface Props {
 
 export function RichTextEditor({ value, onChange, placeholder }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
