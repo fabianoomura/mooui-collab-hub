@@ -13,6 +13,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Bold,
   Italic,
@@ -21,6 +22,8 @@ import {
   Heading2,
   Heading3,
   List,
+  Eye,
+  Pencil,
   ListOrdered,
   ListChecks,
   Quote,
