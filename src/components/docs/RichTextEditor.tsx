@@ -197,7 +197,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     <div className="flex flex-col">
       {/* Toolbar */}
       <div className="flex items-center gap-1 flex-wrap mb-2 pb-2 border-b border-border">
-        {tools.map((t, i) =>
+        {mode === 'edit' && tools.map((t, i) =>
           t === 'sep' ? (
             <span key={i} className="w-px h-5 bg-border mx-1" />
           ) : (
@@ -217,6 +217,26 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
             </button>
           ),
         )}
+        <div className="ml-auto flex items-center rounded-md border border-border overflow-hidden">
+          <Button
+            type="button"
+            variant={mode === 'edit' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 rounded-none px-2 text-xs"
+            onClick={() => { setMode('edit'); editor.setEditable(true); }}
+          >
+            <Pencil className="h-3 w-3 mr-1" /> Editar
+          </Button>
+          <Button
+            type="button"
+            variant={mode === 'preview' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 rounded-none px-2 text-xs"
+            onClick={() => { setMode('preview'); editor.setEditable(false); }}
+          >
+            <Eye className="h-3 w-3 mr-1" /> Visualizar
+          </Button>
+        </div>
       </div>
 
       {/* Hidden file input */}
