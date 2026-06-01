@@ -13,6 +13,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Bold,
   Italic,
@@ -21,6 +22,8 @@ import {
   Heading2,
   Heading3,
   List,
+  Eye,
+  Pencil,
   ListOrdered,
   ListChecks,
   Quote,
@@ -41,6 +44,7 @@ interface Props {
 
 export function RichTextEditor({ value, onChange, placeholder }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -193,7 +197,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     <div className="flex flex-col">
       {/* Toolbar */}
       <div className="flex items-center gap-1 flex-wrap mb-2 pb-2 border-b border-border">
-        {tools.map((t, i) =>
+        {mode === 'edit' && tools.map((t, i) =>
           t === 'sep' ? (
             <span key={i} className="w-px h-5 bg-border mx-1" />
           ) : (
@@ -213,6 +217,26 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
             </button>
           ),
         )}
+        <div className="ml-auto flex items-center rounded-md border border-border overflow-hidden">
+          <Button
+            type="button"
+            variant={mode === 'edit' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 rounded-none px-2 text-xs"
+            onClick={() => { setMode('edit'); editor.setEditable(true); }}
+          >
+            <Pencil className="h-3 w-3 mr-1" /> Editar
+          </Button>
+          <Button
+            type="button"
+            variant={mode === 'preview' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 rounded-none px-2 text-xs"
+            onClick={() => { setMode('preview'); editor.setEditable(false); }}
+          >
+            <Eye className="h-3 w-3 mr-1" /> Visualizar
+          </Button>
+        </div>
       </div>
 
       {/* Hidden file input */}
@@ -254,6 +278,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
             '[&_table]:border-collapse [&_table]:w-full',
             '[&_td]:border [&_td]:border-border [&_td]:p-2',
             '[&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_th]:font-semibold',
+            mode === 'preview' && 'prose-lg prose-headings:font-bold prose-h1:text-4xl prose-h2:text-2xl prose-h2:mt-10 prose-h2:pb-2 prose-h2:border-b prose-h2:border-border prose-a:text-primary prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground prose-img:rounded-lg prose-img:shadow-md leading-relaxed',
           )}
         />
       </div>
