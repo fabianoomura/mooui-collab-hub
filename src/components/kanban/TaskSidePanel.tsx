@@ -62,6 +62,7 @@ interface Props {
   onUpdate: (updates: Record<string, unknown>) => void;
   onAddSubtask?: (title: string) => void;
   onUpdateSubtask?: (taskId: string, updates: Record<string, unknown>) => void;
+  onDelete?: (taskId: string) => void;
   allTasks?: TaskWithAssignees[];
 }
 
