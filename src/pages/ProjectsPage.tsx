@@ -24,7 +24,37 @@ export default function ProjectsPage() {
   const { currentOrg } = useOrganization();
   const { data: projects, isLoading } = useProjectsByOrg(currentOrg?.id);
   const createProject = useCreateProject();
+  const archiveProject = useDeleteProject();
+  const destroyProject = useDestroyProject();
+  const confirm = useConfirm();
   const { canDo } = usePermissions();
+
+  const handleArchive = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Arquivar projeto?',
+      description: `"${name}" será removido da lista mas pode ser restaurado depois.`,
+      confirmText: 'Arquivar',
+    });
+    if (!ok) return;
+    archiveProject.mutate(id, {
+      onSuccess: () => toast.success('Projeto arquivado'),
+      onError: (e: any) => toast.error(e.message || 'Erro ao arquivar'),
+    });
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Excluir projeto?',
+      description: `"${name}" e todas as suas tarefas, colunas e dados serão removidos permanentemente. Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    destroyProject.mutate(id, {
+      onSuccess: () => toast.success('Projeto excluído'),
+      onError: (e: any) => toast.error(e.message || 'Erro ao excluir'),
+    });
+  };
 
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState('');
