@@ -136,7 +136,18 @@ export function useProjectTasks(projectId: string | undefined) {
     },
   });
 
-  return { columns, tasks: tasksQuery.data || [], isLoading: tasksQuery.isLoading, moveTask, addTask, updateTask };
+  const deleteTask = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-flat', projectId] });
+    },
+  });
+
+  return { columns, tasks: tasksQuery.data || [], isLoading: tasksQuery.isLoading, moveTask, addTask, updateTask, deleteTask };
 }
 
 export function useProjects() {
@@ -218,6 +229,20 @@ export function useDeleteProject() {
         .from('projects')
         .update({ status: 'archived' as const })
         .eq('id', projectId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
+export function useDestroyProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      const { error } = await supabase.from('projects').delete().eq('id', projectId);
       if (error) throw error;
     },
     onSuccess: () => {

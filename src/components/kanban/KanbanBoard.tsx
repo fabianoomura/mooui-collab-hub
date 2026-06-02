@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function KanbanBoard({ projectId, search = '' }: Props) {
-  const { columns, tasks: allTasks, isLoading, moveTask, addTask, updateTask } = useProjectTasks(projectId);
+  const { columns, tasks: allTasks, isLoading, moveTask, addTask, updateTask, deleteTask } = useProjectTasks(projectId);
   const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
 
   const handleDragEnd = (result: DropResult) => {
@@ -118,6 +118,12 @@ export function KanbanBoard({ projectId, search = '' }: Props) {
             }}
             onUpdateSubtask={(taskId, updates) => {
               updateTask.mutate({ taskId, updates });
+            }}
+            onDelete={(taskId) => {
+              deleteTask.mutate(taskId, {
+                onSuccess: () => toast.success('Tarefa excluída!'),
+                onError: (e: any) => toast.error(e.message || 'Erro ao excluir'),
+              });
             }}
             allTasks={allTasks}
           />

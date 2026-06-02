@@ -1,4 +1,4 @@
-import { useProjectsByOrg, useCreateProject } from '@/hooks/useProjectData';
+import { useProjectsByOrg, useCreateProject, useDeleteProject, useDestroyProject } from '@/hooks/useProjectData';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,17 +10,51 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, FolderKanban, Users, Loader2 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { Plus, FolderKanban, Users, Loader2, MoreVertical, Archive, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
   const { currentOrg } = useOrganization();
   const { data: projects, isLoading } = useProjectsByOrg(currentOrg?.id);
   const createProject = useCreateProject();
+  const archiveProject = useDeleteProject();
+  const destroyProject = useDestroyProject();
+  const confirm = useConfirm();
   const { canDo } = usePermissions();
+
+  const handleArchive = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Arquivar projeto?',
+      description: `"${name}" será removido da lista mas pode ser restaurado depois.`,
+      confirmText: 'Arquivar',
+    });
+    if (!ok) return;
+    archiveProject.mutate(id, {
+      onSuccess: () => toast.success('Projeto arquivado'),
+      onError: (e: any) => toast.error(e.message || 'Erro ao arquivar'),
+    });
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Excluir projeto?',
+      description: `"${name}" e todas as suas tarefas, colunas e dados serão removidos permanentemente. Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    destroyProject.mutate(id, {
+      onSuccess: () => toast.success('Projeto excluído'),
+      onError: (e: any) => toast.error(e.message || 'Erro ao excluir'),
+    });
+  };
 
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState('');
@@ -88,7 +122,28 @@ export default function ProjectsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
-                  <CardTitle className="text-base">{project.name}</CardTitle>
+                  <CardTitle className="text-base flex-1">{project.name}</CardTitle>
+                  {canDo('delete_project') && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 -mr-1">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => handleArchive(project.id, project.name)}>
+                          <Archive className="h-4 w-4 mr-2" /> Arquivar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(project.id, project.name)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Excluir permanentemente
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>

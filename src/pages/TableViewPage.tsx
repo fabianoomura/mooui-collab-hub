@@ -830,7 +830,7 @@ export default function TableViewPage() {
   };
 
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
-  const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
+  const { tasks, isLoading: loadingTasks, addTask, updateTask, deleteTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
   const { members: projectMembers, addAssignee, removeAssignee } = useProjectMembers(activeProjectId);
   const { data: projectTemplates = [] } = useProjectTemplates();
@@ -1202,6 +1202,12 @@ export default function TableViewPage() {
             }}
             onUpdateSubtask={(taskId, updates) => {
               updateTask.mutate({ taskId, updates });
+            }}
+            onDelete={(taskId) => {
+              deleteTask.mutate(taskId, {
+                onSuccess: () => toast.success('Tarefa excluída!'),
+                onError: (e: any) => toast.error(e.message || 'Erro ao excluir'),
+              });
             }}
             allTasks={tasks}
           />

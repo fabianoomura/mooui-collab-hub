@@ -18,6 +18,7 @@ import { TaskFilesTab } from './TaskFilesTab';
 import { useTaskDependencies, useAddDependency, useRemoveDependency } from '@/hooks/useTaskDependencies';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const priorityOptions: { value: TaskPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
@@ -62,10 +63,11 @@ interface Props {
   onUpdate: (updates: Record<string, unknown>) => void;
   onAddSubtask?: (title: string) => void;
   onUpdateSubtask?: (taskId: string, updates: Record<string, unknown>) => void;
+  onDelete?: (taskId: string) => void;
   allTasks?: TaskWithAssignees[];
 }
 
-export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate, onAddSubtask, onUpdateSubtask, allTasks = [] }: Props) {
+export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate, onAddSubtask, onUpdateSubtask, onDelete, allTasks = [] }: Props) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [ticketNumber, setTicketNumber] = useState(task.ticket_number || '');
@@ -83,6 +85,7 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
   const { data: dependencies = [] } = useTaskDependencies(task.id);
   const addDep = useAddDependency();
   const removeDep = useRemoveDependency();
+  const confirm = useConfirm();
 
   const assignedUserIds = new Set(task.task_assignees?.map(a => a.user_id) || []);
 
@@ -127,10 +130,32 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
           )}
           <h3 className="text-sm font-semibold text-foreground truncate">{task.title}</h3>
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 transition-colors">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onDelete && (
+            <button
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Excluir tarefa?',
+                  description: `"${task.title}" e todas as suas subtarefas serão removidas. Esta ação não pode ser desfeita.`,
+                  confirmText: 'Excluir',
+                  destructive: true,
+                });
+                if (!ok) return;
+                onDelete(task.id);
+                onClose();
+              }}
+              className="text-muted-foreground hover:text-destructive p-1 transition-colors"
+              title="Excluir tarefa"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
+
 
       {/* Tabs */}
       <Tabs defaultValue="updates" className="flex-1 flex flex-col overflow-hidden">
