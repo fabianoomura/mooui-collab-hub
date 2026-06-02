@@ -237,6 +237,20 @@ export function useDeleteProject() {
   });
 }
 
+export function useDestroyProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      const { error } = await supabase.from('projects').delete().eq('id', projectId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
 // Hook for task comments
 export function useTaskComments(taskId: string | undefined) {
   const queryClient = useQueryClient();
