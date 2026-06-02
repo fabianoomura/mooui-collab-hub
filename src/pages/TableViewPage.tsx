@@ -830,7 +830,7 @@ export default function TableViewPage() {
   };
 
   const activeProjectId = projectFromUrl || projects?.[0]?.id;
-  const { tasks, isLoading: loadingTasks, addTask, updateTask } = useProjectTasks(activeProjectId);
+  const { tasks, isLoading: loadingTasks, addTask, updateTask, deleteTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
   const { members: projectMembers, addAssignee, removeAssignee } = useProjectMembers(activeProjectId);
   const { data: projectTemplates = [] } = useProjectTemplates();
