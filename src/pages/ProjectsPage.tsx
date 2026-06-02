@@ -1,4 +1,4 @@
-import { useProjectsByOrg, useCreateProject } from '@/hooks/useProjectData';
+import { useProjectsByOrg, useCreateProject, useDeleteProject, useDestroyProject } from '@/hooks/useProjectData';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,10 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, FolderKanban, Users, Loader2 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { Plus, FolderKanban, Users, Loader2, MoreVertical, Archive, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
