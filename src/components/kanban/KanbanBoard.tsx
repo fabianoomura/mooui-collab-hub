@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function KanbanBoard({ projectId, search = '' }: Props) {
-  const { columns, tasks: allTasks, isLoading, moveTask, addTask, updateTask } = useProjectTasks(projectId);
+  const { columns, tasks: allTasks, isLoading, moveTask, addTask, updateTask, deleteTask } = useProjectTasks(projectId);
   const [selectedTask, setSelectedTask] = useState<TaskWithAssignees | null>(null);
 
   const handleDragEnd = (result: DropResult) => {
