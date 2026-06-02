@@ -85,6 +85,7 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
   const { data: dependencies = [] } = useTaskDependencies(task.id);
   const addDep = useAddDependency();
   const removeDep = useRemoveDependency();
+  const confirm = useConfirm();
 
   const assignedUserIds = new Set(task.task_assignees?.map(a => a.user_id) || []);
 
