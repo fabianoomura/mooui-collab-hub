@@ -66,7 +66,7 @@ interface Props {
   allTasks?: TaskWithAssignees[];
 }
 
-export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate, onAddSubtask, onUpdateSubtask, allTasks = [] }: Props) {
+export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUpdate, onAddSubtask, onUpdateSubtask, onDelete, allTasks = [] }: Props) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [ticketNumber, setTicketNumber] = useState(task.ticket_number || '');
