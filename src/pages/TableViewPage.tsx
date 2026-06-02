@@ -1203,6 +1203,12 @@ export default function TableViewPage() {
             onUpdateSubtask={(taskId, updates) => {
               updateTask.mutate({ taskId, updates });
             }}
+            onDelete={(taskId) => {
+              deleteTask.mutate(taskId, {
+                onSuccess: () => toast.success('Tarefa excluída!'),
+                onError: (e: any) => toast.error(e.message || 'Erro ao excluir'),
+              });
+            }}
             allTasks={tasks}
           />
         </>
