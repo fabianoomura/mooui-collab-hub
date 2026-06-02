@@ -18,6 +18,7 @@ import { TaskFilesTab } from './TaskFilesTab';
 import { useTaskDependencies, useAddDependency, useRemoveDependency } from '@/hooks/useTaskDependencies';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const priorityOptions: { value: TaskPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
