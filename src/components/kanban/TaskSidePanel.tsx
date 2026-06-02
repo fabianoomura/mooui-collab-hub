@@ -154,6 +154,8 @@ export function TaskSidePanel({ task, parentTask, projectId, open, onClose, onUp
             <X className="h-5 w-5" />
           </button>
         </div>
+      </div>
+
 
       {/* Tabs */}
       <Tabs defaultValue="updates" className="flex-1 flex flex-col overflow-hidden">
