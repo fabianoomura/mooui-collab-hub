@@ -795,6 +795,7 @@ function TaskRow({
               onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
               projectMembers={projectMembers} onAddAssignee={onAddAssignee} onRemoveAssignee={onRemoveAssignee}
               allTopLevelTasks={allTopLevelTasks} onMoveToParent={onMoveToParent} onPromoteToTopLevel={onPromoteToTopLevel}
+              draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
             />
           ))}
           <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">
