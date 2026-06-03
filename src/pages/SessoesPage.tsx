@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, ChevronRight,
-  ClipboardSignature, Film, Image as ImageIcon, Lightbulb, Plus,
+  ClipboardSignature, Film, Image as ImageIcon, LayoutList, Lightbulb, Plus,
   Search as SearchIcon, Trash2, UserRound, X,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -85,6 +85,7 @@ const ideaStatusColors: Record<SessaoIdeaStatus, string> = {
 };
 
 type OrgMember = { id: string; full_name: string | null };
+const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 export default function SessoesPage() {
   const { currentOrg } = useOrganization();
@@ -141,6 +142,7 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | SessaoStatus>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [nTitle, setNTitle] = useState('');
@@ -224,6 +226,14 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center gap-1 rounded-md border p-1">
+          <Button size="sm" variant={viewMode === 'list' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('list')}>
+            <LayoutList className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant={viewMode === 'calendar' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('calendar')}>
+            <CalendarIcon className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" />Nova sessao</Button>
       </div>
 
@@ -231,6 +241,8 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : filtered.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma sessao encontrada.</Card>
+      ) : viewMode === 'calendar' ? (
+        <SessoesCalendar sessoes={filtered} onOpen={(sessao) => { setExpandedId(sessao.id); setViewMode('list'); }} />
       ) : (
         <div className="space-y-2">
           {filtered.map((sessao) => {
@@ -318,6 +330,56 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function SessoesCalendar({ sessoes, onOpen }: { sessoes: Sessao[]; onOpen: (sessao: Sessao) => void }) {
+  const byMonth = useMemo(() => {
+    const map = new Map<number, Sessao[]>();
+    for (let month = 0; month < 12; month++) map.set(month, []);
+    sessoes.forEach((sessao) => {
+      if (!sessao.scheduled_date) return;
+      map.get(new Date(sessao.scheduled_date + 'T12:00:00').getMonth())?.push(sessao);
+    });
+    return map;
+  }, [sessoes]);
+  const currentMonth = new Date().getMonth();
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {MONTHS.map((month, index) => {
+        const items = byMonth.get(index) || [];
+        const isCurrent = index === currentMonth;
+        return (
+          <Card key={month} className={cn('p-3 min-h-[130px]', isCurrent && 'ring-2 ring-primary/40')}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className={cn('text-sm font-semibold', isCurrent && 'text-primary')}>{month}</h3>
+              {items.length > 0 && <Badge variant="secondary" className="text-[10px] h-5">{items.length}</Badge>}
+            </div>
+            {items.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-5">-</p>
+            ) : (
+              <div className="space-y-1.5">
+                {items.map((sessao) => (
+                  <button key={sessao.id} className="w-full rounded-md p-2 text-left hover:bg-muted/60 transition-colors" onClick={() => onOpen(sessao)}>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-violet-500 shrink-0" />
+                      <span className="text-xs font-medium truncate flex-1">{sessao.title}</span>
+                      <Badge variant="outline" className={cn('text-[10px]', sessaoStatusColors[sessao.status])}>{sessaoStatusLabels[sessao.status]}</Badge>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <CalendarIcon className="h-3 w-3" />
+                      <span>{sessao.scheduled_date ? format(new Date(sessao.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data'}</span>
+                      {sessao.professional && <span className="truncate">- {sessao.professional}</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }

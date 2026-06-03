@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +34,20 @@ const CATEGORIES = [
   { value: 'data', label: 'Data importante', color: '#F59E0B' },
 ];
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+type MarketingCalendarOrigin = 'calendar' | 'conteudo' | 'sessao';
+type MarketingCalendarItem = AnnualEvent & {
+  origin: MarketingCalendarOrigin;
+  originLabel: string;
+  originDetail?: string;
+  readonly?: boolean;
+};
+
+const ORIGIN_LABELS: Record<MarketingCalendarOrigin, string> = {
+  calendar: 'Calendario',
+  conteudo: 'Conteudo',
+  sessao: 'Sessao',
+};
+
 const ETAPA_STATUS_LABELS: Record<EventEtapaStatus, string> = {
   pendente: 'Pendente',
   em_andamento: 'Em andamento',
@@ -50,6 +65,36 @@ export default function CalendarPage() {
 
   const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('calendario');
   const { data: events = [], isLoading } = useAnnualEvents(year, activeInstance);
+  const { data: conteudos = [] } = useQuery({
+    queryKey: ['calendar-origin-conteudo', currentOrg?.id, year],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data, error } = await supabase
+        .from('conteudo_items' as any)
+        .select('id, title, channel, content_type, status, scheduled_date')
+        .eq('organization_id', currentOrg.id)
+        .gte('scheduled_date', `${year}-01-01`)
+        .lte('scheduled_date', `${year}-12-31`);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentOrg,
+  });
+  const { data: sessoes = [] } = useQuery({
+    queryKey: ['calendar-origin-sessoes', currentOrg?.id, year],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data, error } = await supabase
+        .from('sessoes' as any)
+        .select('id, title, status, scheduled_date, professional')
+        .eq('organization_id', currentOrg.id)
+        .gte('scheduled_date', `${year}-01-01`)
+        .lte('scheduled_date', `${year}-12-31`);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentOrg,
+  });
   const createEvt = useCreateAnnualEvent();
   const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
@@ -73,16 +118,66 @@ export default function CalendarPage() {
   const currentMonth = today.getMonth();
   const isCurrentYear = year === today.getFullYear();
 
+  const calendarItems = useMemo<MarketingCalendarItem[]>(() => {
+    const annualItems = events.map((event) => ({
+      ...event,
+      origin: 'calendar' as const,
+      originLabel: ORIGIN_LABELS.calendar,
+      originDetail: CATEGORIES.find((category) => category.value === event.category)?.label || event.category,
+    }));
+    const contentItems = (conteudos as any[])
+      .filter((item) => item.scheduled_date)
+      .map((item) => ({
+        id: `conteudo-${item.id}`,
+        organization_id: currentOrg?.id || '',
+        title: item.title,
+        description: item.content_type || item.status || null,
+        category: 'conteudo',
+        color: '#ec4899',
+        start_date: item.scheduled_date,
+        end_date: null,
+        project_id: null,
+        created_by: '',
+        created_at: '',
+        updated_at: '',
+        origin: 'conteudo' as const,
+        originLabel: ORIGIN_LABELS.conteudo,
+        originDetail: [item.channel, item.content_type].filter(Boolean).join(' / '),
+        readonly: true,
+      }));
+    const sessionItems = (sessoes as any[])
+      .filter((item) => item.scheduled_date)
+      .map((item) => ({
+        id: `sessao-${item.id}`,
+        organization_id: currentOrg?.id || '',
+        title: item.title,
+        description: item.professional || item.status || null,
+        category: 'sessao',
+        color: '#8b5cf6',
+        start_date: item.scheduled_date,
+        end_date: null,
+        project_id: null,
+        created_by: '',
+        created_at: '',
+        updated_at: '',
+        origin: 'sessao' as const,
+        originLabel: ORIGIN_LABELS.sessao,
+        originDetail: item.professional || item.status,
+        readonly: true,
+      }));
+    return [...annualItems, ...contentItems, ...sessionItems];
+  }, [events, conteudos, sessoes, currentOrg?.id]);
+
   const filtered = useMemo(() => {
-    return events.filter((e) => {
-      if (activeCats.length && !activeCats.includes(e.category)) return false;
-      if (search.trim() && !e.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return calendarItems.filter((e) => {
+      if (activeCats.length && (e.origin !== 'calendar' || !activeCats.includes(e.category))) return false;
+      if (search.trim() && !`${e.title} ${e.originLabel} ${e.originDetail || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [events, activeCats, search]);
+  }, [calendarItems, activeCats, search]);
 
   const byMonth = useMemo(() => {
-    const map: Record<number, AnnualEvent[]> = {};
+    const map: Record<number, MarketingCalendarItem[]> = {};
     for (let i = 0; i < 12; i++) map[i] = [];
     filtered.forEach(e => {
       const startM = new Date(e.start_date + 'T00:00:00').getMonth();
@@ -112,6 +207,14 @@ export default function CalendarPage() {
       end_date: e.end_date || '',
     });
     setOpen(true);
+  };
+
+  const openCalendarItem = (item: MarketingCalendarItem) => {
+    if (item.origin === 'calendar') {
+      openEdit(item);
+      return;
+    }
+    toast.info(`Origem: ${item.originLabel}${item.originDetail ? ` - ${item.originDetail}` : ''}`);
   };
 
   const handleSave = () => {
@@ -225,7 +328,7 @@ export default function CalendarPage() {
           </TabsList>
 
           <TabsContent value="agenda" className="mt-4">
-            <AgendaView events={filtered} onEventClick={openEdit} onNew={() => openNew()} />
+            <AgendaView events={filtered} onEventClick={openCalendarItem} onNew={() => openNew()} />
           </TabsContent>
 
           <TabsContent value="grid" className="mt-4">
@@ -256,12 +359,15 @@ export default function CalendarPage() {
                       {byMonth[i].map(e => (
                         <button
                           key={`${e.id}-${i}`}
-                          onClick={() => openEdit(e)}
+                          onClick={() => openCalendarItem(e)}
                           className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
                         >
                           <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{e.title}</div>
+                            <div className="mt-0.5">
+                              <Badge variant="outline" className="h-4 px-1 text-[9px]">{e.originLabel}</Badge>
+                            </div>
                             <div className="text-muted-foreground">
                               {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                               {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
@@ -281,7 +387,7 @@ export default function CalendarPage() {
               year={year}
               events={filtered}
               isCurrentYear={isCurrentYear}
-              onEventClick={openEdit}
+              onEventClick={openCalendarItem}
             />
           </TabsContent>
         </Tabs>
@@ -436,9 +542,9 @@ function TimelineView({
   year, events, isCurrentYear, onEventClick,
 }: {
   year: number;
-  events: AnnualEvent[];
+  events: MarketingCalendarItem[];
   isCurrentYear: boolean;
-  onEventClick: (e: AnnualEvent) => void;
+  onEventClick: (e: MarketingCalendarItem) => void;
 }) {
   const totalDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
 
@@ -521,6 +627,7 @@ function TimelineView({
                       <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
                       <span className="text-xs font-medium truncate">{e.title}</span>
                     </div>
+                    <div className="text-[10px] text-muted-foreground truncate ml-4">{e.originLabel}{e.originDetail ? ` - ${e.originDetail}` : ''}</div>
                   </div>
                   <div className="relative flex-1 h-10">
                     {/* Month gridlines */}
@@ -559,6 +666,7 @@ function TimelineView({
                       <TooltipContent side="top">
                         <div className="text-xs">
                           <div className="font-semibold">{e.title}</div>
+                          <div className="text-muted-foreground">Origem: {e.originLabel}{e.originDetail ? ` - ${e.originDetail}` : ''}</div>
                           <div className="text-muted-foreground">
                             {startD.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                             {e.end_date && ` → ${endD.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
@@ -590,8 +698,8 @@ function TimelineView({
 function AgendaView({
   events, onEventClick, onNew,
 }: {
-  events: AnnualEvent[];
-  onEventClick: (e: AnnualEvent) => void;
+  events: MarketingCalendarItem[];
+  onEventClick: (e: MarketingCalendarItem) => void;
   onNew: () => void;
 }) {
   const today = new Date();
@@ -674,6 +782,10 @@ function AgendaView({
                     <div className="h-2.5 w-2.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: e.color }} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{e.title}</div>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        <Badge variant="outline" className="h-4 px-1 text-[9px]">{e.originLabel}</Badge>
+                        {e.originDetail && <span className="text-[10px] text-muted-foreground truncate">{e.originDetail}</span>}
+                      </div>
                       {e.description && (
                         <div className="text-xs text-muted-foreground line-clamp-1">{e.description}</div>
                       )}

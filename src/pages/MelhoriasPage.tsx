@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Plus, Globe, Monitor, Search as SearchIcon, Code, BarChart3, X, Send, Trash2, Paperclip, Clock, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { Plus, Globe, Monitor, Search as SearchIcon, Code, BarChart3, X, Send, Trash2, Paperclip, Clock, CheckCircle2, AlertCircle, FileText, LayoutList } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +77,7 @@ export default function MelhoriasPage() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | MelhoriaPriority>('all');
   const [areaFilter, setAreaFilter] = useState<'all' | MelhoriaArea>('all');
   const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
 
   // New form state
   const [nTitle, setNTitle] = useState('');
@@ -224,6 +225,14 @@ export default function MelhoriasPage() {
               <X className="h-3.5 w-3.5 mr-1" />Limpar
             </Button>
           )}
+          <div className="flex items-center gap-1 rounded-md border p-1">
+            <Button size="sm" variant={viewMode === 'list' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('list')}>
+              <LayoutList className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('kanban')}>
+              <BarChart3 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -245,6 +254,16 @@ export default function MelhoriasPage() {
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Nenhuma melhoria {filter !== 'all' ? `com status "${statusLabels[filter as MelhoriaStatus]}"` : ''}.
         </Card>
+      ) : viewMode === 'kanban' ? (
+        <MelhoriasKanban
+          melhorias={baseFiltered}
+          profileMap={profileMap as any}
+          onOpen={setOpenItem}
+          onStatusChange={(item, status) => updateMut.mutate({ id: item.id, status }, {
+            onSuccess: () => toast.success('Status atualizado'),
+            onError: (e: any) => toast.error(e?.message || 'Erro ao atualizar status'),
+          })}
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map((m) => {
@@ -371,6 +390,79 @@ export default function MelhoriasPage() {
           profileMap={profileMap as any}
         />
       )}
+    </div>
+  );
+}
+
+function MelhoriasKanban({
+  melhorias, profileMap, onOpen, onStatusChange,
+}: {
+  melhorias: Melhoria[];
+  profileMap: Map<string, { id: string; full_name: string | null }>;
+  onOpen: (item: Melhoria) => void;
+  onStatusChange: (item: Melhoria, status: MelhoriaStatus) => void;
+}) {
+  const statuses = Object.keys(statusLabels) as MelhoriaStatus[];
+  const byStatus = useMemo(() => {
+    const map = new Map<MelhoriaStatus, Melhoria[]>();
+    statuses.forEach((status) => map.set(status, []));
+    melhorias.forEach((item) => map.get(item.status)?.push(item));
+    return map;
+  }, [melhorias]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+      {statuses.map((status) => {
+        const items = byStatus.get(status) || [];
+        return (
+          <Card key={status} className="p-3 bg-muted/20">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'h-2.5 w-2.5 rounded-full',
+                    status === 'open' && 'bg-amber-500',
+                    status === 'in_progress' && 'bg-blue-500',
+                    status === 'done' && 'bg-emerald-500',
+                    status === 'rejected' && 'bg-slate-400',
+                  )}
+                />
+                <h3 className="text-sm font-semibold">{statusLabels[status]}</h3>
+              </div>
+              <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {items.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">-</p>}
+              {items.map((item) => {
+                const assignee = item.assigned_to ? profileMap.get(item.assigned_to) : null;
+                return (
+                  <div key={item.id} className="rounded-md border bg-card p-2 space-y-2">
+                    <button className="w-full text-left" onClick={() => onOpen(item)}>
+                      <div className="flex items-start gap-2">
+                        {item.code && <span className="text-[10px] font-mono text-muted-foreground">{item.code}</span>}
+                        <span className="text-xs font-medium flex-1 line-clamp-2">{item.title}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                        <Badge variant="outline" className={cn('text-[10px]', priorityColors[item.priority])}>{priorityLabels[item.priority]}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{areaLabels[item.area]}</Badge>
+                      </div>
+                      {assignee && <p className="mt-1 text-[10px] text-muted-foreground truncate">Responsavel: {assignee.full_name || 'Usuario'}</p>}
+                    </button>
+                    <Select value={item.status} onValueChange={(value) => onStatusChange(item, value as MelhoriaStatus)}>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {statuses.map((key) => (
+                          <SelectItem key={key} value={key}>{statusLabels[key]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }

@@ -46,6 +46,7 @@ const channelLabels: Record<ConteudoChannel, string> = {
   mooui_kids: 'MOOUI Kids', mooui_home: 'MOOUI Home', amo_mooui: 'Amo MOOUI',
   barcelona: 'Barcelona', outras_redes: 'Outras Redes', pinterest: 'Pinterest',
 };
+const channelOrder: ConteudoChannel[] = ['mooui_kids', 'mooui_home', 'amo_mooui', 'barcelona', 'outras_redes', 'pinterest'];
 const channelColors: Record<ConteudoChannel, string> = {
   mooui_kids: 'bg-pink-500/15 text-pink-700 dark:text-pink-300',
   mooui_home: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
@@ -90,6 +91,16 @@ const pautaPriorityColors: Record<PautaPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
   medium: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
   high: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
+};
+const pautaItemStatusLabels: Record<string, string> = {
+  pendente: 'Pendente',
+  em_andamento: 'Em andamento',
+  concluido: 'Concluído',
+};
+const pautaItemStatusColors: Record<string, string> = {
+  pendente: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
+  em_andamento: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  concluido: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 };
 
 /* ================================================================ */
@@ -195,6 +206,26 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
     if (q && !i.title.toLowerCase().includes(q)) return false;
     return true;
   });
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const channelStats = useMemo(() => {
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    return channelOrder.map(channel => {
+      const channelItems = items.filter(i => i.channel === channel);
+      const scheduled = channelItems.filter(i => !!i.scheduled_date).length;
+      const pending = channelItems.filter(i => i.status !== 'publicado').length;
+      const week = channelItems.filter(i => {
+        if (!i.scheduled_date) return false;
+        const date = new Date(`${i.scheduled_date}T12:00:00`);
+        return date >= today && date <= nextWeek;
+      }).length;
+      return { channel, total: channelItems.length, scheduled, pending, week };
+    });
+  }, [items, today]);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -229,6 +260,35 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         </Button>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
+        {channelStats.map(stat => {
+          const active = channelFilter === stat.channel;
+          return (
+            <button
+              key={stat.channel}
+              type="button"
+              onClick={() => setChannelFilter(active ? 'all' : stat.channel)}
+              className={cn(
+                'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                active && 'border-primary ring-1 ring-primary/30'
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium truncate">{channelLabels[stat.channel]}</span>
+                <Badge variant="outline" className={cn('text-[10px] shrink-0', channelColors[stat.channel])}>
+                  {stat.pending}
+                </Badge>
+              </div>
+              <div className="mt-2 text-2xl font-semibold leading-none">{stat.total}</div>
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <span>{stat.week} na semana</span>
+                <span>{stat.scheduled} datados</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
         <div className="relative flex-1 min-w-0">
@@ -239,7 +299,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
           <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os canais</SelectItem>
-            {(Object.keys(channelLabels) as ConteudoChannel[]).map(k => (
+            {channelOrder.map(k => (
               <SelectItem key={k} value={k}>{channelLabels[k]}</SelectItem>
             ))}
           </SelectContent>
@@ -314,7 +374,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
                 <Select value={nChannel} onValueChange={(v) => setNChannel(v as ConteudoChannel)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(channelLabels) as ConteudoChannel[]).map(k => (
+                    {channelOrder.map(k => (
                       <SelectItem key={k} value={k}>{channelLabels[k]}</SelectItem>
                     ))}
                   </SelectContent>
@@ -934,8 +994,10 @@ function PautaExpanded({
       <div>
         <Label className="text-xs mb-1 block">Itens da pauta</Label>
         <div className="space-y-1">
-          {items.map(it => (
-            <div key={it.id} className="flex items-center gap-2 group">
+          {items.map(it => {
+            const assignee = it.assigned_to ? orgMembers.find(m => m.id === it.assigned_to) : null;
+            return (
+            <div key={it.id} className="grid grid-cols-[auto_1fr_132px_150px_auto] items-center gap-2 rounded-md border bg-card px-2 py-1.5 group">
               <button
                 className={cn('h-4 w-4 rounded border shrink-0 flex items-center justify-center', it.status === 'concluido' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/40')}
                 onClick={() => updateItem.mutate({ id: it.id, pauta_id: pauta.id, status: it.status === 'concluido' ? 'pendente' : 'concluido' })}
@@ -943,11 +1005,38 @@ function PautaExpanded({
                 {it.status === 'concluido' && <CheckCircle2 className="h-3 w-3" />}
               </button>
               <span className={cn('text-sm flex-1', it.status === 'concluido' && 'line-through text-muted-foreground')}>{it.title}</span>
+              <Select
+                value={it.status || 'pendente'}
+                onValueChange={(status) => updateItem.mutate({ id: it.id, pauta_id: pauta.id, status })}
+              >
+                <SelectTrigger className={cn('h-7 text-[11px]', pautaItemStatusColors[it.status] || pautaItemStatusColors.pendente)}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(pautaItemStatusLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={it.assigned_to || '_none'}
+                onValueChange={(assigned_to) => updateItem.mutate({ id: it.id, pauta_id: pauta.id, assigned_to: assigned_to === '_none' ? null : assigned_to } as any)}
+              >
+                <SelectTrigger className="h-7 text-[11px]">
+                  <SelectValue placeholder="Responsável">
+                    {assignee?.full_name || 'Ninguém'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Ninguém</SelectItem>
+                  {orgMembers.map((m: any) => (<SelectItem key={m.id} value={m.id}>{m.full_name || 'Usuário'}</SelectItem>))}
+                </SelectContent>
+              </Select>
               <button onClick={() => deleteItem.mutate({ id: it.id, pauta_id: pauta.id })} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive">
                 <X className="h-3 w-3" />
               </button>
             </div>
-          ))}
+          )})}
         </div>
         <div className="flex gap-2 mt-2">
           <Input

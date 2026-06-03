@@ -3,6 +3,7 @@ import {
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
   ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers, Globe,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import mooUiLogo from '@/assets/mooui-logo.png';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,7 +42,7 @@ import { AvatarUploadDialog } from '@/components/AvatarUploadDialog';
 import { useI18n, type Locale } from '@/i18n';
 
 
-type NavItem = { title: string; url: string; icon: any };
+type NavItem = { title: string; url: string; icon: LucideIcon };
 
 const navGroups: { label: string; items: NavItem[] }[] = [
   {
@@ -58,18 +59,33 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'Marketing',
+    items: [
+      { title: 'Calendário de Marketing', url: '/calendario', icon: CalendarDays },
+      { title: 'Conteúdo', url: '/conteudo', icon: Camera },
+      { title: 'Sessões', url: '/sessoes', icon: Camera },
+    ],
+  },
+  {
+    label: 'Produção',
+    items: [
+      { title: 'Produção', url: '/lancamentos', icon: Rocket },
+      { title: 'Check Lançamentos', url: '/checagens', icon: ClipboardCheck },
+      { title: 'Produtos', url: '/produtos', icon: Package },
+    ],
+  },
+  {
+    label: 'Tecnologia',
+    items: [
+      { title: 'Tickets de TI', url: '/tickets', icon: Briefcase },
+      { title: 'Melhorias', url: '/melhorias', icon: Globe },
+    ],
+  },
+  {
     label: 'Operações',
     items: [
       { title: 'Sunday', url: '/projetos', icon: FolderKanban },
-      { title: 'Calendário de Marketing', url: '/calendario', icon: CalendarDays },
-      { title: 'Produção', url: '/lancamentos', icon: Rocket },
-      { title: 'Check Lançamentos', url: '/checagens', icon: ClipboardCheck },
       { title: 'Pedidos', url: '/pedidos', icon: Package },
-      { title: 'Tickets de TI', url: '/tickets', icon: Briefcase },
-      { title: 'Melhorias', url: '/melhorias', icon: Globe },
-      { title: 'Conteúdo', url: '/conteudo', icon: Camera },
-      { title: 'Sessões', url: '/sessoes', icon: Camera },
-      { title: 'Produtos', url: '/produtos', icon: Package },
       { title: 'Timeline', url: '/timeline', icon: Layers },
     ],
   },

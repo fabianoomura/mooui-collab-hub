@@ -24,6 +24,7 @@ type TimelineItem = {
   type: TimelineType;
   color: string;
   meta?: string;
+  sourceDetail?: string;
 };
 
 const TYPE_COLORS: Record<TimelineType, string> = {
@@ -47,11 +48,13 @@ const TYPE_LABELS: Record<TimelineType, string> = {
 };
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
 
 export default function TimelinePage() {
   const { currentOrg } = useOrganization();
   const [year, setYear] = useState(new Date().getFullYear());
   const [filter, setFilter] = useState<'all' | TimelineType>('all');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
 
   const { data: events = [] } = useAnnualEvents(year);
   const { data: launches = [] } = useLaunches();
@@ -150,6 +153,7 @@ export default function TimelinePage() {
           type: 'event',
           color: e.color || TYPE_COLORS.event,
           meta: e.category,
+          sourceDetail: e.category,
         });
       });
     }
@@ -166,6 +170,7 @@ export default function TimelinePage() {
             type: 'launch',
             color: TYPE_COLORS.launch,
             meta: launch.status,
+            sourceDetail: launch.status,
           });
         });
     }
@@ -181,6 +186,7 @@ export default function TimelinePage() {
           type: 'task',
           color: TYPE_COLORS.task,
           meta: task.priority,
+          sourceDetail: task.priority,
         });
       });
     }
@@ -197,6 +203,7 @@ export default function TimelinePage() {
           type: 'melhoria',
           color: TYPE_COLORS.melhoria,
           meta: melhoria.area,
+          sourceDetail: melhoria.area,
         });
       });
     }
@@ -212,6 +219,7 @@ export default function TimelinePage() {
           type: 'conteudo',
           color: TYPE_COLORS.conteudo,
           meta: conteudo.channel,
+          sourceDetail: [conteudo.channel, conteudo.content_type, conteudo.status].filter(Boolean).join(' / '),
         });
       });
     }
@@ -227,6 +235,7 @@ export default function TimelinePage() {
           type: 'sessao',
           color: TYPE_COLORS.sessao,
           meta: sessao.professional || sessao.status,
+          sourceDetail: sessao.professional || sessao.status,
         });
       });
     }
@@ -243,6 +252,7 @@ export default function TimelinePage() {
           type: 'produto',
           color: TYPE_COLORS.produto,
           meta: `${produto.progress ?? 0}%`,
+          sourceDetail: [produto.collection_group, `${produto.progress ?? 0}%`].filter(Boolean).join(' / '),
         });
       });
     }
@@ -261,6 +271,7 @@ export default function TimelinePage() {
   }, [items]);
 
   const currentMonth = new Date().getMonth();
+  const selectedMonthItems = byMonth.get(selectedMonth) || [];
 
   return (
     <div className="space-y-4">
@@ -311,7 +322,23 @@ export default function TimelinePage() {
           const monthItems = byMonth.get(month) || [];
           const isCurrent = year === new Date().getFullYear() && month === currentMonth;
           return (
-            <Card key={month} className={cn('p-3 min-h-[120px]', isCurrent && 'ring-2 ring-primary/40')}>
+            <Card
+              key={month}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedMonth(month)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setSelectedMonth(month);
+                }
+              }}
+              className={cn(
+                'p-3 min-h-[120px] cursor-pointer transition-colors hover:border-primary/40',
+                isCurrent && 'ring-2 ring-primary/40',
+                selectedMonth === month && 'border-primary bg-primary/5',
+              )}
+            >
               <div className="flex items-center justify-between mb-2">
                 <h3 className={cn('text-sm font-semibold', isCurrent && 'text-primary')}>{MONTHS[month]}</h3>
                 {monthItems.length > 0 && <Badge variant="secondary" className="text-[10px] h-5">{monthItems.length}</Badge>}
@@ -330,7 +357,9 @@ export default function TimelinePage() {
                           {item.end && ` -> ${new Date(item.end + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
                           {' · '}
                           {TYPE_LABELS[item.type]}
-                          {item.meta ? ` · ${item.meta}` : ''}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          Origem: {TYPE_LABELS[item.type]}{item.sourceDetail ? ` - ${item.sourceDetail}` : ''}
                         </p>
                       </div>
                     </div>
@@ -342,12 +371,122 @@ export default function TimelinePage() {
         })}
       </div>
 
+      <MonthCalendar
+        year={year}
+        month={selectedMonth}
+        items={selectedMonthItems}
+        onPrevious={() => setSelectedMonth((value) => (value === 0 ? 11 : value - 1))}
+        onNext={() => setSelectedMonth((value) => (value === 11 ? 0 : value + 1))}
+      />
+
       {items.length === 0 && (
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Nenhum item encontrado para {year}.
         </Card>
       )}
     </div>
+  );
+}
+
+function MonthCalendar({
+  year,
+  month,
+  items,
+  onPrevious,
+  onNext,
+}: {
+  year: number;
+  month: number;
+  items: TimelineItem[];
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  const days = useMemo(() => {
+    const firstDate = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const leading = firstDate.getDay();
+    const cells: Array<{ key: string; day: number | null; items: TimelineItem[] }> = [];
+    for (let index = 0; index < leading; index++) {
+      cells.push({ key: `empty-start-${index}`, day: null, items: [] });
+    }
+    for (let day = 1; day <= lastDay; day++) {
+      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      cells.push({
+        key,
+        day,
+        items: items.filter((item) => item.start <= key && (item.end || item.start) >= key),
+      });
+    }
+    while (cells.length % 7 !== 0) {
+      cells.push({ key: `empty-end-${cells.length}`, day: null, items: [] });
+    }
+    return cells;
+  }, [items, month, year]);
+
+  const todayKey = new Date().toISOString().split('T')[0];
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b p-3">
+        <div>
+          <h2 className="text-base font-semibold">{MONTHS[month]} {year}</h2>
+          <p className="text-xs text-muted-foreground">{items.length} item{items.length !== 1 ? 's' : ''} neste mes</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={onPrevious}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={onNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 border-b bg-muted/30">
+        {WEEKDAYS.map((weekday) => (
+          <div key={weekday} className="px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground">
+            {weekday}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {days.map((cell) => {
+          const key = cell.day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` : cell.key;
+          const isToday = key === todayKey;
+          return (
+            <div
+              key={cell.key}
+              className={cn(
+                'min-h-[112px] border-r border-b p-1.5 last:border-r-0',
+                !cell.day && 'bg-muted/20',
+                isToday && 'bg-primary/5 ring-1 ring-primary/30 ring-inset',
+              )}
+            >
+              {cell.day && (
+                <>
+                  <div className={cn('mb-1 text-xs font-semibold', isToday && 'text-primary')}>{cell.day}</div>
+                  <div className="space-y-1">
+                    {cell.items.slice(0, 4).map((item) => (
+                      <div
+                        key={`${cell.key}-${item.id}`}
+                        className="rounded px-1.5 py-1 text-[10px] leading-tight text-white shadow-sm"
+                        style={{ backgroundColor: item.color }}
+                        title={`${TYPE_LABELS[item.type]}${item.sourceDetail ? ` - ${item.sourceDetail}` : ''}: ${item.title}`}
+                      >
+                        <div className="font-semibold uppercase truncate">{TYPE_LABELS[item.type]}</div>
+                        <div className="truncate">{item.title}</div>
+                      </div>
+                    ))}
+                    {cell.items.length > 4 && (
+                      <div className="text-[10px] text-muted-foreground px-1">+{cell.items.length - 4} itens</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
