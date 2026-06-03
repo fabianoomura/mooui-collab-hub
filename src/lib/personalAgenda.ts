@@ -1,6 +1,6 @@
 // Pure utilities for the personal panel — easy to unit-test.
 
-export type AgendaKind = 'task' | 'stage' | 'booking' | 'event' | 'checklist';
+export type AgendaKind = 'task' | 'stage' | 'booking' | 'event' | 'checklist' | 'melhoria' | 'conteudo' | 'sessao' | 'produto';
 
 export interface AgendaItem {
   id: string;

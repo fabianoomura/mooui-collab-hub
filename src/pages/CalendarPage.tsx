@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +13,18 @@ import { ChevronLeft, ChevronRight, Plus, Trash2, Search, LayoutGrid, GanttChart
 import {
   useAnnualEvents, useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent,
 } from '@/hooks/useAnnualEvents';
+import {
+  defaultEventEtapas, useEventEtapas, useSeedEventEtapas, useUpdateEventEtapa,
+  type EventEtapa, type EventEtapaStatus,
+} from '@/hooks/useEventEtapas';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const CATEGORIES = [
   { value: 'lancamento', label: 'Lançamento', color: '#D6336C' },
@@ -26,8 +33,14 @@ const CATEGORIES = [
   { value: 'data', label: 'Data importante', color: '#F59E0B' },
 ];
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const ETAPA_STATUS_LABELS: Record<EventEtapaStatus, string> = {
+  pendente: 'Pendente',
+  em_andamento: 'Em andamento',
+  concluida: 'Concluida',
+};
 
 export default function CalendarPage() {
+  const { currentOrg } = useOrganization();
   const [year, setYear] = useState(new Date().getFullYear());
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,7 +53,21 @@ export default function CalendarPage() {
   const createEvt = useCreateAnnualEvent();
   const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
+  const seedEtapas = useSeedEventEtapas();
   const confirm = useConfirm();
+
+  const { data: orgMembers = [] } = useQuery({
+    queryKey: ['org-members-calendar-etapas', currentOrg?.id],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data } = await supabase.from('organization_members').select('user_id').eq('organization_id', currentOrg.id);
+      const ids = (data || []).map((m: any) => m.user_id);
+      if (ids.length === 0) return [];
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      return profiles || [];
+    },
+    enabled: !!currentOrg,
+  });
 
   const today = new Date();
   const currentMonth = today.getMonth();
@@ -105,7 +132,11 @@ export default function CalendarPage() {
       });
     } else {
       createEvt.mutate({ ...payload, project_id: null, instance_id: activeInstance ?? null } as any, {
-        onSuccess: () => { toast.success('Evento criado'); setOpen(false); },
+        onSuccess: (created: any) => {
+          if (created?.id) seedEtapas.mutate(created.id);
+          toast.success('Evento criado');
+          setOpen(false);
+        },
         onError: (e: any) => toast.error(e.message),
       });
     }
@@ -259,42 +290,55 @@ export default function CalendarPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editingId ? 'Editar evento' : 'Novo evento'}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Título</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus />
-            </div>
-            <div>
-              <Label>Categoria</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(c => (
-                    <SelectItem key={c.value} value={c.value}>
-                      <span className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                        {c.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Data início</Label>
-                <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+          <Tabs defaultValue="detalhes">
+            <TabsList className={cn('grid w-full', editingId ? 'grid-cols-2' : 'grid-cols-1')}>
+              <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+              {editingId && <TabsTrigger value="etapas">Etapas</TabsTrigger>}
+            </TabsList>
+            <TabsContent value="detalhes" className="mt-4">
+              <div className="space-y-3">
+                <div>
+                  <Label>Título</Label>
+                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus />
+                </div>
+                <div>
+                  <Label>Categoria</Label>
+                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <span className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                            {c.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Data início</Label>
+                    <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Data fim (opcional)</Label>
+                    <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Descrição</Label>
+                  <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                </div>
               </div>
-              <div>
-                <Label>Data fim (opcional)</Label>
-                <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <Label>Descrição</Label>
-              <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            </div>
-          </div>
+            </TabsContent>
+            {editingId && (
+              <TabsContent value="etapas" className="mt-4">
+                <EventEtapasEditor eventId={editingId} orgMembers={orgMembers as any[]} />
+              </TabsContent>
+            )}
+          </Tabs>
           <DialogFooter className="gap-2 sm:justify-between">
             {editingId ? (
               <Button variant="ghost" onClick={handleDelete} className="text-destructive hover:text-destructive">
@@ -310,6 +354,74 @@ export default function CalendarPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function EventEtapasEditor({ eventId, orgMembers }: {
+  eventId: string;
+  orgMembers: { id: string; full_name: string | null }[];
+}) {
+  const { data: etapas = [] } = useEventEtapas(eventId);
+  const seedEtapas = useSeedEventEtapas();
+  const updateEtapa = useUpdateEventEtapa();
+
+  const rows = etapas.length ? etapas : defaultEventEtapas.map((etapa) => ({
+    id: etapa.etapa_key,
+    event_id: eventId,
+    status: 'pendente' as EventEtapaStatus,
+    responsavel: null,
+    created_at: '',
+    updated_at: '',
+    ...etapa,
+  } satisfies EventEtapa));
+
+  return (
+    <div className="space-y-3">
+      {etapas.length === 0 && (
+        <div className="rounded-md border bg-muted/30 p-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">Este evento ainda nao tem etapas.</p>
+          <Button size="sm" onClick={() => seedEtapas.mutate(eventId)}>Criar etapas</Button>
+        </div>
+      )}
+      <div className="space-y-2">
+        {rows.map((etapa) => {
+          const persisted = etapas.some((item) => item.id === etapa.id);
+          return (
+            <div key={etapa.etapa_key} className="grid sm:grid-cols-[1fr_150px_160px] gap-2 rounded-md border p-2">
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{etapa.title}</div>
+                <div className="text-[10px] text-muted-foreground font-mono">{etapa.etapa_key}</div>
+              </div>
+              <Select
+                value={etapa.status}
+                disabled={!persisted}
+                onValueChange={(status) => updateEtapa.mutate({ id: etapa.id, event_id: eventId, status: status as EventEtapaStatus })}
+              >
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(ETAPA_STATUS_LABELS) as EventEtapaStatus[]).map((key) => (
+                    <SelectItem key={key} value={key}>{ETAPA_STATUS_LABELS[key]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={etapa.responsavel || '_none'}
+                disabled={!persisted}
+                onValueChange={(responsavel) => updateEtapa.mutate({ id: etapa.id, event_id: eventId, responsavel: responsavel === '_none' ? null : responsavel } as any)}
+              >
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Ninguem</SelectItem>
+                  {orgMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>{member.full_name || 'Usuario'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

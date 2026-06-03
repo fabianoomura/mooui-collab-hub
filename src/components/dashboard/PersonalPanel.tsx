@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertTriangle, CalendarClock, ListTodo, Rocket, Calendar, ClipboardCheck,
   MessageSquare, Briefcase, Send, CheckCircle2, Package, TrendingUp, Check, Play,
+  Camera, FileText,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +27,10 @@ const ICONS: Record<AgendaItem['kind'], React.ElementType> = {
   booking: Calendar,
   event: CalendarClock,
   checklist: ClipboardCheck,
+  melhoria: Briefcase,
+  conteudo: FileText,
+  sessao: Camera,
+  produto: Package,
 };
 
 const COLORS: Record<AgendaItem['kind'], string> = {
@@ -34,6 +39,10 @@ const COLORS: Record<AgendaItem['kind'], string> = {
   booking: 'text-emerald-600',
   event: 'text-sky-600',
   checklist: 'text-teal-600',
+  melhoria: 'text-cyan-600',
+  conteudo: 'text-pink-600',
+  sessao: 'text-violet-600',
+  produto: 'text-orange-600',
 };
 
 type WindowDays = 1 | 7 | 30;
@@ -98,14 +107,45 @@ export function PersonalPanel() {
         .eq('assignee_id', user.id).neq('status', 'done').neq('status', 'na');
       const myCheckItems = myCheckItemsData || [];
 
-      // 6) Mensagens enviadas (24h)
+      // 6) Mensagens enviadas no Speaks (24h)
       const since = new Date(Date.now() - 86_400_000).toISOString();
-      const { data: mySentData, count: sentCount } = await supabase
-        .from('messages')
-        .select('id, content, created_at, channel_id, channels(name)', { count: 'exact' })
-        .eq('user_id', user.id).gte('created_at', since)
-        .order('created_at', { ascending: false }).limit(5);
-      const mySent = mySentData || [];
+      const { data: myMemberships } = await supabase
+        .from('channel_members')
+        .select('channel_id')
+        .eq('user_id', user.id);
+      const myChannelIds = [...new Set((myMemberships || []).map((m) => m.channel_id))];
+
+      let mySent: any[] = [];
+      let sentCount = 0;
+      if (myChannelIds.length > 0) {
+        const { data: visibleChannels } = await supabase
+          .from('channels')
+          .select('id, name, is_dm')
+          .in('id', myChannelIds)
+          .or(`organization_id.eq.${currentOrg.id},is_dm.eq.true`);
+        const channelById = new Map((visibleChannels || []).map((c) => [c.id, c]));
+        const visibleChannelIds = [...channelById.keys()];
+
+        if (visibleChannelIds.length > 0) {
+          const { data: mySentData, count } = await supabase
+            .from('messages')
+            .select('id, content, created_at, channel_id', { count: 'exact' })
+            .eq('user_id', user.id)
+            .in('channel_id', visibleChannelIds)
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          mySent = (mySentData || []).map((message) => {
+            const channel = channelById.get(message.channel_id);
+            return {
+              ...message,
+              channel_name: channel?.is_dm ? 'dm' : (channel?.name || 'canal'),
+            };
+          });
+          sentCount = count ?? 0;
+        }
+      }
 
       // 7) Meus tickets de TI em aberto
       const { data: myTicketsData } = await supabase
@@ -125,6 +165,31 @@ export function PersonalPanel() {
         .order('created_at', { ascending: false })
         .limit(5);
       const myOrders = (myOrdersData || []) as any[];
+
+      // 9) Novos modulos atribuídos a mim
+      const { data: myConteudosData } = await supabase
+        .from('conteudo_items' as any)
+        .select('id, title, channel, scheduled_date, status')
+        .eq('organization_id', currentOrg.id)
+        .eq('assigned_to', user.id)
+        .neq('status', 'publicado');
+      const myConteudos = (myConteudosData || []) as any[];
+
+      const { data: mySessoesData } = await supabase
+        .from('sessoes' as any)
+        .select('id, title, scheduled_date, status, professional')
+        .eq('organization_id', currentOrg.id)
+        .contains('responsaveis', [user.id])
+        .not('status', 'in', '("entregue","cancelada")');
+      const mySessoes = (mySessoesData || []) as any[];
+
+      const { data: myProdutosData } = await supabase
+        .from('produtos' as any)
+        .select('id, name, launch_target, collection_group, progress')
+        .eq('organization_id', currentOrg.id)
+        .eq('responsible', user.id)
+        .neq('collection_group', 'arquivado');
+      const myProdutos = (myProdutosData || []) as any[];
 
       // ---- Build derived sets ----
       const priorityWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -186,9 +251,30 @@ export function PersonalPanel() {
             subtitle: i.launch_checklists?.name ?? null, when: i.due_date!,
             href: '/checagens', sortKey: toMs(i.due_date!),
           })),
+        ...myConteudos
+          .filter((i) => i.scheduled_date && i.scheduled_date >= today && i.scheduled_date <= windowEnd)
+          .map((i) => ({
+            kind: 'conteudo' as const, id: i.id, title: i.title,
+            subtitle: i.channel ?? null, when: i.scheduled_date,
+            href: '/conteudo', sortKey: toMs(i.scheduled_date),
+          })),
+        ...mySessoes
+          .filter((i) => i.scheduled_date && i.scheduled_date >= today && i.scheduled_date <= windowEnd)
+          .map((i) => ({
+            kind: 'sessao' as const, id: i.id, title: i.title,
+            subtitle: i.professional ?? null, when: i.scheduled_date,
+            href: '/sessoes', sortKey: toMs(i.scheduled_date),
+          })),
+        ...myProdutos
+          .filter((i) => i.launch_target && i.launch_target >= today && i.launch_target <= windowEnd)
+          .map((i) => ({
+            kind: 'produto' as const, id: i.id, title: i.name,
+            subtitle: `${i.progress ?? 0}% concluido`, when: i.launch_target,
+            href: '/produtos', sortKey: toMs(i.launch_target),
+          })),
       ];
 
-      // 9) Count completed today for summary %
+      // 10) Count completed today for summary %
       const { count: doneTasks } = await supabase
         .from('tasks')
         .select('id', { count: 'exact', head: true })
@@ -208,7 +294,7 @@ export function PersonalPanel() {
         .eq('status', 'done');
 
       // Summary counters
-      const totalPending = myTasks.length + myStages.length + myCheckItems.length + myOrders.length;
+      const totalPending = myTasks.length + myStages.length + myCheckItems.length + myOrders.length + myConteudos.length + mySessoes.length + myProdutos.length;
       const totalDone = (doneTasks ?? 0) + (doneStages ?? 0) + (doneCheckItems ?? 0);
       const totalAll = totalPending + totalDone;
       const completionPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 100;
@@ -232,6 +318,37 @@ export function PersonalPanel() {
 
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ['personal-panel'] });
+
+  useEffect(() => {
+    if (!user || !currentOrg) return;
+
+    const refreshPersonalPanel = () => {
+      qc.invalidateQueries({ queryKey: ['personal-panel'] });
+    };
+
+    const messagesChannel = supabase
+      .channel(`personal-panel-messages:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter: `user_id=eq.${user.id}` },
+        refreshPersonalPanel
+      )
+      .subscribe();
+
+    const membershipChannel = supabase
+      .channel(`personal-panel-channel-members:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'channel_members', filter: `user_id=eq.${user.id}` },
+        refreshPersonalPanel
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(membershipChannel);
+    };
+  }, [currentOrg, user, qc]);
 
   const completeTask = useMutation({
     mutationFn: async (taskId: string) => {
@@ -512,7 +629,7 @@ export function PersonalPanel() {
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3">
             <Send className="h-4 w-4 text-violet-500" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide">Você enviou</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">Speaks enviadas</h2>
             <Badge variant="secondary" className="ml-auto">{data.sentCount} 24h</Badge>
           </div>
           {data.sentMessages.length === 0 ? (
@@ -528,7 +645,7 @@ export function PersonalPanel() {
                 >
                   <div className="flex items-center gap-2 mb-0.5">
                     <Badge variant="outline" className="text-[10px]">
-                      #{m.channels?.name?.replace(/^dm:.*/, 'dm') || 'canal'}
+                      #{m.channel_name?.replace(/^dm:.*/, 'dm') || 'canal'}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground ml-auto">
                       {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}

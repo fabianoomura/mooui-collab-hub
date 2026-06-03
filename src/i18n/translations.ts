@@ -31,6 +31,10 @@ export const translations = {
       orders: 'Pedidos',
       tickets: 'Tickets de TI',
       timeline: 'Timeline',
+      melhorias: 'Melhorias',
+      conteudo: 'Conteúdo',
+      sessoes: 'Sessões',
+      produtos: 'Produtos',
       settings: 'Configurações',
     },
     dashboard: {
@@ -102,6 +106,10 @@ export const translations = {
       orders: 'Pedidos',
       tickets: 'Tickets de TI',
       timeline: 'Timeline',
+      melhorias: 'Mejoras',
+      conteudo: 'Contenido',
+      sessoes: 'Sesiones',
+      produtos: 'Productos',
       settings: 'Configuración',
     },
     dashboard: {

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 
-export type ModuleKey = 'calendario' | 'lancamentos' | 'checagens';
+export type ModuleKey = 'calendario' | 'lancamentos' | 'checagens' | 'melhorias' | 'conteudo' | 'sessoes' | 'produtos';
 
 export interface ModuleInstance {
   id: string;

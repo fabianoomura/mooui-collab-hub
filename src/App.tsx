@@ -23,6 +23,10 @@ import OrdersPage from "./pages/OrdersPage";
 import ChecklistPage from "./pages/ChecklistPage";
 import TimelinePage from "./pages/TimelinePage";
 import SettingsPage from "./pages/SettingsPage";
+import MelhoriasPage from "./pages/MelhoriasPage";
+import ConteudoPage from "./pages/ConteudoPage";
+import SessoesPage from "./pages/SessoesPage";
+import ProdutoPage from "./pages/ProdutoPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -88,6 +92,10 @@ const App = () => (
               <Route path="/pedidos" element={<OrdersPage />} />
               <Route path="/checagens" element={<ChecklistPage />} />
               <Route path="/timeline" element={<TimelinePage />} />
+              <Route path="/melhorias" element={<MelhoriasPage />} />
+              <Route path="/conteudo" element={<ConteudoPage />} />
+              <Route path="/sessoes" element={<SessoesPage />} />
+              <Route path="/produtos" element={<ProdutoPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 

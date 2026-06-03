@@ -1,54 +1,61 @@
 import { useMemo, useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAnnualEvents } from '@/hooks/useAnnualEvents';
-import { useLaunches, useLaunchStages } from '@/hooks/useLaunches';
+import { useLaunches } from '@/hooks/useLaunches';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Layers, Calendar, Rocket, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Calendar, Camera, CheckSquare, ChevronLeft, ChevronRight, FileText,
+  Globe, Layers, Package, Rocket,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+type TimelineType = 'event' | 'launch' | 'task' | 'melhoria' | 'conteudo' | 'sessao' | 'produto';
 
 type TimelineItem = {
   id: string;
   title: string;
   start: string;
   end: string | null;
-  type: 'event' | 'launch' | 'task';
+  type: TimelineType;
   color: string;
   meta?: string;
 };
 
-const TYPE_COLORS: Record<string, string> = {
+const TYPE_COLORS: Record<TimelineType, string> = {
   event: '#3b82f6',
   launch: '#a855f7',
   task: '#10b981',
+  melhoria: '#06b6d4',
+  conteudo: '#ec4899',
+  sessao: '#8b5cf6',
+  produto: '#f97316',
 };
 
-const TYPE_LABELS: Record<string, string> = {
+const TYPE_LABELS: Record<TimelineType, string> = {
   event: 'Evento',
-  launch: 'Lançamento',
+  launch: 'Lancamento',
   task: 'Tarefa',
+  melhoria: 'Melhoria',
+  conteudo: 'Conteudo',
+  sessao: 'Sessao',
+  produto: 'Produto',
 };
 
-const MONTHS = [
-  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
-];
+const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 export default function TimelinePage() {
   const { currentOrg } = useOrganization();
-  const { user } = useAuth();
   const [year, setYear] = useState(new Date().getFullYear());
-  const [filter, setFilter] = useState<'all' | 'event' | 'launch' | 'task'>('all');
+  const [filter, setFilter] = useState<'all' | TimelineType>('all');
 
   const { data: events = [] } = useAnnualEvents(year);
   const { data: launches = [] } = useLaunches();
 
-  // Tasks with due_date in this year
   const { data: tasks = [] } = useQuery({
     queryKey: ['timeline-tasks', currentOrg?.id, year],
     queryFn: async () => {
@@ -65,11 +72,76 @@ export default function TimelinePage() {
     enabled: !!currentOrg,
   });
 
+  const { data: melhorias = [] } = useQuery({
+    queryKey: ['timeline-melhorias', currentOrg?.id, year],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data, error } = await supabase
+        .from('melhorias' as any)
+        .select('id, title, area, status, data_abertura, data_conclusao, created_at')
+        .eq('organization_id', currentOrg.id)
+        .gte('data_abertura', `${year}-01-01`)
+        .lte('data_abertura', `${year}-12-31`);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentOrg,
+  });
+
+  const { data: conteudos = [] } = useQuery({
+    queryKey: ['timeline-conteudo', currentOrg?.id, year],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data, error } = await supabase
+        .from('conteudo_items' as any)
+        .select('id, title, channel, status, scheduled_date, content_type')
+        .eq('organization_id', currentOrg.id)
+        .gte('scheduled_date', `${year}-01-01`)
+        .lte('scheduled_date', `${year}-12-31`);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentOrg,
+  });
+
+  const { data: sessoes = [] } = useQuery({
+    queryKey: ['timeline-sessoes', currentOrg?.id, year],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data, error } = await supabase
+        .from('sessoes' as any)
+        .select('id, title, status, scheduled_date, professional')
+        .eq('organization_id', currentOrg.id)
+        .gte('scheduled_date', `${year}-01-01`)
+        .lte('scheduled_date', `${year}-12-31`);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentOrg,
+  });
+
+  const { data: produtos = [] } = useQuery({
+    queryKey: ['timeline-produtos', currentOrg?.id, year],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data, error } = await supabase
+        .from('produtos' as any)
+        .select('id, name, collection_group, launch_target, cronograma_start, cronograma_end, progress')
+        .eq('organization_id', currentOrg.id);
+      if (error) throw error;
+      return (data || []).filter((p: any) => {
+        const start = p.cronograma_start || p.launch_target;
+        return start && start >= `${year}-01-01` && start <= `${year}-12-31`;
+      });
+    },
+    enabled: !!currentOrg,
+  });
+
   const items = useMemo(() => {
     const result: TimelineItem[] = [];
 
     if (filter === 'all' || filter === 'event') {
-      events.forEach(e => {
+      events.forEach((e) => {
         result.push({
           id: `evt-${e.id}`,
           title: e.title,
@@ -84,49 +156,110 @@ export default function TimelinePage() {
 
     if (filter === 'all' || filter === 'launch') {
       launches
-        .filter(l => l.start_date.startsWith(String(year)))
-        .forEach(l => {
+        .filter((launch) => launch.start_date.startsWith(String(year)))
+        .forEach((launch) => {
           result.push({
-            id: `launch-${l.id}`,
-            title: l.name,
-            start: l.start_date,
+            id: `launch-${launch.id}`,
+            title: launch.name,
+            start: launch.start_date,
             end: null,
             type: 'launch',
             color: TYPE_COLORS.launch,
-            meta: l.status,
+            meta: launch.status,
           });
         });
     }
 
     if (filter === 'all' || filter === 'task') {
-      tasks.forEach(t => {
+      tasks.forEach((task: any) => {
+        if (!task.due_date) return;
         result.push({
-          id: `task-${t.id}`,
-          title: t.title,
-          start: t.start_date || t.due_date!,
-          end: t.start_date ? t.due_date : null,
+          id: `task-${task.id}`,
+          title: task.title,
+          start: task.start_date || task.due_date,
+          end: task.start_date ? task.due_date : null,
           type: 'task',
           color: TYPE_COLORS.task,
-          meta: t.priority,
+          meta: task.priority,
+        });
+      });
+    }
+
+    if (filter === 'all' || filter === 'melhoria') {
+      melhorias.forEach((melhoria: any) => {
+        const start = melhoria.data_abertura || melhoria.created_at?.split('T')[0];
+        if (!start) return;
+        result.push({
+          id: `melhoria-${melhoria.id}`,
+          title: melhoria.title,
+          start,
+          end: melhoria.data_conclusao,
+          type: 'melhoria',
+          color: TYPE_COLORS.melhoria,
+          meta: melhoria.area,
+        });
+      });
+    }
+
+    if (filter === 'all' || filter === 'conteudo') {
+      conteudos.forEach((conteudo: any) => {
+        if (!conteudo.scheduled_date) return;
+        result.push({
+          id: `conteudo-${conteudo.id}`,
+          title: conteudo.title,
+          start: conteudo.scheduled_date,
+          end: null,
+          type: 'conteudo',
+          color: TYPE_COLORS.conteudo,
+          meta: conteudo.channel,
+        });
+      });
+    }
+
+    if (filter === 'all' || filter === 'sessao') {
+      sessoes.forEach((sessao: any) => {
+        if (!sessao.scheduled_date) return;
+        result.push({
+          id: `sessao-${sessao.id}`,
+          title: sessao.title,
+          start: sessao.scheduled_date,
+          end: null,
+          type: 'sessao',
+          color: TYPE_COLORS.sessao,
+          meta: sessao.professional || sessao.status,
+        });
+      });
+    }
+
+    if (filter === 'all' || filter === 'produto') {
+      produtos.forEach((produto: any) => {
+        const start = produto.cronograma_start || produto.launch_target;
+        if (!start) return;
+        result.push({
+          id: `produto-${produto.id}`,
+          title: produto.name,
+          start,
+          end: produto.cronograma_end || produto.launch_target || null,
+          type: 'produto',
+          color: TYPE_COLORS.produto,
+          meta: `${produto.progress ?? 0}%`,
         });
       });
     }
 
     return result.sort((a, b) => a.start.localeCompare(b.start));
-  }, [events, launches, tasks, filter, year]);
+  }, [events, launches, tasks, melhorias, conteudos, sessoes, produtos, filter, year]);
 
-  // Group by month
   const byMonth = useMemo(() => {
     const map = new Map<number, TimelineItem[]>();
-    for (let m = 0; m < 12; m++) map.set(m, []);
-    items.forEach(item => {
+    for (let month = 0; month < 12; month++) map.set(month, []);
+    items.forEach((item) => {
       const month = new Date(item.start + 'T00:00:00').getMonth();
       map.get(month)?.push(item);
     });
     return map;
   }, [items]);
 
-  const today = new Date().toISOString().split('T')[0];
   const currentMonth = new Date().getMonth();
 
   return (
@@ -137,85 +270,67 @@ export default function TimelinePage() {
             <Layers className="h-6 w-6 text-primary" />
             Timeline
           </h1>
-          <p className="text-sm text-muted-foreground">Visão unificada de eventos, lançamentos e tarefas</p>
+          <p className="text-sm text-muted-foreground">Visao unificada de eventos, lancamentos, tarefas e novos modulos.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setYear(y => y - 1)}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setYear((value) => value - 1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm font-semibold w-12 text-center">{year}</span>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setYear(y => y + 1)}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setYear((value) => value + 1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Select value={filter} onValueChange={v => setFilter(v as any)}>
-            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+          <Select value={filter} onValueChange={(value) => setFilter(value as any)}>
+            <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="event">Eventos</SelectItem>
-              <SelectItem value="launch">Lançamentos</SelectItem>
+              <SelectItem value="launch">Lancamentos</SelectItem>
               <SelectItem value="task">Tarefas</SelectItem>
+              <SelectItem value="melhoria">Melhorias</SelectItem>
+              <SelectItem value="conteudo">Conteudo</SelectItem>
+              <SelectItem value="sessao">Sessoes</SelectItem>
+              <SelectItem value="produto">Produtos</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Summary badges */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant="outline" className="gap-1 text-xs">
-          <Calendar className="h-3 w-3" style={{ color: TYPE_COLORS.event }} />
-          {items.filter(i => i.type === 'event').length} eventos
-        </Badge>
-        <Badge variant="outline" className="gap-1 text-xs">
-          <Rocket className="h-3 w-3" style={{ color: TYPE_COLORS.launch }} />
-          {items.filter(i => i.type === 'launch').length} lançamentos
-        </Badge>
-        <Badge variant="outline" className="gap-1 text-xs">
-          <CheckSquare className="h-3 w-3" style={{ color: TYPE_COLORS.task }} />
-          {items.filter(i => i.type === 'task').length} tarefas
-        </Badge>
+        <CountBadge icon={Calendar} type="event" items={items} label="eventos" />
+        <CountBadge icon={Rocket} type="launch" items={items} label="lancamentos" />
+        <CountBadge icon={CheckSquare} type="task" items={items} label="tarefas" />
+        <CountBadge icon={Globe} type="melhoria" items={items} label="melhorias" />
+        <CountBadge icon={FileText} type="conteudo" items={items} label="conteudos" />
+        <CountBadge icon={Camera} type="sessao" items={items} label="sessoes" />
+        <CountBadge icon={Package} type="produto" items={items} label="produtos" />
       </div>
 
-      {/* Month grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {Array.from({ length: 12 }, (_, m) => {
-          const monthItems = byMonth.get(m) || [];
-          const isCurrent = year === new Date().getFullYear() && m === currentMonth;
+        {Array.from({ length: 12 }, (_, month) => {
+          const monthItems = byMonth.get(month) || [];
+          const isCurrent = year === new Date().getFullYear() && month === currentMonth;
           return (
-            <Card
-              key={m}
-              className={cn(
-                'p-3 min-h-[120px]',
-                isCurrent && 'ring-2 ring-primary/40',
-              )}
-            >
+            <Card key={month} className={cn('p-3 min-h-[120px]', isCurrent && 'ring-2 ring-primary/40')}>
               <div className="flex items-center justify-between mb-2">
-                <h3 className={cn('text-sm font-semibold', isCurrent && 'text-primary')}>
-                  {MONTHS[m]}
-                </h3>
-                {monthItems.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px] h-5">{monthItems.length}</Badge>
-                )}
+                <h3 className={cn('text-sm font-semibold', isCurrent && 'text-primary')}>{MONTHS[month]}</h3>
+                {monthItems.length > 0 && <Badge variant="secondary" className="text-[10px] h-5">{monthItems.length}</Badge>}
               </div>
               {monthItems.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">—</p>
+                <p className="text-xs text-muted-foreground text-center py-4">-</p>
               ) : (
                 <div className="space-y-1.5">
-                  {monthItems.map(item => (
-                    <div
-                      key={item.id}
-                      className="flex items-start gap-2 p-1.5 rounded hover:bg-muted/50 transition-colors"
-                    >
-                      <div
-                        className="h-2.5 w-2.5 rounded-full shrink-0 mt-1"
-                        style={{ backgroundColor: item.color }}
-                      />
+                  {monthItems.map((item) => (
+                    <div key={item.id} className="flex items-start gap-2 p-1.5 rounded hover:bg-muted/50 transition-colors">
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0 mt-1" style={{ backgroundColor: item.color }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate">{item.title}</p>
                         <p className="text-[10px] text-muted-foreground">
                           {new Date(item.start + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                          {item.end && ` → ${new Date(item.end + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                          {item.end && ` -> ${new Date(item.end + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
                           {' · '}
                           {TYPE_LABELS[item.type]}
+                          {item.meta ? ` · ${item.meta}` : ''}
                         </p>
                       </div>
                     </div>
@@ -233,5 +348,24 @@ export default function TimelinePage() {
         </Card>
       )}
     </div>
+  );
+}
+
+function CountBadge({
+  icon: Icon,
+  type,
+  items,
+  label,
+}: {
+  icon: React.ElementType;
+  type: TimelineType;
+  items: TimelineItem[];
+  label: string;
+}) {
+  return (
+    <Badge variant="outline" className="gap-1 text-xs">
+      <Icon className="h-3 w-3" style={{ color: TYPE_COLORS[type] }} />
+      {items.filter((item) => item.type === type).length} {label}
+    </Badge>
   );
 }

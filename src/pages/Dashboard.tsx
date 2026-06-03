@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import {
   Table2, MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
   ArrowRight, Briefcase, ClipboardCheck, ListTodo, CalendarClock,
+  Globe, Camera, Package, FileText,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +58,10 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'launch_checklists' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'meeting_room_bookings' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_events' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'melhorias' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conteudo_items' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessoes' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'produtos' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'doc_pages' }, invalidate)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, invalidate)
       .subscribe();
@@ -79,7 +84,7 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0];
       const year = new Date().getFullYear();
 
-      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, ticketsRes, checklistsRes] = await Promise.all([
+      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, ticketsRes, checklistsRes, melhoriasRes, conteudoRes, sessoesRes, produtosRes] = await Promise.all([
         supabase.from('task_assignees').select('task_id').eq('user_id', user.id),
         supabase.from('messages').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 86400000).toISOString()),
         supabase.from('doc_pages').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
@@ -88,6 +93,10 @@ export default function Dashboard() {
         supabase.from('launches').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).eq('status', 'active'),
         supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['open', 'in_progress']),
         supabase.from('launch_checklists').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
+        supabase.from('melhorias' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['open', 'in_progress']),
+        supabase.from('conteudo_items' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('status', 'publicado'),
+        supabase.from('sessoes' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['planejada', 'em_producao', 'em_edicao']),
+        supabase.from('produtos' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('collection_group', 'arquivado'),
       ]);
 
       let myOpenTasks = 0;
@@ -126,6 +135,10 @@ export default function Dashboard() {
         activeLaunches: launchesRes.count ?? 0,
         openTickets: ticketsRes.count ?? 0,
         checklists: checklistsRes.count ?? 0,
+        openMelhorias: melhoriasRes.count ?? 0,
+        conteudosPendentes: conteudoRes.count ?? 0,
+        sessoesAtivas: sessoesRes.count ?? 0,
+        produtosAtivos: produtosRes.count ?? 0,
         nextStage: nextStage?.[0] ?? null,
       };
     },
@@ -149,6 +162,14 @@ export default function Dashboard() {
       stat: stats ? `${stats.checklists} checagem${stats.checklists === 1 ? '' : 's'}` : '—' },
     { title: 'Tickets de TI', description: 'Bugs e suporte', href: '/tickets', icon: Briefcase, accent: 'from-indigo-500/15 to-indigo-500/5 text-indigo-600',
       stat: stats ? `${stats.openTickets} aberto${stats.openTickets === 1 ? '' : 's'}` : '—' },
+    { title: 'Melhorias', description: 'Site, SEO e sistemas', href: '/melhorias', icon: Globe, accent: 'from-cyan-500/15 to-cyan-500/5 text-cyan-600',
+      stat: stats ? `${stats.openMelhorias} aberta${stats.openMelhorias === 1 ? '' : 's'}` : '—' },
+    { title: 'Conteúdo', description: 'Posts, newsletters e pautas', href: '/conteudo', icon: FileText, accent: 'from-pink-500/15 to-pink-500/5 text-pink-600',
+      stat: stats ? `${stats.conteudosPendentes} pendente${stats.conteudosPendentes === 1 ? '' : 's'}` : '—' },
+    { title: 'Sessões', description: 'Foto, video e banco de ideias', href: '/sessoes', icon: Camera, accent: 'from-violet-500/15 to-violet-500/5 text-violet-600',
+      stat: stats ? `${stats.sessoesAtivas} ativa${stats.sessoesAtivas === 1 ? '' : 's'}` : '—' },
+    { title: 'Produtos', description: 'Pipeline de desenvolvimento', href: '/produtos', icon: Package, accent: 'from-orange-500/15 to-orange-500/5 text-orange-600',
+      stat: stats ? `${stats.produtosAtivos} ativo${stats.produtosAtivos === 1 ? '' : 's'}` : '—' },
   ];
 
   const fmtTime = (iso?: string) => iso
