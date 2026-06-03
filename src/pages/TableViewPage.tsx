@@ -624,6 +624,7 @@ function TaskRow({
   statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
   projectMembers, onAddAssignee, onRemoveAssignee,
   allTopLevelTasks, onMoveToParent, onPromoteToTopLevel,
+  draggedTaskId, onDragStartTask, onDragEndTask,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
@@ -650,17 +651,49 @@ function TaskRow({
   allTopLevelTasks: TaskWithAssignees[];
   onMoveToParent: (taskId: string, parentId: string) => void;
   onPromoteToTopLevel: (taskId: string) => void;
+  draggedTaskId: string | null;
+  onDragStartTask: (id: string) => void;
+  onDragEndTask: () => void;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
   const hasSubtasks = subtaskCount > 0;
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const taskValues = customValues.get(task.id) || new Map<string, string>();
+
+  // Drop target: any top-level row that isn't the dragged task itself.
+  const canBeDropTarget = !isSubtask && draggedTaskId !== null && draggedTaskId !== task.id;
 
   return (
     <>
       <div
-        className={`group grid items-center border-b border-border hover:bg-accent/30 cursor-pointer transition-colors text-sm ${isSubtask ? 'bg-muted/20' : ''}`}
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', task.id);
+          onDragStartTask(task.id);
+        }}
+        onDragEnd={(e) => { e.stopPropagation(); setIsDragOver(false); onDragEndTask(); }}
+        onDragOver={(e) => {
+          if (!canBeDropTarget) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!isDragOver) setIsDragOver(true);
+        }}
+        onDragLeave={() => { if (isDragOver) setIsDragOver(false); }}
+        onDrop={(e) => {
+          if (!canBeDropTarget) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(false);
+          const draggedId = e.dataTransfer.getData('text/plain') || draggedTaskId;
+          if (draggedId && draggedId !== task.id) {
+            onMoveToParent(draggedId, task.id);
+          }
+        }}
+        className={`group grid items-center border-b border-border hover:bg-accent/30 cursor-pointer transition-colors text-sm ${isSubtask ? 'bg-muted/20' : ''} ${isDragOver ? 'ring-2 ring-primary ring-inset bg-primary/5' : ''} ${draggedTaskId === task.id ? 'opacity-40' : ''}`}
         style={{ gridTemplateColumns: gridCols }}
         onClick={() => onClickTask(task, parentTask)}
       >
@@ -762,6 +795,7 @@ function TaskRow({
               onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
               projectMembers={projectMembers} onAddAssignee={onAddAssignee} onRemoveAssignee={onRemoveAssignee}
               allTopLevelTasks={allTopLevelTasks} onMoveToParent={onMoveToParent} onPromoteToTopLevel={onPromoteToTopLevel}
+              draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
             />
           ))}
           <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">
@@ -793,6 +827,9 @@ export default function TableViewPage() {
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
   const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const onDragStartTask = useCallback((id: string) => setDraggedTaskId(id), []);
+  const onDragEndTask = useCallback(() => setDraggedTaskId(null), []);
 
   const [statusLabelsConfig, setStatusLabelsConfig] = useState<LabelOption[]>(() => {
     const saved = localStorage.getItem(`mooui_status_labels_${projectFromUrl}`);
@@ -1136,6 +1173,7 @@ export default function TableViewPage() {
                         allTopLevelTasks={tasks}
                         onMoveToParent={(taskId, parentId) => { updateTask.mutate({ taskId, updates: { parent_task_id: parentId } }); toast.success('Elemento movido!'); }}
                         onPromoteToTopLevel={(taskId) => { updateTask.mutate({ taskId, updates: { parent_task_id: null } }); toast.success('Elemento promovido!'); }}
+                        draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
                       />
                     ))}
 
