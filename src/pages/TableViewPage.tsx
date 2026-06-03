@@ -624,6 +624,7 @@ function TaskRow({
   statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
   projectMembers, onAddAssignee, onRemoveAssignee,
   allTopLevelTasks, onMoveToParent, onPromoteToTopLevel,
+  draggedTaskId, onDragStartTask, onDragEndTask,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
@@ -650,17 +651,49 @@ function TaskRow({
   allTopLevelTasks: TaskWithAssignees[];
   onMoveToParent: (taskId: string, parentId: string) => void;
   onPromoteToTopLevel: (taskId: string) => void;
+  draggedTaskId: string | null;
+  onDragStartTask: (id: string) => void;
+  onDragEndTask: () => void;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
   const hasSubtasks = subtaskCount > 0;
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const taskValues = customValues.get(task.id) || new Map<string, string>();
+
+  // Drop target: any top-level row that isn't the dragged task itself.
+  const canBeDropTarget = !isSubtask && draggedTaskId !== null && draggedTaskId !== task.id;
 
   return (
     <>
       <div
-        className={`group grid items-center border-b border-border hover:bg-accent/30 cursor-pointer transition-colors text-sm ${isSubtask ? 'bg-muted/20' : ''}`}
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', task.id);
+          onDragStartTask(task.id);
+        }}
+        onDragEnd={(e) => { e.stopPropagation(); setIsDragOver(false); onDragEndTask(); }}
+        onDragOver={(e) => {
+          if (!canBeDropTarget) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!isDragOver) setIsDragOver(true);
+        }}
+        onDragLeave={() => { if (isDragOver) setIsDragOver(false); }}
+        onDrop={(e) => {
+          if (!canBeDropTarget) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(false);
+          const draggedId = e.dataTransfer.getData('text/plain') || draggedTaskId;
+          if (draggedId && draggedId !== task.id) {
+            onMoveToParent(draggedId, task.id);
+          }
+        }}
+        className={`group grid items-center border-b border-border hover:bg-accent/30 cursor-pointer transition-colors text-sm ${isSubtask ? 'bg-muted/20' : ''} ${isDragOver ? 'ring-2 ring-primary ring-inset bg-primary/5' : ''} ${draggedTaskId === task.id ? 'opacity-40' : ''}`}
         style={{ gridTemplateColumns: gridCols }}
         onClick={() => onClickTask(task, parentTask)}
       >
