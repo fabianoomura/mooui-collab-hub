@@ -827,6 +827,9 @@ export default function TableViewPage() {
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
   const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const onDragStartTask = useCallback((id: string) => setDraggedTaskId(id), []);
+  const onDragEndTask = useCallback(() => setDraggedTaskId(null), []);
 
   const [statusLabelsConfig, setStatusLabelsConfig] = useState<LabelOption[]>(() => {
     const saved = localStorage.getItem(`mooui_status_labels_${projectFromUrl}`);
