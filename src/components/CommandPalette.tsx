@@ -7,6 +7,7 @@ import {
 import {
   Table2, MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
   Briefcase, ClipboardCheck, Home, Users, Settings, ListTodo, Package, Bug, Layers,
+  Wrench, FileText, Camera, ShoppingBag,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +24,10 @@ const ROUTES = [
   { label: 'Check Lançamentos', href: '/checagens', icon: ClipboardCheck, kw: 'checklist checagem site' },
   { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },
   { label: 'Pedidos', href: '/pedidos', icon: Package, kw: 'orders sac expedição' },
+  { label: 'Melhorias', href: '/melhorias', icon: Wrench, kw: 'site shopify seo melhorias' },
+  { label: 'Conteúdo', href: '/conteudo', icon: FileText, kw: 'conteudo posts redes sociais newsletters pautas' },
+  { label: 'Sessões', href: '/sessoes', icon: Camera, kw: 'sessoes fotos videos shots' },
+  { label: 'Produtos', href: '/produtos', icon: ShoppingBag, kw: 'produtos pipeline design novos' },
   { label: 'Timeline', href: '/timeline', icon: Layers, kw: 'timeline visao unificada panorama' },
   { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios' },
   { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings' },
@@ -127,14 +132,71 @@ export function CommandPalette() {
     enabled: !!currentOrg && open && hasSearch,
   });
 
+  const { data: melhorias = [] } = useQuery({
+    queryKey: ['cmdk-melhorias', currentOrg?.id, debouncedSearch],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data } = await supabase.from('melhorias' as any)
+        .select('id, title, code')
+        .eq('organization_id', currentOrg.id)
+        .ilike('title', `%${debouncedSearch}%`)
+        .limit(8);
+      return (data ?? []) as any[];
+    },
+    enabled: !!currentOrg && open && hasSearch,
+  });
+
+  const { data: conteudos = [] } = useQuery({
+    queryKey: ['cmdk-conteudos', currentOrg?.id, debouncedSearch],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data } = await supabase.from('conteudo_items' as any)
+        .select('id, title, code')
+        .eq('organization_id', currentOrg.id)
+        .ilike('title', `%${debouncedSearch}%`)
+        .limit(8);
+      return (data ?? []) as any[];
+    },
+    enabled: !!currentOrg && open && hasSearch,
+  });
+
+  const { data: sessoes = [] } = useQuery({
+    queryKey: ['cmdk-sessoes', currentOrg?.id, debouncedSearch],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data } = await supabase.from('sessoes' as any)
+        .select('id, title, code')
+        .eq('organization_id', currentOrg.id)
+        .ilike('title', `%${debouncedSearch}%`)
+        .limit(8);
+      return (data ?? []) as any[];
+    },
+    enabled: !!currentOrg && open && hasSearch,
+  });
+
+  const { data: produtos = [] } = useQuery({
+    queryKey: ['cmdk-produtos', currentOrg?.id, debouncedSearch],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data } = await supabase.from('produtos' as any)
+        .select('id, name, code')
+        .eq('organization_id', currentOrg.id)
+        .ilike('name', `%${debouncedSearch}%`)
+        .limit(8);
+      return (data ?? []) as any[];
+    },
+    enabled: !!currentOrg && open && hasSearch,
+  });
+
   const go = (path: string) => { setOpen(false); navigate(path); };
 
-  const hasResults = tasks.length > 0 || tickets.length > 0 || orders.length > 0 || docs.length > 0;
+  const hasResults = tasks.length > 0 || tickets.length > 0 || orders.length > 0 || docs.length > 0
+    || melhorias.length > 0 || conteudos.length > 0 || sessoes.length > 0 || produtos.length > 0;
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput
-        placeholder="Buscar páginas, tarefas, tickets, pedidos, docs…"
+        placeholder="Buscar páginas, tarefas, melhorias, conteúdo, produtos…"
         value={search}
         onValueChange={setSearch}
       />
@@ -180,6 +242,46 @@ export function CommandPalette() {
                   <CommandItem key={d.id} value={`doc ${d.title}`} onSelect={() => go('/docs')}>
                     <BookOpen className="h-4 w-4 mr-2 text-emerald-500" />
                     {d.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {melhorias.length > 0 && (
+              <CommandGroup heading="Melhorias">
+                {melhorias.map((m: any) => (
+                  <CommandItem key={m.id} value={`melhoria ${m.title} ${m.code || ''}`} onSelect={() => go('/melhorias')}>
+                    <Wrench className="h-4 w-4 mr-2 text-violet-500" />
+                    {m.code ? `${m.code} — ` : ''}{m.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {conteudos.length > 0 && (
+              <CommandGroup heading="Conteúdo">
+                {conteudos.map((c: any) => (
+                  <CommandItem key={c.id} value={`conteudo ${c.title} ${c.code || ''}`} onSelect={() => go('/conteudo')}>
+                    <FileText className="h-4 w-4 mr-2 text-pink-500" />
+                    {c.code ? `${c.code} — ` : ''}{c.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {sessoes.length > 0 && (
+              <CommandGroup heading="Sessões">
+                {sessoes.map((s: any) => (
+                  <CommandItem key={s.id} value={`sessao ${s.title} ${s.code || ''}`} onSelect={() => go('/sessoes')}>
+                    <Camera className="h-4 w-4 mr-2 text-cyan-500" />
+                    {s.code ? `${s.code} — ` : ''}{s.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {produtos.length > 0 && (
+              <CommandGroup heading="Produtos">
+                {produtos.map((p: any) => (
+                  <CommandItem key={p.id} value={`produto ${p.name} ${p.code || ''}`} onSelect={() => go('/produtos')}>
+                    <ShoppingBag className="h-4 w-4 mr-2 text-amber-500" />
+                    {p.code ? `${p.code} — ` : ''}{p.name}
                   </CommandItem>
                 ))}
               </CommandGroup>

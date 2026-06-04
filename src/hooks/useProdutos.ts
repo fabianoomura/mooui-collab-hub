@@ -291,7 +291,7 @@ export function useUpdateProduto() {
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Produto> & { id: string }) => {
       const { data: before } = await supabase.from('produtos' as any)
-        .select('name, responsible')
+        .select('name, responsible, collection_group')
         .eq('id', id)
         .single();
       const { error } = await supabase.from('produtos' as any).update(patch).eq('id', id);
@@ -303,6 +303,15 @@ export function useUpdateProduto() {
             userId: patch.responsible,
             type: 'produto_assigned',
             title: `Produto atribuido a voce: ${(before as any).name}`,
+            link: '/produtos',
+          });
+        }
+        if (patch.collection_group && before && patch.collection_group !== (before as any).collection_group && (before as any).responsible && (before as any).responsible !== user?.id) {
+          await notifyUser({
+            userId: (before as any).responsible,
+            type: 'produto_status',
+            title: `Produto mudou para "${patch.collection_group}"`,
+            message: (before as any).name,
             link: '/produtos',
           });
         }

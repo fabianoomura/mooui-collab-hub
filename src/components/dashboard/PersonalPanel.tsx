@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertTriangle, CalendarClock, ListTodo, Rocket, Calendar, ClipboardCheck,
   MessageSquare, Briefcase, Send, CheckCircle2, Package, TrendingUp, Check, Play,
-  Camera, FileText,
+  Camera, FileText, Wrench,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -166,7 +166,18 @@ export function PersonalPanel() {
         .limit(5);
       const myOrders = (myOrdersData || []) as any[];
 
-      // 9) Novos modulos atribuídos a mim
+      // 9) Melhorias atribuídas a mim
+      const { data: myMelhoriasData } = await supabase
+        .from('melhorias' as any)
+        .select('id, title, code, priority, status, area')
+        .eq('organization_id', currentOrg.id)
+        .eq('assigned_to', user.id)
+        .not('status', 'in', '("done","cancelled")')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      const myMelhorias = (myMelhoriasData || []) as any[];
+
+      // 10) Novos modulos atribuídos a mim
       const { data: myConteudosData } = await supabase
         .from('conteudo_items' as any)
         .select('id, title, channel, scheduled_date, status')
@@ -294,7 +305,7 @@ export function PersonalPanel() {
         .eq('status', 'done');
 
       // Summary counters
-      const totalPending = myTasks.length + myStages.length + myCheckItems.length + myOrders.length + myConteudos.length + mySessoes.length + myProdutos.length;
+      const totalPending = myTasks.length + myStages.length + myCheckItems.length + myOrders.length + myMelhorias.length + myConteudos.length + mySessoes.length + myProdutos.length;
       const totalDone = (doneTasks ?? 0) + (doneStages ?? 0) + (doneCheckItems ?? 0);
       const totalAll = totalPending + totalDone;
       const completionPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 100;
@@ -306,6 +317,7 @@ export function PersonalPanel() {
         sentCount: sentCount ?? 0,
         myTickets,
         myOrders,
+        myMelhorias,
         totalPending,
         totalDone,
         completionPct,
@@ -682,6 +694,35 @@ export function PersonalPanel() {
                   </div>
                   <Badge variant="outline" className="text-[10px] shrink-0">
                     {({ low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' } as Record<string,string>)[o.priority] ?? o.priority}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Melhorias */}
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Wrench className="h-4 w-4 text-violet-500" />
+            <h2 className="text-sm font-semibold uppercase tracking-wide">Suas melhorias</h2>
+            <Badge variant="secondary" className="ml-auto">{data.myMelhorias.length}</Badge>
+          </div>
+          {data.myMelhorias.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma melhoria pendente.</p>
+          ) : (
+            <div className="space-y-1">
+              {data.myMelhorias.map((m: any) => (
+                <Link
+                  key={m.id} to="/melhorias"
+                  className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate group-hover:text-primary">{m.title}</p>
+                    {m.code && <p className="text-[10px] text-muted-foreground">{m.code}</p>}
+                  </div>
+                  <Badge variant="outline" className="text-[10px] shrink-0">
+                    {({ low: 'Baixa', medium: 'Média', high: 'Alta', critical: 'Crítica' } as Record<string,string>)[m.priority] ?? m.priority}
                   </Badge>
                 </Link>
               ))}

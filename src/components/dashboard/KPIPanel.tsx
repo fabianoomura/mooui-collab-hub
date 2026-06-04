@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { TrendingUp, TrendingDown, CheckCircle2, Clock, Package, Briefcase, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, CheckCircle2, Clock, Package, Briefcase, BarChart3, Wrench, FileText, ShoppingBag } from 'lucide-react';
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -79,6 +79,27 @@ export function KPIPanel() {
         avgTicketHours = Math.round(totalMs / resolvedTickets.length / 3600000);
       }
 
+      // Melhorias: open vs done this week
+      const [melhoriasOpen, melhoriasDone] = await Promise.all([
+        supabase.from('melhorias' as any).select('id', { count: 'exact', head: true })
+          .eq('organization_id', currentOrg.id).not('status', 'in', '("done","cancelled")'),
+        supabase.from('melhorias' as any).select('id', { count: 'exact', head: true })
+          .eq('organization_id', currentOrg.id).eq('status', 'done').gte('updated_at', week),
+      ]);
+
+      // Conteudo: pending vs published this week
+      const [conteudoPending, conteudoPublished] = await Promise.all([
+        supabase.from('conteudo_items' as any).select('id', { count: 'exact', head: true })
+          .eq('organization_id', currentOrg.id).not('status', 'in', '("publicado")'),
+        supabase.from('conteudo_items' as any).select('id', { count: 'exact', head: true })
+          .eq('organization_id', currentOrg.id).eq('status', 'publicado').gte('updated_at', week),
+      ]);
+
+      // Produtos: active pipeline count
+      const { count: produtosActive } = await supabase
+        .from('produtos' as any).select('id', { count: 'exact', head: true })
+        .eq('organization_id', currentOrg.id).neq('collection_group', 'arquivado');
+
       const doneThis = tasksDoneThisWeek.count ?? 0;
       const doneLast = tasksDoneLastWeek.count ?? 0;
       const taskTrend = doneLast > 0 ? Math.round(((doneThis - doneLast) / doneLast) * 100) : 0;
@@ -92,6 +113,11 @@ export function KPIPanel() {
         ticketsCreated: ticketsCreated.count ?? 0,
         ticketsResolved: ticketsResolved.count ?? 0,
         avgTicketHours,
+        melhoriasOpen: melhoriasOpen.count ?? 0,
+        melhoriasDoneWeek: melhoriasDone.count ?? 0,
+        conteudoPending: conteudoPending.count ?? 0,
+        conteudoPublishedWeek: conteudoPublished.count ?? 0,
+        produtosActive: produtosActive ?? 0,
       };
     },
     enabled: !!currentOrg && canDo('view_reports'),
@@ -125,6 +151,29 @@ export function KPIPanel() {
       icon: Briefcase,
       iconColor: 'text-indigo-600',
     },
+    {
+      label: 'Melhorias',
+      value: data.melhoriasOpen,
+      suffix: 'em aberto',
+      extra: data.melhoriasDoneWeek > 0 ? `${data.melhoriasDoneWeek} concluída(s) esta semana` : undefined,
+      icon: Wrench,
+      iconColor: 'text-violet-600',
+    },
+    {
+      label: 'Conteúdo',
+      value: data.conteudoPending,
+      suffix: 'pendentes',
+      extra: data.conteudoPublishedWeek > 0 ? `${data.conteudoPublishedWeek} publicado(s) esta semana` : undefined,
+      icon: FileText,
+      iconColor: 'text-pink-600',
+    },
+    {
+      label: 'Produtos',
+      value: data.produtosActive,
+      suffix: 'no pipeline',
+      icon: ShoppingBag,
+      iconColor: 'text-amber-600',
+    },
   ];
 
   return (
@@ -133,7 +182,7 @@ export function KPIPanel() {
         <BarChart3 className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold uppercase tracking-wide">KPIs da Semana</h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {kpis.map((kpi) => (
           <div key={kpi.label} className="flex items-start gap-3">
             <div className={`h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0`}>

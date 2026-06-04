@@ -5,6 +5,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   CheckCircle2, Rocket, Package, Briefcase, LayoutDashboard, Activity,
+  Wrench, FileText, ShoppingBag,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -125,10 +126,42 @@ export function ExecutivePanel() {
         avgTaskHours = Math.round(totalMs / doneTasks.length / 3600000);
       }
 
+      // Melhorias
+      const { count: openMelhorias } = await supabase
+        .from('melhorias' as any).select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId).not('status', 'in', '("done","cancelled")');
+
+      const { data: doneMelhorias } = await supabase
+        .from('melhorias' as any).select('data_abertura, data_conclusao')
+        .eq('organization_id', orgId).eq('status', 'done')
+        .not('data_conclusao', 'is', null)
+        .gte('data_conclusao', thirtyDaysAgo);
+
+      let avgMelhoriaHours = 0;
+      if (doneMelhorias?.length) {
+        const totalMs = (doneMelhorias as any[]).reduce((sum, m) => {
+          return sum + (new Date(m.data_conclusao).getTime() - new Date(m.data_abertura).getTime());
+        }, 0);
+        avgMelhoriaHours = Math.round(totalMs / doneMelhorias.length / 3600000);
+      }
+
+      // Conteudo
+      const { count: openConteudo } = await supabase
+        .from('conteudo_items' as any).select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId).not('status', 'in', '("publicado")');
+
+      // Produtos
+      const { count: activeProdutos } = await supabase
+        .from('produtos' as any).select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId).neq('collection_group', 'arquivado');
+
       const modules: ModuleHealth[] = [
         { name: 'Pedidos', openCount: openOrders ?? 0, avgHours: avgOrderHours },
         { name: 'Tickets', openCount: openTickets ?? 0, avgHours: avgTicketHours },
         { name: 'Tarefas', openCount: openTasks ?? 0, avgHours: avgTaskHours },
+        { name: 'Melhorias', openCount: openMelhorias ?? 0, avgHours: avgMelhoriaHours },
+        { name: 'Conteúdo', openCount: openConteudo ?? 0, avgHours: 0 },
+        { name: 'Produtos', openCount: activeProdutos ?? 0, avgHours: 0 },
       ];
 
       return {

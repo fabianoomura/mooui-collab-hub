@@ -21,13 +21,13 @@ Atualizado em: 2026-06-03
 
 | # | Modulo | Rota | Status |
 |---|--------|------|--------|
-| 1 | Dashboard | `/` | OK — KPIs, agenda pessoal, quick actions, painel executivo |
+| 1 | Dashboard | `/` | OK — KPIs (6 modulos), agenda pessoal (todos modulos), quick actions, painel executivo (saude 6 modulos) |
 | 2 | Sunday (Projetos) | `/projetos`, `/tabela` | OK — kanban, tabela, subtarefas, templates, dependencias |
 | 3 | Speaks (Mensagens) | `/mensagens` | OK — canais, DMs, threads, @mencoes, busca, auto-posts |
 | 4 | Papelinho (Docs) | `/docs` | OK — wiki com editor TipTap, pastas, busca full-text |
 | 5 | Salas (Reservas) | `/salas` | OK — grade horaria, reservas |
 | 6 | Equipe | `/equipe` | OK — diretorio, organograma, carga de trabalho |
-| 7 | Command Palette | `Ctrl+K` | OK — busca global, acoes rapidas |
+| 7 | Command Palette | `Ctrl+K` | OK — busca global (todos modulos), acoes rapidas, navegacao completa |
 | 8 | Configuracoes | `/configuracoes` | OK — usuarios, setores, permissoes, logo |
 
 ### Operacionais
@@ -139,3 +139,4 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-03 | Comentarios + Anexos + Atividade em tabs para Sessoes e Produto |
 | 2026-06-04 | Comentarios em Conteudo, fix HTML entities, paridade completa entre modulos |
 | 2026-06-04 | Comentarios + Atividade em tabs para Newsletters e Pautas, cleanup scripts temp |
+| 2026-06-04 | Integracao Dashboard (KPI+Executive+Personal) com 4 novos modulos, Command Palette expandido |
