@@ -479,7 +479,7 @@ function SessaoExpanded({
               <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
             </div>
           </Card>
-          <LinkedItems moduleType="sessao" itemId={sessao.id} />
+          <LinkedItems sourceType="sessao" sourceId={sessao.id} />
         </div>
       </div>
 

@@ -477,7 +477,7 @@ function ProdutoExpanded({
               <div className="h-full bg-emerald-500 transition-all" style={{ width: `${produto.progress}%` }} />
             </div>
           </Card>
-          <LinkedItems moduleType="produto" itemId={produto.id} />
+          <LinkedItems sourceType="produto" sourceId={produto.id} />
         </div>
       </div>
 
