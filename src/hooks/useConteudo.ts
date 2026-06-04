@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { notifyUser } from '@/hooks/useNotifications';
+import { autoPostToChannel } from '@/hooks/useAutoPost';
 
 export type ConteudoChannel = 'mooui_kids' | 'mooui_home' | 'amo_mooui' | 'barcelona' | 'outras_redes' | 'pinterest';
 export type ConteudoStatus = 'nao_iniciado' | 'em_andamento' | 'em_revisao' | 'aprovado' | 'publicado';
@@ -353,11 +354,12 @@ export function useCreateConteudo() {
 
 export function useUpdateConteudo() {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<ConteudoItem> & { id: string }) => {
       const { data: before } = await supabase.from('conteudo_items' as any)
-        .select('title, created_by, assigned_to, status').eq('id', id).single();
+        .select('title, created_by, assigned_to, status, channel').eq('id', id).single();
       const { error } = await supabase.from('conteudo_items' as any).update(patch).eq('id', id);
       if (error) throw error;
 
@@ -377,6 +379,14 @@ export function useUpdateConteudo() {
             title: `Conteúdo mudou para "${patch.status}"`,
             message: (before as any).title,
             link: '/conteudo',
+          });
+        }
+        if (patch.status === 'publicado' && currentOrg && user) {
+          autoPostToChannel({
+            orgId: currentOrg.id,
+            channelName: 'social',
+            userId: user.id,
+            content: `📢 Conteúdo publicado: "${(before as any).title}" (${(before as any).channel})`,
           });
         }
       } catch (e) { console.warn('conteudo update notify failed', e); }

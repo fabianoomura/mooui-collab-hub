@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { notifyUser } from '@/hooks/useNotifications';
+import { autoPostToChannel } from '@/hooks/useAutoPost';
 
 export type SessaoStatus = 'planejada' | 'em_producao' | 'em_edicao' | 'entregue' | 'cancelada';
 export type SessaoShotTipo = 'foto' | 'video';
@@ -209,6 +210,7 @@ export function useCreateSessao() {
 
 export function useUpdateSessao() {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Sessao> & { id: string }) => {
@@ -238,6 +240,14 @@ export function useUpdateSessao() {
             title: `Sessao mudou para "${patch.status}"`,
             message: (before as any).title,
             link: '/sessoes',
+          });
+        }
+        if (patch.status === 'entregue' && currentOrg && user) {
+          autoPostToChannel({
+            orgId: currentOrg.id,
+            channelName: 'producao',
+            userId: user.id,
+            content: `📸 Sessão entregue: "${(before as any)?.title}"`,
           });
         }
       } catch (e) { console.warn('sessao update notify failed', e); }

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { notifyUser } from '@/hooks/useNotifications';
+import { autoPostToChannel } from '@/hooks/useAutoPost';
 
 export type ProdutoCollectionGroup = 'novas_ideias' | 'em_desenvolvimento' | 'em_validacao' | 'aprovado' | 'arquivado';
 export type ProdutoStageStatus = 'nao_iniciado' | 'em_andamento' | 'bloqueado' | 'finalizado';
@@ -287,6 +288,7 @@ export function useCreateProduto() {
 
 export function useUpdateProduto() {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Produto> & { id: string }) => {
@@ -313,6 +315,14 @@ export function useUpdateProduto() {
             title: `Produto mudou para "${patch.collection_group}"`,
             message: (before as any).name,
             link: '/produtos',
+          });
+        }
+        if (patch.collection_group === 'aprovado' && currentOrg && user) {
+          autoPostToChannel({
+            orgId: currentOrg.id,
+            channelName: 'produtos',
+            userId: user.id,
+            content: `🎉 Produto aprovado: "${(before as any)?.name}"`,
           });
         }
       } catch (e) { console.warn('produto update notify failed', e); }
