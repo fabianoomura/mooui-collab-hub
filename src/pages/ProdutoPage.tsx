@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  Calendar as CalendarIcon, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText,
+  Calendar as CalendarIcon, CheckCircle2, ChevronDown, ChevronRight, Clock, Columns3, FileText,
   LayoutList, Package, Paperclip, Plus, Search as SearchIcon, Send, Trash2, UserRound, X,
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
@@ -124,7 +125,7 @@ function ProdutosList({ orgMembers }: { orgMembers: OrgMember[] }) {
 
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState<'all' | ProdutoCollectionGroup>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'kanban'>('list');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [nName, setNName] = useState('');
@@ -249,6 +250,9 @@ function ProdutosList({ orgMembers }: { orgMembers: OrgMember[] }) {
           <Button size="sm" variant={viewMode === 'calendar' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('calendar')}>
             <CalendarIcon className="h-3.5 w-3.5" />
           </Button>
+          <Button size="sm" variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('kanban')}>
+            <Columns3 className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" />Novo produto</Button>
       </div>
@@ -259,6 +263,8 @@ function ProdutosList({ orgMembers }: { orgMembers: OrgMember[] }) {
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhum produto encontrado.</Card>
       ) : viewMode === 'calendar' ? (
         <ProdutosCalendar produtos={filtered} onOpen={(produto) => { setExpandedId(produto.id); setViewMode('list'); }} />
+      ) : viewMode === 'kanban' ? (
+        <ProdutosKanban produtos={filtered} profileMap={profileMap} onOpen={(produto) => { setExpandedId(produto.id); setViewMode('list'); }} onGroupChange={(id, group) => updateMut.mutate({ id, collection_group: group } as any)} />
       ) : (
         <div className="space-y-2">
           {filtered.map((produto) => {
@@ -353,6 +359,106 @@ function ProdutosList({ orgMembers }: { orgMembers: OrgMember[] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/* ---- Produtos Kanban ---- */
+const produtoKanbanGroups: ProdutoCollectionGroup[] = ['novas_ideias', 'em_desenvolvimento', 'em_validacao', 'aprovado', 'arquivado'];
+const produtoKanbanDotColors: Record<ProdutoCollectionGroup, string> = {
+  novas_ideias: 'bg-violet-500', em_desenvolvimento: 'bg-blue-500', em_validacao: 'bg-amber-500', aprovado: 'bg-emerald-500', arquivado: 'bg-slate-400',
+};
+const produtoKanbanColColors: Record<ProdutoCollectionGroup, string> = {
+  novas_ideias: 'bg-violet-500/20', em_desenvolvimento: 'bg-blue-500/20', em_validacao: 'bg-amber-500/20', aprovado: 'bg-emerald-500/20', arquivado: 'bg-slate-400/20',
+};
+
+function ProdutosKanban({
+  produtos, profileMap, onOpen, onGroupChange,
+}: {
+  produtos: Produto[];
+  profileMap: Map<string, any>;
+  onOpen: (produto: Produto) => void;
+  onGroupChange: (id: string, group: ProdutoCollectionGroup) => void;
+}) {
+  const columns = useMemo(() => {
+    return produtoKanbanGroups.map(group => ({
+      id: group,
+      title: groupLabels[group],
+      items: produtos.filter(p => p.collection_group === group),
+    }));
+  }, [produtos]);
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const newGroup = result.destination.droppableId as ProdutoCollectionGroup;
+    const item = produtos.find(p => p.id === result.draggableId);
+    if (!item || item.collection_group === newGroup) return;
+    onGroupChange(item.id, newGroup);
+  };
+
+  return (
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="flex gap-3 overflow-x-auto pb-4">
+        {columns.map(col => (
+          <div key={col.id} className="flex-shrink-0 w-64">
+            <div className={`rounded-lg px-3 py-2 mb-3 flex items-center gap-2 ${produtoKanbanColColors[col.id]}`}>
+              <div className={`h-2.5 w-2.5 rounded-full ${produtoKanbanDotColors[col.id]}`} />
+              <span className="text-sm font-semibold">{col.title}</span>
+              <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">{col.items.length}</span>
+            </div>
+            <Droppable droppableId={col.id}>
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={cn(
+                    'space-y-2 min-h-[120px] rounded-lg p-1 transition-colors',
+                    snapshot.isDraggingOver && 'bg-primary/5 ring-1 ring-primary/20'
+                  )}
+                >
+                  {col.items.map((produto, index) => {
+                    const responsible = produto.responsible ? profileMap.get(produto.responsible) : null;
+                    return (
+                      <Draggable key={produto.id} draggableId={produto.id} index={index}>
+                        {(prov, snap) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            {...prov.dragHandleProps}
+                            onClick={() => onOpen(produto)}
+                            className={cn(
+                              'rounded-md border bg-card p-2.5 cursor-pointer hover:border-primary/40 transition-colors',
+                              snap.isDragging && 'shadow-lg ring-2 ring-primary/30'
+                            )}
+                          >
+                            {produto.code && (
+                              <span className="text-[9px] font-mono font-semibold text-muted-foreground bg-muted px-1 py-0.5 rounded">{produto.code}</span>
+                            )}
+                            <p className="text-sm font-medium leading-tight line-clamp-2 mt-1">{produto.name}</p>
+                            <div className="h-1.5 rounded-full bg-muted mt-1.5 overflow-hidden">
+                              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${produto.progress}%` }} />
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-[10px] text-muted-foreground">{produto.progress}%</span>
+                              {produto.launch_target && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {format(new Date(produto.launch_target + 'T12:00:00'), 'dd/MM', { locale: ptBR })}
+                                </span>
+                              )}
+                            </div>
+                            {responsible && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{(responsible as any).full_name || 'Usuario'}</p>}
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        ))}
+      </div>
+    </DragDropContext>
   );
 }
 

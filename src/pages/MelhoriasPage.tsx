@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { Plus, Globe, Monitor, Search as SearchIcon, Code, BarChart3, X, Send, Trash2, Paperclip, Clock, CheckCircle2, AlertCircle, FileText, LayoutList, ChevronDown, ChevronRight, Circle } from 'lucide-react';
+import { Plus, Globe, Monitor, Search as SearchIcon, Code, BarChart3, X, Send, Trash2, Paperclip, Clock, CheckCircle2, AlertCircle, FileText, LayoutList, Columns3, ChevronDown, ChevronRight, Circle } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -396,6 +397,13 @@ export default function MelhoriasPage() {
   );
 }
 
+const melhoriaKanbanDotColors: Record<MelhoriaStatus, string> = {
+  open: 'bg-amber-500', in_progress: 'bg-blue-500', done: 'bg-emerald-500', rejected: 'bg-slate-400',
+};
+const melhoriaKanbanColColors: Record<MelhoriaStatus, string> = {
+  open: 'bg-amber-500/20', in_progress: 'bg-blue-500/20', done: 'bg-emerald-500/20', rejected: 'bg-slate-400/20',
+};
+
 function MelhoriasKanban({
   melhorias, profileMap, onOpen, onStatusChange,
 }: {
@@ -405,67 +413,79 @@ function MelhoriasKanban({
   onStatusChange: (item: Melhoria, status: MelhoriaStatus) => void;
 }) {
   const statuses = Object.keys(statusLabels) as MelhoriaStatus[];
-  const byStatus = useMemo(() => {
-    const map = new Map<MelhoriaStatus, Melhoria[]>();
-    statuses.forEach((status) => map.set(status, []));
-    melhorias.forEach((item) => map.get(item.status)?.push(item));
-    return map;
+  const columns = useMemo(() => {
+    return statuses.map(status => ({
+      id: status,
+      title: statusLabels[status],
+      items: melhorias.filter(i => i.status === status),
+    }));
   }, [melhorias]);
 
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const newStatus = result.destination.droppableId as MelhoriaStatus;
+    const item = melhorias.find(i => i.id === result.draggableId);
+    if (!item || item.status === newStatus) return;
+    onStatusChange(item, newStatus);
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-      {statuses.map((status) => {
-        const items = byStatus.get(status) || [];
-        return (
-          <Card key={status} className="p-3 bg-muted/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="flex gap-3 overflow-x-auto pb-4">
+        {columns.map(col => (
+          <div key={col.id} className="flex-shrink-0 w-64">
+            <div className={`rounded-lg px-3 py-2 mb-3 flex items-center gap-2 ${melhoriaKanbanColColors[col.id]}`}>
+              <div className={`h-2.5 w-2.5 rounded-full ${melhoriaKanbanDotColors[col.id]}`} />
+              <span className="text-sm font-semibold">{col.title}</span>
+              <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">{col.items.length}</span>
+            </div>
+            <Droppable droppableId={col.id}>
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
                   className={cn(
-                    'h-2.5 w-2.5 rounded-full',
-                    status === 'open' && 'bg-amber-500',
-                    status === 'in_progress' && 'bg-blue-500',
-                    status === 'done' && 'bg-emerald-500',
-                    status === 'rejected' && 'bg-slate-400',
+                    'space-y-2 min-h-[120px] rounded-lg p-1 transition-colors',
+                    snapshot.isDraggingOver && 'bg-primary/5 ring-1 ring-primary/20'
                   )}
-                />
-                <h3 className="text-sm font-semibold">{statusLabels[status]}</h3>
-              </div>
-              <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
-            </div>
-            <div className="space-y-2">
-              {items.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">-</p>}
-              {items.map((item) => {
-                const assignee = item.assigned_to ? profileMap.get(item.assigned_to) : null;
-                return (
-                  <div key={item.id} className="rounded-md border bg-card p-2 space-y-2">
-                    <button className="w-full text-left" onClick={() => onOpen(item)}>
-                      <div className="flex items-start gap-2">
-                        {item.code && <span className="text-[10px] font-mono text-muted-foreground">{item.code}</span>}
-                        <span className="text-xs font-medium flex-1 line-clamp-2">{item.title}</span>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                        <Badge variant="outline" className={cn('text-[10px]', priorityColors[item.priority])}>{priorityLabels[item.priority]}</Badge>
-                        <Badge variant="outline" className="text-[10px]">{areaLabels[item.area]}</Badge>
-                      </div>
-                      {assignee && <p className="mt-1 text-[10px] text-muted-foreground truncate">Responsavel: {assignee.full_name || 'Usuario'}</p>}
-                    </button>
-                    <Select value={item.status} onValueChange={(value) => onStatusChange(item, value as MelhoriaStatus)}>
-                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {statuses.map((key) => (
-                          <SelectItem key={key} value={key}>{statusLabels[key]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        );
-      })}
-    </div>
+                >
+                  {col.items.map((item, index) => {
+                    const assignee = item.assigned_to ? profileMap.get(item.assigned_to) : null;
+                    return (
+                      <Draggable key={item.id} draggableId={item.id} index={index}>
+                        {(prov, snap) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            {...prov.dragHandleProps}
+                            onClick={() => onOpen(item)}
+                            className={cn(
+                              'rounded-md border bg-card p-2.5 cursor-pointer hover:border-primary/40 transition-colors',
+                              snap.isDragging && 'shadow-lg ring-2 ring-primary/30'
+                            )}
+                          >
+                            <div className="flex items-start gap-1.5 mb-1">
+                              {item.code && <span className="text-[9px] font-mono font-semibold text-muted-foreground bg-muted px-1 py-0.5 rounded">{item.code}</span>}
+                            </div>
+                            <p className="text-sm font-medium leading-tight line-clamp-2">{item.title}</p>
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <Badge variant="outline" className={cn('text-[9px]', priorityColors[item.priority])}>{priorityLabels[item.priority]}</Badge>
+                              <Badge variant="outline" className="text-[9px]">{areaLabels[item.area]}</Badge>
+                            </div>
+                            {assignee && <p className="mt-1 text-[10px] text-muted-foreground truncate">{assignee.full_name || 'Usuario'}</p>}
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        ))}
+      </div>
+    </DragDropContext>
   );
 }
 

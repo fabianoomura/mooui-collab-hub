@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, ChevronRight,
+  Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, ChevronRight, Columns3,
   ClipboardSignature, Clock, Film, FileText, Image as ImageIcon, LayoutList, Lightbulb,
   Paperclip, Plus, Search as SearchIcon, Send, Trash2, UserRound, X,
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
@@ -143,7 +144,7 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | SessaoStatus>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'kanban'>('list');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [nTitle, setNTitle] = useState('');
@@ -234,6 +235,9 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
           <Button size="sm" variant={viewMode === 'calendar' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('calendar')}>
             <CalendarIcon className="h-3.5 w-3.5" />
           </Button>
+          <Button size="sm" variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('kanban')}>
+            <Columns3 className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" />Nova sessao</Button>
       </div>
@@ -244,6 +248,8 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma sessao encontrada.</Card>
       ) : viewMode === 'calendar' ? (
         <SessoesCalendar sessoes={filtered} onOpen={(sessao) => { setExpandedId(sessao.id); setViewMode('list'); }} />
+      ) : viewMode === 'kanban' ? (
+        <SessoesKanban sessoes={filtered} profileMap={profileMap} onOpen={(sessao) => { setExpandedId(sessao.id); setViewMode('list'); }} onStatusChange={(id, status) => updateMut.mutate({ id, status } as any)} />
       ) : (
         <div className="space-y-2">
           {filtered.map((sessao) => {
@@ -332,6 +338,101 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/* ---- Sessoes Kanban ---- */
+const sessaoKanbanStatuses: SessaoStatus[] = ['planejada', 'em_producao', 'em_edicao', 'entregue', 'cancelada'];
+const sessaoKanbanDotColors: Record<SessaoStatus, string> = {
+  planejada: 'bg-slate-500', em_producao: 'bg-blue-500', em_edicao: 'bg-amber-500', entregue: 'bg-emerald-500', cancelada: 'bg-red-500',
+};
+const sessaoKanbanColColors: Record<SessaoStatus, string> = {
+  planejada: 'bg-slate-500/20', em_producao: 'bg-blue-500/20', em_edicao: 'bg-amber-500/20', entregue: 'bg-emerald-500/20', cancelada: 'bg-red-500/20',
+};
+
+function SessoesKanban({
+  sessoes, profileMap, onOpen, onStatusChange,
+}: {
+  sessoes: Sessao[];
+  profileMap: Map<string, any>;
+  onOpen: (sessao: Sessao) => void;
+  onStatusChange: (id: string, status: SessaoStatus) => void;
+}) {
+  const columns = useMemo(() => {
+    return sessaoKanbanStatuses.map(status => ({
+      id: status,
+      title: sessaoStatusLabels[status],
+      items: sessoes.filter(s => s.status === status),
+    }));
+  }, [sessoes]);
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const newStatus = result.destination.droppableId as SessaoStatus;
+    const item = sessoes.find(s => s.id === result.draggableId);
+    if (!item || item.status === newStatus) return;
+    onStatusChange(item.id, newStatus);
+  };
+
+  return (
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="flex gap-3 overflow-x-auto pb-4">
+        {columns.map(col => (
+          <div key={col.id} className="flex-shrink-0 w-64">
+            <div className={`rounded-lg px-3 py-2 mb-3 flex items-center gap-2 ${sessaoKanbanColColors[col.id]}`}>
+              <div className={`h-2.5 w-2.5 rounded-full ${sessaoKanbanDotColors[col.id]}`} />
+              <span className="text-sm font-semibold">{col.title}</span>
+              <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">{col.items.length}</span>
+            </div>
+            <Droppable droppableId={col.id}>
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={cn(
+                    'space-y-2 min-h-[120px] rounded-lg p-1 transition-colors',
+                    snapshot.isDraggingOver && 'bg-primary/5 ring-1 ring-primary/20'
+                  )}
+                >
+                  {col.items.map((sessao, index) => {
+                    const responsaveis = (sessao.responsaveis || []).map((id: string) => profileMap.get(id)?.full_name || 'Usuario').join(', ');
+                    return (
+                      <Draggable key={sessao.id} draggableId={sessao.id} index={index}>
+                        {(prov, snap) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            {...prov.dragHandleProps}
+                            onClick={() => onOpen(sessao)}
+                            className={cn(
+                              'rounded-md border bg-card p-2.5 cursor-pointer hover:border-primary/40 transition-colors',
+                              snap.isDragging && 'shadow-lg ring-2 ring-primary/30'
+                            )}
+                          >
+                            {sessao.code && (
+                              <span className="text-[9px] font-mono font-semibold text-muted-foreground bg-muted px-1 py-0.5 rounded">{sessao.code}</span>
+                            )}
+                            <p className="text-sm font-medium leading-tight line-clamp-2 mt-1">{sessao.title}</p>
+                            {sessao.scheduled_date && (
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {format(new Date(sessao.scheduled_date + 'T12:00:00'), 'dd/MM', { locale: ptBR })}
+                              </p>
+                            )}
+                            {sessao.professional && <p className="text-[10px] text-muted-foreground mt-0.5">{sessao.professional}</p>}
+                            {responsaveis && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{responsaveis}</p>}
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        ))}
+      </div>
+    </DragDropContext>
   );
 }
 
