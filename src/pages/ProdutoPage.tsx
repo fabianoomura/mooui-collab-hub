@@ -584,6 +584,7 @@ function ProdutoExpanded({
             onChange={(e) => {
               if (e.target.files) {
                 Array.from(e.target.files).forEach(file => {
+                  if (file.size > 50 * 1024 * 1024) { toast.error(`${file.name} excede 50MB`); return; }
                   uploadFile.mutate({ produtoId: produto.id, file }, {
                     onSuccess: () => toast.success(`${file.name} enviado`),
                     onError: () => toast.error(`Erro ao enviar ${file.name}`),

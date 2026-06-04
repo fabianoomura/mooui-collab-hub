@@ -2,8 +2,9 @@ import { useMemo, useRef, useState } from 'react';
 import {
   Plus, Search as SearchIcon, X, Calendar as CalendarIcon, List, Clock, Trash2, Send,
   ChevronDown, ChevronRight, Mail, FileText, CheckCircle2, Paperclip, Image as ImageIcon,
-  Video, ExternalLink, MessageCircle,
+  Video, ExternalLink, MessageCircle, Columns3,
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -171,7 +172,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   const deleteMut = useDeleteConteudo();
   const confirm = useConfirm();
 
-  const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [view, setView] = useState<'list' | 'calendar' | 'kanban'>('list');
   const [channelFilter, setChannelFilter] = useState<'all' | ConteudoChannel>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ConteudoStatus>('all');
   const [search, setSearch] = useState('');
@@ -259,6 +260,9 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
           <Button variant={view === 'calendar' ? 'default' : 'outline'} size="sm" onClick={() => setView('calendar')}>
             <CalendarIcon className="h-3.5 w-3.5 mr-1" />Calendário
           </Button>
+          <Button variant={view === 'kanban' ? 'default' : 'outline'} size="sm" onClick={() => setView('kanban')}>
+            <Columns3 className="h-3.5 w-3.5 mr-1" />Kanban
+          </Button>
         </div>
         <Button onClick={() => setShowNew(true)} size="sm">
           <Plus className="h-4 w-4 mr-1" />Novo conteúdo
@@ -325,6 +329,8 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : view === 'calendar' ? (
         <ContentCalendar items={filtered} onClickItem={setOpenItem} />
+      ) : view === 'kanban' ? (
+        <ConteudoKanban items={filtered} profileMap={profileMap} onClickItem={setOpenItem} onStatusChange={(id, status) => updateMut.mutate({ id, status })} />
       ) : filtered.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhum conteúdo encontrado.</Card>
       ) : (
@@ -442,6 +448,122 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         />
       )}
     </div>
+  );
+}
+
+/* ================================================================ */
+/* Conteudo Kanban                                                   */
+/* ================================================================ */
+
+const kanbanStatuses: ConteudoStatus[] = ['nao_iniciado', 'em_andamento', 'em_revisao', 'aprovado', 'publicado'];
+const kanbanColumnColors: Record<ConteudoStatus, string> = {
+  nao_iniciado: 'bg-slate-500/20',
+  em_andamento: 'bg-blue-500/20',
+  em_revisao: 'bg-amber-500/20',
+  aprovado: 'bg-emerald-500/20',
+  publicado: 'bg-violet-500/20',
+};
+const kanbanDotColors: Record<ConteudoStatus, string> = {
+  nao_iniciado: 'bg-slate-500',
+  em_andamento: 'bg-blue-500',
+  em_revisao: 'bg-amber-500',
+  aprovado: 'bg-emerald-500',
+  publicado: 'bg-violet-500',
+};
+
+function ConteudoKanban({
+  items, profileMap, onClickItem, onStatusChange,
+}: {
+  items: ConteudoItem[];
+  profileMap: Map<string, any>;
+  onClickItem: (item: ConteudoItem) => void;
+  onStatusChange: (id: string, status: ConteudoStatus) => void;
+}) {
+  const columns = useMemo(() => {
+    return kanbanStatuses.map(status => ({
+      id: status,
+      title: statusLabels[status],
+      items: items.filter(i => i.status === status),
+    }));
+  }, [items]);
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const newStatus = result.destination.droppableId as ConteudoStatus;
+    const itemId = result.draggableId;
+    const item = items.find(i => i.id === itemId);
+    if (!item || item.status === newStatus) return;
+    onStatusChange(itemId, newStatus);
+  };
+
+  return (
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="flex gap-3 overflow-x-auto pb-4">
+        {columns.map(col => (
+          <div key={col.id} className="flex-shrink-0 w-64">
+            <div className={`rounded-lg px-3 py-2 mb-3 flex items-center gap-2 ${kanbanColumnColors[col.id]}`}>
+              <div className={`h-2.5 w-2.5 rounded-full ${kanbanDotColors[col.id]}`} />
+              <span className="text-sm font-semibold">{col.title}</span>
+              <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
+                {col.items.length}
+              </span>
+            </div>
+            <Droppable droppableId={col.id}>
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={cn(
+                    'space-y-2 min-h-[120px] rounded-lg p-1 transition-colors',
+                    snapshot.isDraggingOver && 'bg-primary/5 ring-1 ring-primary/20'
+                  )}
+                >
+                  {col.items.map((item, index) => {
+                    const author = profileMap.get(item.created_by) as any;
+                    return (
+                      <Draggable key={item.id} draggableId={item.id} index={index}>
+                        {(prov, snap) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            {...prov.dragHandleProps}
+                            onClick={() => onClickItem(item)}
+                            className={cn(
+                              'rounded-md border bg-card p-2.5 cursor-pointer hover:border-primary/40 transition-colors',
+                              snap.isDragging && 'shadow-lg ring-2 ring-primary/30'
+                            )}
+                          >
+                            <div className="flex items-start gap-1.5 flex-wrap mb-1">
+                              {item.code && (
+                                <span className="text-[9px] font-mono font-semibold text-muted-foreground bg-muted px-1 py-0.5 rounded">{item.code}</span>
+                              )}
+                              <Badge className={cn('text-[9px]', channelColors[item.channel])} variant="outline">{channelLabels[item.channel]}</Badge>
+                            </div>
+                            <p className="text-sm font-medium leading-tight line-clamp-2">{item.title}</p>
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <Badge variant="outline" className="text-[9px]">{typeLabels[item.content_type]}</Badge>
+                              {item.is_repost && <Badge variant="outline" className="text-[9px] bg-muted">Repost</Badge>}
+                            </div>
+                            {item.scheduled_date && (
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM', { locale: ptBR })}
+                                {item.time_slot && ` · ${item.time_slot}`}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground mt-1">{author?.full_name || 'Usuário'}</p>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        ))}
+      </div>
+    </DragDropContext>
   );
 }
 
@@ -963,9 +1085,15 @@ function ConteudoFilesPanel({ conteudoItemId }: { conteudoItemId: string }) {
   const { attachments, isLoading, uploadFile, deleteAttachment } = useConteudoAttachments(conteudoItemId);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
     Array.from(files).forEach((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} excede o limite de 50MB`);
+        return;
+      }
       uploadFile.mutate({ conteudoItemId, file }, {
         onSuccess: () => toast.success(`${file.name} enviado`),
         onError: (e: any) => toast.error(e?.message || `Erro ao enviar ${file.name}`),
@@ -985,10 +1113,14 @@ function ConteudoFilesPanel({ conteudoItemId }: { conteudoItemId: string }) {
       />
       <button
         type="button"
+        disabled={uploadFile.isPending}
         onClick={() => fileRef.current?.click()}
-        className="w-full rounded-md border-2 border-dashed p-4 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors flex items-center justify-center gap-2"
+        className={cn(
+          'w-full rounded-md border-2 border-dashed p-4 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors flex items-center justify-center gap-2',
+          uploadFile.isPending && 'opacity-50 cursor-not-allowed',
+        )}
       >
-        <Paperclip className="h-4 w-4" />Anexar fotos ou videos
+        <Paperclip className="h-4 w-4" />{uploadFile.isPending ? 'Enviando...' : 'Anexar fotos ou videos'}
       </button>
 
       {isLoading ? (
@@ -1020,7 +1152,11 @@ function ConteudoFilesPanel({ conteudoItemId }: { conteudoItemId: string }) {
                     </p>
                   </div>
                   {attachment.user_id === user?.id && (
-                    <button className="text-muted-foreground hover:text-destructive" onClick={() => deleteAttachment.mutate(attachment.id)}>
+                    <button
+                      disabled={deleteAttachment.isPending}
+                      className={cn('text-muted-foreground hover:text-destructive', deleteAttachment.isPending && 'opacity-50 cursor-not-allowed')}
+                      onClick={() => deleteAttachment.mutate(attachment.id)}
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
