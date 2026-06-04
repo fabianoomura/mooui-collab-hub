@@ -82,7 +82,7 @@ Producao ──→ Calendario (module_links)
 Producao ──→ Check Lancamentos (launch_id FK)
 Tickets ──→ Papelinho (criar artigo wiki)
 Producao ──→ Papelinho (briefings vinculados)
-Speaks ←── Pedidos, Tickets, Melhorias (auto-posts)
+Speaks ←── Pedidos, Tickets, Melhorias, Conteudo, Sessoes, Produtos (auto-posts)
 Dashboard ←── Todos os modulos (KPIs, agenda, contadores)
 Timeline ←── Calendario + Lancamentos + Tarefas + Melhorias + Conteudo + Sessoes + Produtos
 LinkedItems ←── Todos os modulos operacionais (cross-links)
@@ -140,3 +140,4 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-04 | Comentarios em Conteudo, fix HTML entities, paridade completa entre modulos |
 | 2026-06-04 | Comentarios + Atividade em tabs para Newsletters e Pautas, cleanup scripts temp |
 | 2026-06-04 | Integracao Dashboard (KPI+Executive+Personal) com 4 novos modulos, Command Palette expandido |
+| 2026-06-04 | Auto-posts em Speaks para Conteudo (#social), Sessoes (#producao), Produtos (#produtos) |
