@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, ChevronRight,
-  ClipboardSignature, Film, Image as ImageIcon, LayoutList, Lightbulb, Plus,
-  Search as SearchIcon, Trash2, UserRound, X,
+  ClipboardSignature, Clock, Film, FileText, Image as ImageIcon, LayoutList, Lightbulb,
+  Paperclip, Plus, Search as SearchIcon, Send, Trash2, UserRound, X,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,9 +12,10 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useCreateSessao, useCreateSessaoShot, useDeleteSessao, useDeleteSessaoShot,
-  useSessaoActivity, useSessaoShots, useSessoes, useUpdateSessao, useUpdateSessaoShot,
+  useSessaoActivity, useSessaoComments, useAddSessaoComment, useSessaoShots, useSessoes, useUpdateSessao, useUpdateSessaoShot,
   type Sessao, type SessaoShot, type SessaoShotStatus, type SessaoShotTipo, type SessaoStatus,
 } from '@/hooks/useSessoes';
+import { useSessaoAttachments } from '@/hooks/useSessaoAttachments';
 import {
   useCreateSessaoContract, useDeleteSessaoContract, useSessaoContracts, useUpdateSessaoContract,
   type SessaoContract,
@@ -394,13 +395,54 @@ function SessaoExpanded({
   onUpdate: (patch: Partial<Sessao>) => void;
   onDelete: () => void;
 }) {
+  const { user } = useAuth();
   const { data: shots = [] } = useSessaoShots(sessao.id);
   const { data: activity = [] } = useSessaoActivity(sessao.id);
+  const { data: comments = [] } = useSessaoComments(sessao.id);
+  const addComment = useAddSessaoComment();
+  const { attachments, isLoading: attLoading, uploadFile, deleteAttachment } = useSessaoAttachments(sessao.id);
   const createShot = useCreateSessaoShot();
   const updateShot = useUpdateSessaoShot();
   const deleteShot = useDeleteSessaoShot();
   const [newShotTitle, setNewShotTitle] = useState('');
   const [newShotTipo, setNewShotTipo] = useState<SessaoShotTipo>('foto');
+  const [detailTab, setDetailTab] = useState<'comments' | 'files' | 'activity'>('comments');
+  const [commentText, setCommentText] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Profiles for comments
+  const commentUserIds = [...new Set(comments.map(c => c.user_id))];
+  const { data: cProfiles = [] } = useQuery({
+    queryKey: ['sessao-cprofiles', commentUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (commentUserIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', commentUserIds);
+      return data || [];
+    },
+    enabled: commentUserIds.length > 0,
+  });
+  const cMap = new Map((cProfiles as any[]).map(p => [p.id, p]));
+
+  // Activity profiles
+  const actUserIds = [...new Set(activity.filter(a => a.user_id).map(a => a.user_id!))];
+  const { data: aProfiles = [] } = useQuery({
+    queryKey: ['sessao-aprofiles', actUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (actUserIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', actUserIds);
+      return data || [];
+    },
+    enabled: actUserIds.length > 0,
+  });
+  const aMap = new Map((aProfiles as any[]).map(p => [p.id, p]));
+
+  const sendComment = () => {
+    if (!commentText.trim()) return;
+    addComment.mutate({ sessaoId: sessao.id, content: commentText.trim() }, {
+      onSuccess: () => setCommentText(''),
+      onError: () => toast.error('Erro ao enviar'),
+    });
+  };
 
   const done = shots.filter((shot) => shot.status === 'feito').length;
   const progress = shots.length ? Math.round((done / shots.length) * 100) : 0;
@@ -517,28 +559,117 @@ function SessaoExpanded({
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs mb-2 block">Atividade</Label>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            {activity.length === 0 ? (
-              <span>Nenhuma atividade registrada.</span>
-            ) : activity.slice(-5).reverse().map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-2 border rounded-md px-2 py-1.5">
-                <span>{item.action}: {item.from_value || '-'} {'->'} {item.to_value || '-'}</span>
-                <span className="shrink-0">{formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}</span>
+      {/* Tabs: Comentarios / Anexos / Atividade */}
+      <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="comments">Comentarios ({comments.length})</TabsTrigger>
+          <TabsTrigger value="files">Anexos ({attachments.length})</TabsTrigger>
+          <TabsTrigger value="activity">Atividade ({activity.length})</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {detailTab === 'comments' && (
+        <div className="space-y-3">
+          {comments.length === 0 && <p className="text-xs text-muted-foreground">Nenhum comentario.</p>}
+          {comments.map(c => {
+            const cp = cMap.get(c.user_id) as any;
+            return (
+              <div key={c.id} className="flex gap-2">
+                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium shrink-0">
+                  {cp?.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-medium">{cp?.full_name || 'Usuario'}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                </div>
               </div>
-            ))}
+            );
+          })}
+          <div className="flex gap-2">
+            <Input placeholder="Escrever comentario..." value={commentText} onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } }} className="h-8 text-sm" />
+            <Button size="sm" className="h-8 px-3" onClick={sendComment} disabled={!commentText.trim() || addComment.isPending}>
+              <Send className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
-        <div className="flex items-end justify-end">
-          {isOwner && (
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" />Excluir sessao
-            </Button>
-          )}
+      )}
+
+      {detailTab === 'files' && (
+        <div className="space-y-3">
+          <input ref={fileRef} type="file" multiple className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                Array.from(e.target.files).forEach(file => {
+                  uploadFile.mutate({ sessaoId: sessao.id, file }, {
+                    onSuccess: () => toast.success(`${file.name} enviado`),
+                    onError: () => toast.error(`Erro ao enviar ${file.name}`),
+                  });
+                });
+              }
+              e.target.value = '';
+            }} />
+          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploadFile.isPending}>
+            <Paperclip className="h-3.5 w-3.5 mr-1.5" />Anexar arquivo
+          </Button>
+          {attLoading && <p className="text-xs text-muted-foreground">Carregando...</p>}
+          {attachments.length === 0 && !attLoading && <p className="text-xs text-muted-foreground">Nenhum anexo.</p>}
+          {attachments.map(a => (
+            <div key={a.id} className="flex items-center gap-2 text-sm">
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              {a.signed_url ? (
+                <a href={a.signed_url} target="_blank" rel="noopener noreferrer" className="truncate text-primary hover:underline flex-1">{a.file_name}</a>
+              ) : (
+                <span className="truncate flex-1">{a.file_name}</span>
+              )}
+              <span className="text-xs text-muted-foreground shrink-0">{a.file_size ? `${(a.file_size / 1024).toFixed(0)} KB` : ''}</span>
+              {a.user_id === user?.id && (
+                <button onClick={() => deleteAttachment.mutate(a.id)} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
         </div>
-      </div>
+      )}
+
+      {detailTab === 'activity' && (
+        <div className="space-y-2">
+          {activity.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>}
+          {activity.map(a => {
+            const ap = a.user_id ? (aMap.get(a.user_id) as any) : null;
+            return (
+              <div key={a.id} className="flex items-start gap-2 text-xs">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">{ap?.full_name || 'Sistema'}</span>
+                  {a.action === 'created' && <span> criou a sessao</span>}
+                  {a.action === 'status' && <span> alterou status: {a.from_value} → {a.to_value}</span>}
+                  {a.action === 'assigned' && <span> alterou responsaveis</span>}
+                  {!['created', 'status', 'assigned'].includes(a.action) && <span> {a.action}: {a.from_value || '-'} → {a.to_value || '-'}</span>}
+                  <span className="text-muted-foreground ml-2">
+                    {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Delete button */}
+      {isOwner && (
+        <div className="pt-2 border-t">
+          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />Excluir sessao
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

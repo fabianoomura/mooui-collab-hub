@@ -46,8 +46,8 @@ Atualizado em: 2026-06-03
 |---|--------|------|--------|
 | 14 | Melhorias | `/melhorias` | OK — site/shopify/SEO, subitems com CRUD completo, progresso |
 | 15 | Conteudo | `/conteudo` | OK — 3 abas (programacao+calendario, newsletters, pautas), checklist com prioridade |
-| 16 | Sessoes | `/sessoes` | OK — foto/video, shots, contratos, banco de ideias |
-| 17 | Produto | `/produtos` | OK — pipeline 15 etapas, design items, auto-progress |
+| 16 | Sessoes | `/sessoes` | OK — foto/video, shots, contratos, banco de ideias, comentarios, anexos |
+| 17 | Produto | `/produtos` | OK — pipeline 15 etapas, design items, auto-progress, comentarios, anexos |
 
 ---
 
@@ -136,3 +136,4 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-05-31 | Horizonte 4: TipTap, mobile, push notifications, i18n, onboarding |
 | 2026-06-02 | 4 novos modulos: Melhorias, Conteudo, Sessoes, Produto |
 | 2026-06-03 | Subelementos completos, reimportacao com subitems, fix LinkedItems |
+| 2026-06-03 | Comentarios + Anexos + Atividade em tabs para Sessoes e Produto |

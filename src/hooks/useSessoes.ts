@@ -49,6 +49,66 @@ export interface SessaoActivity {
   created_at: string;
 }
 
+export interface SessaoComment {
+  id: string;
+  sessao_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+export function useSessaoComments(sessaoId: string | null) {
+  return useQuery({
+    queryKey: ['sessao-comments', sessaoId],
+    queryFn: async () => {
+      if (!sessaoId) return [];
+      const { data, error } = await supabase
+        .from('sessao_comments' as any)
+        .select('*')
+        .eq('sessao_id', sessaoId)
+        .order('created_at');
+      if (error) throw error;
+      return (data || []) as unknown as SessaoComment[];
+    },
+    enabled: !!sessaoId,
+  });
+}
+
+export function useAddSessaoComment() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ sessaoId, content }: { sessaoId: string; content: string }) => {
+      if (!user) throw new Error('Sem usuario');
+      const { error } = await supabase.from('sessao_comments' as any).insert({
+        sessao_id: sessaoId,
+        user_id: user.id,
+        content,
+      });
+      if (error) throw error;
+      try {
+        const { data: s } = await supabase.from('sessoes' as any)
+          .select('title, created_by, responsaveis').eq('id', sessaoId).single();
+        if (s) {
+          const targets = new Set<string>();
+          if ((s as any).created_by !== user.id) targets.add((s as any).created_by);
+          for (const uid of (s as any).responsaveis || []) {
+            if (uid !== user.id) targets.add(uid);
+          }
+          await Promise.all([...targets].map(id => notifyUser({
+            userId: id,
+            type: 'sessao_comment',
+            title: `Novo comentario em "${(s as any).title}"`,
+            message: content.slice(0, 80),
+            link: '/sessoes',
+          })));
+        }
+      } catch (e) { console.warn('sessao comment notify failed', e); }
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['sessao-comments', vars.sessaoId] }),
+  });
+}
+
 export function useSessoes() {
   const { currentOrg } = useOrganization();
   return useQuery({

@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  Calendar as CalendarIcon, CheckCircle2, ChevronDown, ChevronRight, Package,
-  LayoutList, Plus, Search as SearchIcon, Sparkles, Trash2, UserRound, X,
+  Calendar as CalendarIcon, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText,
+  LayoutList, Package, Paperclip, Plus, Search as SearchIcon, Send, Trash2, UserRound, X,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -16,6 +16,8 @@ import {
   useDeleteProduto,
   useDeleteProdutoDesignItem,
   useProdutoActivity,
+  useProdutoComments,
+  useAddProdutoComment,
   useProdutoDesignItems,
   useProdutos,
   useProdutoStages,
@@ -29,6 +31,7 @@ import {
   type ProdutoStage,
   type ProdutoStageStatus,
 } from '@/hooks/useProdutos';
+import { useProdutoAttachments } from '@/hooks/useProdutoAttachments';
 import { PipelineTracker } from '@/components/produto/PipelineTracker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +40,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -416,10 +420,51 @@ function ProdutoExpanded({
   onUpdate: (patch: Partial<Produto>) => void;
   onDelete: () => void;
 }) {
+  const { user } = useAuth();
   const { data: stages = [] } = useProdutoStages(produto.id);
   const { data: activity = [] } = useProdutoActivity(produto.id);
+  const { data: comments = [] } = useProdutoComments(produto.id);
+  const addComment = useAddProdutoComment();
+  const { attachments, isLoading: attLoading, uploadFile, deleteAttachment } = useProdutoAttachments(produto.id);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const selectedStage = stages.find((stage) => stage.id === selectedStageId) || stages[0] || null;
+  const [detailTab, setDetailTab] = useState<'comments' | 'files' | 'activity'>('comments');
+  const [commentText, setCommentText] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Profiles for comments
+  const commentUserIds = [...new Set(comments.map(c => c.user_id))];
+  const { data: cProfiles = [] } = useQuery({
+    queryKey: ['produto-cprofiles', commentUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (commentUserIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', commentUserIds);
+      return data || [];
+    },
+    enabled: commentUserIds.length > 0,
+  });
+  const cMap = new Map((cProfiles as any[]).map(p => [p.id, p]));
+
+  // Activity profiles
+  const actUserIds = [...new Set(activity.filter(a => a.user_id).map(a => a.user_id!))];
+  const { data: aProfiles = [] } = useQuery({
+    queryKey: ['produto-aprofiles', actUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (actUserIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', actUserIds);
+      return data || [];
+    },
+    enabled: actUserIds.length > 0,
+  });
+  const aMap = new Map((aProfiles as any[]).map(p => [p.id, p]));
+
+  const sendComment = () => {
+    if (!commentText.trim()) return;
+    addComment.mutate({ produtoId: produto.id, content: commentText.trim() }, {
+      onSuccess: () => setCommentText(''),
+      onError: () => toast.error('Erro ao enviar'),
+    });
+  };
 
   return (
     <div className="px-3 pb-3 pt-3 border-t space-y-4">
@@ -490,13 +535,115 @@ function ProdutoExpanded({
         {selectedStage && <StageEditor stage={selectedStage} orgMembers={orgMembers} />}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        <DesignItemsPanel produtoId={produto.id} />
-        <ActivityPanel activity={activity} />
-      </div>
+      <DesignItemsPanel produtoId={produto.id} />
 
+      {/* Tabs: Comentarios / Anexos / Atividade */}
+      <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="comments">Comentarios ({comments.length})</TabsTrigger>
+          <TabsTrigger value="files">Anexos ({attachments.length})</TabsTrigger>
+          <TabsTrigger value="activity">Atividade ({activity.length})</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {detailTab === 'comments' && (
+        <div className="space-y-3">
+          {comments.length === 0 && <p className="text-xs text-muted-foreground">Nenhum comentario.</p>}
+          {comments.map(c => {
+            const cp = cMap.get(c.user_id) as any;
+            return (
+              <div key={c.id} className="flex gap-2">
+                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium shrink-0">
+                  {cp?.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-medium">{cp?.full_name || 'Usuario'}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex gap-2">
+            <Input placeholder="Escrever comentario..." value={commentText} onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } }} className="h-8 text-sm" />
+            <Button size="sm" className="h-8 px-3" onClick={sendComment} disabled={!commentText.trim() || addComment.isPending}>
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {detailTab === 'files' && (
+        <div className="space-y-3">
+          <input ref={fileRef} type="file" multiple className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                Array.from(e.target.files).forEach(file => {
+                  uploadFile.mutate({ produtoId: produto.id, file }, {
+                    onSuccess: () => toast.success(`${file.name} enviado`),
+                    onError: () => toast.error(`Erro ao enviar ${file.name}`),
+                  });
+                });
+              }
+              e.target.value = '';
+            }} />
+          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploadFile.isPending}>
+            <Paperclip className="h-3.5 w-3.5 mr-1.5" />Anexar arquivo
+          </Button>
+          {attLoading && <p className="text-xs text-muted-foreground">Carregando...</p>}
+          {attachments.length === 0 && !attLoading && <p className="text-xs text-muted-foreground">Nenhum anexo.</p>}
+          {attachments.map(a => (
+            <div key={a.id} className="flex items-center gap-2 text-sm">
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              {a.signed_url ? (
+                <a href={a.signed_url} target="_blank" rel="noopener noreferrer" className="truncate text-primary hover:underline flex-1">{a.file_name}</a>
+              ) : (
+                <span className="truncate flex-1">{a.file_name}</span>
+              )}
+              <span className="text-xs text-muted-foreground shrink-0">{a.file_size ? `${(a.file_size / 1024).toFixed(0)} KB` : ''}</span>
+              {a.user_id === user?.id && (
+                <button onClick={() => deleteAttachment.mutate(a.id)} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {detailTab === 'activity' && (
+        <div className="space-y-2">
+          {activity.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>}
+          {activity.map(a => {
+            const ap = a.user_id ? (aMap.get(a.user_id) as any) : null;
+            return (
+              <div key={a.id} className="flex items-start gap-2 text-xs">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">{ap?.full_name || 'Sistema'}</span>
+                  {a.action === 'created' && <span> criou o produto</span>}
+                  {a.action === 'collection_group' && <span> alterou grupo: {a.from_value} → {a.to_value}</span>}
+                  {a.action === 'responsible' && <span> alterou responsavel</span>}
+                  {a.action === 'stage_status' && <span> alterou etapa: {a.from_value} → {a.to_value}</span>}
+                  {!['created', 'collection_group', 'responsible', 'stage_status'].includes(a.action) && <span> {a.action}: {a.from_value || '-'} → {a.to_value || '-'}</span>}
+                  <span className="text-muted-foreground ml-2">
+                    {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Delete button */}
       {isOwner && (
-        <div className="flex justify-end border-t pt-3">
+        <div className="pt-2 border-t">
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />Excluir produto
           </Button>
@@ -644,23 +791,3 @@ function DesignItemRow({ item, onUpdate, onDelete }: {
   );
 }
 
-function ActivityPanel({ activity }: { activity: { id: string; action: string; from_value: string | null; to_value: string | null; created_at: string }[] }) {
-  return (
-    <Card className="p-3">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-        <Label className="text-xs">Atividade</Label>
-      </div>
-      <div className="space-y-1 text-xs text-muted-foreground">
-        {activity.length === 0 ? (
-          <span>Nenhuma atividade registrada.</span>
-        ) : activity.slice(-8).reverse().map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-2 border rounded-md px-2 py-1.5">
-            <span className="truncate">{item.action}: {item.from_value || '-'} {'->'} {item.to_value || '-'}</span>
-            <span className="shrink-0">{formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}</span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}

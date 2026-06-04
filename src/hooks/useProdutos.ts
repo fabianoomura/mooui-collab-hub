@@ -113,6 +113,64 @@ export const produtoStageLabels: Record<ProdutoStageKey, string> = {
   apresentacao: 'Apresentacao',
 };
 
+export interface ProdutoComment {
+  id: string;
+  produto_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+export function useProdutoComments(produtoId: string | null) {
+  return useQuery({
+    queryKey: ['produto-comments', produtoId],
+    queryFn: async () => {
+      if (!produtoId) return [];
+      const { data, error } = await supabase
+        .from('produto_comments' as any)
+        .select('*')
+        .eq('produto_id', produtoId)
+        .order('created_at');
+      if (error) throw error;
+      return (data || []) as unknown as ProdutoComment[];
+    },
+    enabled: !!produtoId,
+  });
+}
+
+export function useAddProdutoComment() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ produtoId, content }: { produtoId: string; content: string }) => {
+      if (!user) throw new Error('Sem usuario');
+      const { error } = await supabase.from('produto_comments' as any).insert({
+        produto_id: produtoId,
+        user_id: user.id,
+        content,
+      });
+      if (error) throw error;
+      try {
+        const { data: p } = await supabase.from('produtos' as any)
+          .select('name, created_by, responsible').eq('id', produtoId).single();
+        if (p) {
+          const targets = new Set<string>();
+          if ((p as any).created_by !== user.id) targets.add((p as any).created_by);
+          if ((p as any).responsible && (p as any).responsible !== user.id) targets.add((p as any).responsible);
+          await Promise.all([...targets].map(id => notifyUser({
+            userId: id,
+            type: 'produto_comment',
+            title: `Novo comentario em "${(p as any).name}"`,
+            message: content.slice(0, 80),
+            link: '/produtos',
+          })));
+        }
+      } catch (e) { console.warn('produto comment notify failed', e); }
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['produto-comments', vars.produtoId] }),
+  });
+}
+
 export function useProdutos() {
   const { currentOrg } = useOrganization();
   return useQuery({
