@@ -35,3 +35,8 @@ dist-ssr
 generated/
 scripts/generate-monday-import-sql.mjs
 scripts/inspect-xlsx-subitems.mjs
+
+# Temp analysis scripts
+analyze.js
+analyze.mjs
+final_summary.mjs

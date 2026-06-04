@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { notifyUser } from '@/hooks/useNotifications';
 
 export type NewsletterStatus = 'nao_iniciado' | 'em_andamento' | 'enviado';
 export type NewsletterChannel = 'brasil' | 'barcelona';
@@ -23,6 +24,88 @@ export interface Newsletter {
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface NewsletterComment {
+  id: string;
+  newsletter_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface NewsletterActivity {
+  id: string;
+  newsletter_id: string;
+  user_id: string | null;
+  action: string;
+  from_value: string | null;
+  to_value: string | null;
+  created_at: string;
+}
+
+export function useNewsletterComments(itemId: string | null) {
+  return useQuery({
+    queryKey: ['newsletter-comments', itemId],
+    queryFn: async () => {
+      if (!itemId) return [];
+      const { data, error } = await supabase
+        .from('newsletter_comments' as any)
+        .select('*')
+        .eq('newsletter_id', itemId)
+        .order('created_at');
+      if (error) throw error;
+      return (data || []) as unknown as NewsletterComment[];
+    },
+    enabled: !!itemId,
+  });
+}
+
+export function useAddNewsletterComment() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ newsletterId, content }: { newsletterId: string; content: string }) => {
+      if (!user) throw new Error('Sem usuario');
+      const { error } = await supabase.from('newsletter_comments' as any).insert({
+        newsletter_id: newsletterId,
+        user_id: user.id,
+        content,
+      });
+      if (error) throw error;
+      try {
+        const { data: nl } = await supabase.from('newsletters' as any)
+          .select('title, created_by').eq('id', newsletterId).single();
+        if (nl && (nl as any).created_by !== user.id) {
+          await notifyUser({
+            userId: (nl as any).created_by,
+            type: 'newsletter_comment',
+            title: `Novo comentário em "${(nl as any).title}"`,
+            message: content.slice(0, 80),
+            link: '/conteudo',
+          });
+        }
+      } catch (e) { console.warn('newsletter comment notify failed', e); }
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['newsletter-comments', vars.newsletterId] }),
+  });
+}
+
+export function useNewsletterActivity(itemId: string | null) {
+  return useQuery({
+    queryKey: ['newsletter-activity', itemId],
+    queryFn: async () => {
+      if (!itemId) return [];
+      const { data, error } = await supabase
+        .from('newsletter_activity' as any)
+        .select('*')
+        .eq('newsletter_id', itemId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as NewsletterActivity[];
+    },
+    enabled: !!itemId,
+  });
 }
 
 export function useNewsletters() {

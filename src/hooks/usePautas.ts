@@ -31,6 +31,91 @@ export interface PautaItem {
   created_at: string;
 }
 
+export interface PautaComment {
+  id: string;
+  pauta_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface PautaActivity {
+  id: string;
+  pauta_id: string;
+  user_id: string | null;
+  action: string;
+  from_value: string | null;
+  to_value: string | null;
+  created_at: string;
+}
+
+export function usePautaComments(itemId: string | null) {
+  return useQuery({
+    queryKey: ['pauta-comments', itemId],
+    queryFn: async () => {
+      if (!itemId) return [];
+      const { data, error } = await supabase
+        .from('pauta_comments' as any)
+        .select('*')
+        .eq('pauta_id', itemId)
+        .order('created_at');
+      if (error) throw error;
+      return (data || []) as unknown as PautaComment[];
+    },
+    enabled: !!itemId,
+  });
+}
+
+export function useAddPautaComment() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ pautaId, content }: { pautaId: string; content: string }) => {
+      if (!user) throw new Error('Sem usuario');
+      const { error } = await supabase.from('pauta_comments' as any).insert({
+        pauta_id: pautaId,
+        user_id: user.id,
+        content,
+      });
+      if (error) throw error;
+      try {
+        const { data: p } = await supabase.from('pautas' as any)
+          .select('title, created_by, assigned_to').eq('id', pautaId).single();
+        if (p) {
+          const targets = new Set<string>();
+          if ((p as any).created_by !== user.id) targets.add((p as any).created_by);
+          if ((p as any).assigned_to && (p as any).assigned_to !== user.id) targets.add((p as any).assigned_to);
+          await Promise.all([...targets].map(id => notifyUser({
+            userId: id,
+            type: 'pauta_comment',
+            title: `Novo comentário em "${(p as any).title}"`,
+            message: content.slice(0, 80),
+            link: '/conteudo',
+          })));
+        }
+      } catch (e) { console.warn('pauta comment notify failed', e); }
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['pauta-comments', vars.pautaId] }),
+  });
+}
+
+export function usePautaActivity(itemId: string | null) {
+  return useQuery({
+    queryKey: ['pauta-activity', itemId],
+    queryFn: async () => {
+      if (!itemId) return [];
+      const { data, error } = await supabase
+        .from('pauta_activity' as any)
+        .select('*')
+        .eq('pauta_id', itemId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as PautaActivity[];
+    },
+    enabled: !!itemId,
+  });
+}
+
 export function usePautas() {
   const { currentOrg } = useOrganization();
   return useQuery({

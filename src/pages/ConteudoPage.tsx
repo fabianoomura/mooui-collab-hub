@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   Plus, Search as SearchIcon, X, Calendar as CalendarIcon, List, Clock, Trash2, Send,
   ChevronDown, ChevronRight, Mail, FileText, CheckCircle2, Paperclip, Image as ImageIcon,
-  Video, ExternalLink,
+  Video, ExternalLink, MessageCircle,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -17,11 +17,13 @@ import {
 } from '@/hooks/useConteudo';
 import {
   useNewsletters, useCreateNewsletter, useUpdateNewsletter, useDeleteNewsletter,
+  useNewsletterComments, useAddNewsletterComment, useNewsletterActivity,
   type Newsletter, type NewsletterStatus, type NewsletterChannel,
 } from '@/hooks/useNewsletters';
 import {
   usePautas, usePautaItems, useCreatePauta, useUpdatePauta, useDeletePauta,
   useCreatePautaItem, useUpdatePautaItem, useDeletePautaItem,
+  usePautaComments, useAddPautaComment, usePautaActivity,
   type Pauta, type PautaStatus, type PautaPriority, type PautaItem,
 } from '@/hooks/usePautas';
 import { supabase } from '@/integrations/supabase/client';
@@ -1172,66 +1174,165 @@ function NewsletterDetail({
 }: {
   item: Newsletter; onClose: () => void; onUpdate: (patch: Partial<Newsletter>) => void; onDelete: () => void; isOwner: boolean;
 }) {
+  const { user } = useAuth();
+  const [nlTab, setNlTab] = useState<'details' | 'comments' | 'activity'>('details');
+  const [commentText, setCommentText] = useState('');
+  const commentEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: comments = [] } = useNewsletterComments(item.id);
+  const addComment = useAddNewsletterComment();
+  const { data: activity = [] } = useNewsletterActivity(item.id);
+
+  // Profile queries for comments & activity
+  const commentUserIds = useMemo(() => [...new Set(comments.map(c => c.user_id))], [comments]);
+  const activityUserIds = useMemo(() => [...new Set(activity.filter(a => a.user_id).map(a => a.user_id!))], [activity]);
+  const allNlUserIds = useMemo(() => [...new Set([...commentUserIds, ...activityUserIds])], [commentUserIds, activityUserIds]);
+  const { data: nlProfiles = [] } = useQuery({
+    queryKey: ['nl-detail-profiles', allNlUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (!allNlUserIds.length) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', allNlUserIds);
+      return data || [];
+    },
+    enabled: allNlUserIds.length > 0,
+  });
+  const nlProfileMap = useMemo(() => new Map(nlProfiles.map((p: any) => [p.id, p])), [nlProfiles]);
+
+  const sendComment = () => {
+    if (!commentText.trim()) return;
+    addComment.mutate({ newsletterId: item.id, content: commentText.trim() }, {
+      onSuccess: () => { setCommentText(''); setTimeout(() => commentEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); },
+    });
+  };
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{item.title}</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className={cn('text-[10px]', nlStatusColors[item.status])}>{nlStatusLabels[item.status]}</Badge>
-            <Badge variant="outline" className="text-[10px]">{nlChannelLabels[item.channel]}</Badge>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className={cn('text-[10px]', nlStatusColors[item.status])}>{nlStatusLabels[item.status]}</Badge>
+          <Badge variant="outline" className="text-[10px]">{nlChannelLabels[item.channel]}</Badge>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={item.status} onValueChange={(v) => onUpdate({ status: v as NewsletterStatus })}>
-                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(nlStatusLabels) as NewsletterStatus[]).map(k => (<SelectItem key={k} value={k}>{nlStatusLabels[k]}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Data</Label>
-              <Input type="date" className="h-8" value={item.scheduled_date || ''} onChange={(e) => onUpdate({ scheduled_date: e.target.value || null } as any)} />
-            </div>
-            <div>
-              <Label className="text-xs">Tema</Label>
-              <Input className="h-8" value={item.tema || ''} onChange={(e) => onUpdate({ tema: e.target.value || null } as any)} />
-            </div>
-            <div>
-              <Label className="text-xs">Base</Label>
-              <Input className="h-8" value={item.base || ''} onChange={(e) => onUpdate({ base: e.target.value || null } as any)} />
-            </div>
-            <div>
-              <Label className="text-xs">Hora envio</Label>
-              <Input className="h-8" value={item.hora || ''} onChange={(e) => onUpdate({ hora: e.target.value || null } as any)} />
-            </div>
-            <div>
-              <Label className="text-xs">Título do e-mail</Label>
-              <Input className="h-8" value={item.titulo_email || ''} onChange={(e) => onUpdate({ titulo_email: e.target.value || null } as any)} />
-            </div>
-            <div>
-              <Label className="text-xs">Open Rate (%)</Label>
-              <Input type="number" step="0.01" className="h-8" value={item.open_rate ?? ''} onChange={(e) => onUpdate({ open_rate: e.target.value ? parseFloat(e.target.value) : null } as any)} />
-            </div>
-            <div>
-              <Label className="text-xs">Click Rate (%)</Label>
-              <Input type="number" step="0.01" className="h-8" value={item.click_rate ?? ''} onChange={(e) => onUpdate({ click_rate: e.target.value ? parseFloat(e.target.value) : null } as any)} />
-            </div>
-          </div>
+        <Tabs value={nlTab} onValueChange={(v) => setNlTab(v as any)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="details" className="flex-1 text-xs"><FileText className="h-3 w-3 mr-1" />Detalhes</TabsTrigger>
+            <TabsTrigger value="comments" className="flex-1 text-xs"><MessageCircle className="h-3 w-3 mr-1" />Comentários ({comments.length})</TabsTrigger>
+            <TabsTrigger value="activity" className="flex-1 text-xs"><Clock className="h-3 w-3 mr-1" />Atividade</TabsTrigger>
+          </TabsList>
 
-          {item.notes && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{item.notes}</p>}
+          <TabsContent value="details" className="space-y-4 mt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={item.status} onValueChange={(v) => onUpdate({ status: v as NewsletterStatus })}>
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(nlStatusLabels) as NewsletterStatus[]).map(k => (<SelectItem key={k} value={k}>{nlStatusLabels[k]}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Data</Label>
+                <Input type="date" className="h-8" value={item.scheduled_date || ''} onChange={(e) => onUpdate({ scheduled_date: e.target.value || null } as any)} />
+              </div>
+              <div>
+                <Label className="text-xs">Tema</Label>
+                <Input className="h-8" value={item.tema || ''} onChange={(e) => onUpdate({ tema: e.target.value || null } as any)} />
+              </div>
+              <div>
+                <Label className="text-xs">Base</Label>
+                <Input className="h-8" value={item.base || ''} onChange={(e) => onUpdate({ base: e.target.value || null } as any)} />
+              </div>
+              <div>
+                <Label className="text-xs">Hora envio</Label>
+                <Input className="h-8" value={item.hora || ''} onChange={(e) => onUpdate({ hora: e.target.value || null } as any)} />
+              </div>
+              <div>
+                <Label className="text-xs">Título do e-mail</Label>
+                <Input className="h-8" value={item.titulo_email || ''} onChange={(e) => onUpdate({ titulo_email: e.target.value || null } as any)} />
+              </div>
+              <div>
+                <Label className="text-xs">Open Rate (%)</Label>
+                <Input type="number" step="0.01" className="h-8" value={item.open_rate ?? ''} onChange={(e) => onUpdate({ open_rate: e.target.value ? parseFloat(e.target.value) : null } as any)} />
+              </div>
+              <div>
+                <Label className="text-xs">Click Rate (%)</Label>
+                <Input type="number" step="0.01" className="h-8" value={item.click_rate ?? ''} onChange={(e) => onUpdate({ click_rate: e.target.value ? parseFloat(e.target.value) : null } as any)} />
+              </div>
+            </div>
+            {item.notes && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{item.notes}</p>}
+            {isOwner && (
+              <div className="pt-2 border-t">
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />Excluir newsletter
+                </Button>
+              </div>
+            )}
+          </TabsContent>
 
-          {isOwner && (
-            <div className="pt-2 border-t">
-              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" />Excluir newsletter
+          <TabsContent value="comments" className="mt-3">
+            <div className="space-y-3 max-h-[300px] overflow-y-auto">
+              {comments.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Nenhum comentário ainda.</p>
+              ) : comments.map(c => {
+                const prof = nlProfileMap.get(c.user_id) as any;
+                return (
+                  <div key={c.id} className="flex gap-2">
+                    <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[11px] font-medium">
+                      {(prof?.full_name || '?')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs font-medium">{prof?.full_name || 'Usuário'}</span>
+                        <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}</span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={commentEndRef} />
+            </div>
+            <div className="flex gap-2 mt-3 pt-3 border-t">
+              <Input
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Escreva um comentário…"
+                className="h-8 text-sm"
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } }}
+              />
+              <Button size="sm" className="h-8 px-2" onClick={sendComment} disabled={!commentText.trim() || addComment.isPending}>
+                <Send className="h-3.5 w-3.5" />
               </Button>
             </div>
-          )}
-        </div>
+          </TabsContent>
+
+          <TabsContent value="activity" className="mt-3">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {activity.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Nenhuma atividade registrada.</p>
+              ) : activity.map(a => {
+                const prof = a.user_id ? nlProfileMap.get(a.user_id) as any : null;
+                return (
+                  <div key={a.id} className="flex items-start gap-2 text-xs">
+                    <Clock className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
+                    <div>
+                      <span className="font-medium">{prof?.full_name || 'Sistema'}</span>{' '}
+                      <span className="text-muted-foreground">{a.action}</span>
+                      {a.from_value && a.to_value && (
+                        <span className="text-muted-foreground"> {a.from_value} → {a.to_value}</span>
+                      )}
+                      <span className="text-muted-foreground/60 ml-1">
+                        {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -1395,16 +1496,45 @@ function PautaExpanded({
   onDelete: () => void;
   isOwner: boolean;
 }) {
+  const { user } = useAuth();
   const { data: items = [] } = usePautaItems(pauta.id);
   const createItem = useCreatePautaItem();
   const updateItem = useUpdatePautaItem();
   const deleteItem = useDeletePautaItem();
   const [newItemTitle, setNewItemTitle] = useState('');
+  const [pautaTab, setPautaTab] = useState<'items' | 'comments' | 'activity'>('items');
+  const [commentText, setCommentText] = useState('');
+  const pCommentEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: pComments = [] } = usePautaComments(pauta.id);
+  const addPautaComment = useAddPautaComment();
+  const { data: pActivity = [] } = usePautaActivity(pauta.id);
+
+  const pCommentUserIds = useMemo(() => [...new Set(pComments.map(c => c.user_id))], [pComments]);
+  const pActivityUserIds = useMemo(() => [...new Set(pActivity.filter(a => a.user_id).map(a => a.user_id!))], [pActivity]);
+  const allPautaUserIds = useMemo(() => [...new Set([...pCommentUserIds, ...pActivityUserIds])], [pCommentUserIds, pActivityUserIds]);
+  const { data: pProfiles = [] } = useQuery({
+    queryKey: ['pauta-detail-profiles', allPautaUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (!allPautaUserIds.length) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', allPautaUserIds);
+      return data || [];
+    },
+    enabled: allPautaUserIds.length > 0,
+  });
+  const pProfileMap = useMemo(() => new Map(pProfiles.map((p: any) => [p.id, p])), [pProfiles]);
 
   const addItem = () => {
     if (!newItemTitle.trim()) return;
     createItem.mutate({ pauta_id: pauta.id, title: newItemTitle.trim(), position: items.length }, {
       onSuccess: () => setNewItemTitle(''),
+    });
+  };
+
+  const sendComment = () => {
+    if (!commentText.trim()) return;
+    addPautaComment.mutate({ pautaId: pauta.id, content: commentText.trim() }, {
+      onSuccess: () => { setCommentText(''); setTimeout(() => pCommentEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); },
     });
   };
 
@@ -1442,67 +1572,136 @@ function PautaExpanded({
         </div>
       </div>
 
-      {/* Sub-items */}
-      <div>
-        <Label className="text-xs mb-1 block">Itens da pauta</Label>
-        <div className="space-y-1">
-          {items.map(it => {
-            const assignee = it.assigned_to ? orgMembers.find(m => m.id === it.assigned_to) : null;
-            return (
-            <div key={it.id} className="grid grid-cols-[auto_1fr_132px_150px_auto] items-center gap-2 rounded-md border bg-card px-2 py-1.5 group">
-              <button
-                className={cn('h-4 w-4 rounded border shrink-0 flex items-center justify-center', it.status === 'concluido' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/40')}
-                onClick={() => updateItem.mutate({ id: it.id, pauta_id: pauta.id, status: it.status === 'concluido' ? 'pendente' : 'concluido' })}
-              >
-                {it.status === 'concluido' && <CheckCircle2 className="h-3 w-3" />}
-              </button>
-              <span className={cn('text-sm flex-1', it.status === 'concluido' && 'line-through text-muted-foreground')}>{it.title}</span>
-              <Select
-                value={it.status || 'pendente'}
-                onValueChange={(status) => updateItem.mutate({ id: it.id, pauta_id: pauta.id, status })}
-              >
-                <SelectTrigger className={cn('h-7 text-[11px]', pautaItemStatusColors[it.status] || pautaItemStatusColors.pendente)}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(pautaItemStatusLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={it.assigned_to || '_none'}
-                onValueChange={(assigned_to) => updateItem.mutate({ id: it.id, pauta_id: pauta.id, assigned_to: assigned_to === '_none' ? null : assigned_to } as any)}
-              >
-                <SelectTrigger className="h-7 text-[11px]">
-                  <SelectValue placeholder="Responsável">
-                    {assignee?.full_name || 'Ninguém'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">Ninguém</SelectItem>
-                  {orgMembers.map((m: any) => (<SelectItem key={m.id} value={m.id}>{m.full_name || 'Usuário'}</SelectItem>))}
-                </SelectContent>
-              </Select>
-              <button onClick={() => deleteItem.mutate({ id: it.id, pauta_id: pauta.id })} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive">
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )})}
-        </div>
-        <div className="flex gap-2 mt-2">
-          <Input
-            value={newItemTitle}
-            onChange={(e) => setNewItemTitle(e.target.value)}
-            placeholder="Adicionar item…"
-            className="h-7 text-sm"
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-          />
-          <Button size="sm" className="h-7 px-2" onClick={addItem} disabled={!newItemTitle.trim()}>
-            <Plus className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
+      {/* Tabs: Items / Comments / Activity */}
+      <Tabs value={pautaTab} onValueChange={(v) => setPautaTab(v as any)}>
+        <TabsList className="w-full">
+          <TabsTrigger value="items" className="flex-1 text-xs"><List className="h-3 w-3 mr-1" />Itens ({items.length})</TabsTrigger>
+          <TabsTrigger value="comments" className="flex-1 text-xs"><MessageCircle className="h-3 w-3 mr-1" />Comentários ({pComments.length})</TabsTrigger>
+          <TabsTrigger value="activity" className="flex-1 text-xs"><Clock className="h-3 w-3 mr-1" />Atividade</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="items" className="mt-3">
+          <div className="space-y-1">
+            {items.map(it => {
+              const assignee = it.assigned_to ? orgMembers.find(m => m.id === it.assigned_to) : null;
+              return (
+              <div key={it.id} className="grid grid-cols-[auto_1fr_132px_150px_auto] items-center gap-2 rounded-md border bg-card px-2 py-1.5 group">
+                <button
+                  className={cn('h-4 w-4 rounded border shrink-0 flex items-center justify-center', it.status === 'concluido' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/40')}
+                  onClick={() => updateItem.mutate({ id: it.id, pauta_id: pauta.id, status: it.status === 'concluido' ? 'pendente' : 'concluido' })}
+                >
+                  {it.status === 'concluido' && <CheckCircle2 className="h-3 w-3" />}
+                </button>
+                <span className={cn('text-sm flex-1', it.status === 'concluido' && 'line-through text-muted-foreground')}>{it.title}</span>
+                <Select
+                  value={it.status || 'pendente'}
+                  onValueChange={(status) => updateItem.mutate({ id: it.id, pauta_id: pauta.id, status })}
+                >
+                  <SelectTrigger className={cn('h-7 text-[11px]', pautaItemStatusColors[it.status] || pautaItemStatusColors.pendente)}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(pautaItemStatusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={it.assigned_to || '_none'}
+                  onValueChange={(assigned_to) => updateItem.mutate({ id: it.id, pauta_id: pauta.id, assigned_to: assigned_to === '_none' ? null : assigned_to } as any)}
+                >
+                  <SelectTrigger className="h-7 text-[11px]">
+                    <SelectValue placeholder="Responsável">
+                      {assignee?.full_name || 'Ninguém'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Ninguém</SelectItem>
+                    {orgMembers.map((m: any) => (<SelectItem key={m.id} value={m.id}>{m.full_name || 'Usuário'}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                <button onClick={() => deleteItem.mutate({ id: it.id, pauta_id: pauta.id })} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )})}
+          </div>
+          <div className="flex gap-2 mt-2">
+            <Input
+              value={newItemTitle}
+              onChange={(e) => setNewItemTitle(e.target.value)}
+              placeholder="Adicionar item…"
+              className="h-7 text-sm"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
+            />
+            <Button size="sm" className="h-7 px-2" onClick={addItem} disabled={!newItemTitle.trim()}>
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="comments" className="mt-3">
+          <div className="space-y-3 max-h-[250px] overflow-y-auto">
+            {pComments.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhum comentário ainda.</p>
+            ) : pComments.map(c => {
+              const prof = pProfileMap.get(c.user_id) as any;
+              return (
+                <div key={c.id} className="flex gap-2">
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-medium">
+                    {(prof?.full_name || '?')[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-medium">{prof?.full_name || 'Usuário'}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}</span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={pCommentEndRef} />
+          </div>
+          <div className="flex gap-2 mt-3 pt-3 border-t">
+            <Input
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Escreva um comentário…"
+              className="h-7 text-sm"
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } }}
+            />
+            <Button size="sm" className="h-7 px-2" onClick={sendComment} disabled={!commentText.trim() || addPautaComment.isPending}>
+              <Send className="h-3 w-3" />
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-3">
+          <div className="space-y-2 max-h-[250px] overflow-y-auto">
+            {pActivity.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhuma atividade registrada.</p>
+            ) : pActivity.map(a => {
+              const prof = a.user_id ? pProfileMap.get(a.user_id) as any : null;
+              return (
+                <div key={a.id} className="flex items-start gap-2 text-xs">
+                  <Clock className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <span className="font-medium">{prof?.full_name || 'Sistema'}</span>{' '}
+                    <span className="text-muted-foreground">{a.action}</span>
+                    {a.from_value && a.to_value && (
+                      <span className="text-muted-foreground"> {a.from_value} → {a.to_value}</span>
+                    )}
+                    <span className="text-muted-foreground/60 ml-1">
+                      {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {isOwner && (
         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
