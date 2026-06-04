@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Plus, Search as SearchIcon, X, Calendar as CalendarIcon, List, Clock, Trash2,
-  ChevronDown, ChevronRight, Mail, FileText, CheckCircle2,
+  ChevronDown, ChevronRight, Mail, FileText, CheckCircle2, Paperclip, Image as ImageIcon,
+  Video, ExternalLink,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -9,8 +10,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useConteudoItems, useCreateConteudo, useUpdateConteudo, useDeleteConteudo,
-  useConteudoActivity,
+  useConteudoActivity, useConteudoAttachments, useConteudoChecklist,
+  useCreateConteudoChecklistItem, useUpdateConteudoChecklistItem, useDeleteConteudoChecklistItem,
   type ConteudoItem, type ConteudoStatus, type ConteudoChannel, type ConteudoType,
+  type ConteudoChecklistItem, type ConteudoChecklistStatus,
 } from '@/hooks/useConteudo';
 import {
   useNewsletters, useCreateNewsletter, useUpdateNewsletter, useDeleteNewsletter,
@@ -420,7 +423,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
 
       {/* Detail dialog */}
       {openItem && (
-        <ConteudoDetail
+        <ConteudoElementDetail
           item={openItem}
           onClose={() => setOpenItem(null)}
           onUpdate={(patch) => updateMut.mutate({ id: openItem.id, ...patch }, {
@@ -580,6 +583,396 @@ function ConteudoDetail({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ConteudoElementDetail({
+  item, onClose, onUpdate, onDelete, isOwner, orgMembers, profileMap,
+}: {
+  item: ConteudoItem;
+  onClose: () => void;
+  onUpdate: (patch: Partial<ConteudoItem>) => void;
+  onDelete: () => void;
+  isOwner: boolean;
+  orgMembers: { id: string; full_name: string | null }[];
+  profileMap: Map<string, { id: string; full_name: string | null }>;
+}) {
+  const { data: activity = [] } = useConteudoActivity(item.id);
+  const [tab, setTab] = useState<'details' | 'project' | 'files' | 'activity'>('details');
+  const author = profileMap.get(item.created_by);
+
+  const actUserIds = [...new Set(activity.filter(a => a.user_id).map(a => a.user_id!))];
+  const { data: aProfiles = [] } = useQuery({
+    queryKey: ['conteudo-aprofiles-element', actUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (actUserIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', actUserIds);
+      return data || [];
+    },
+    enabled: actUserIds.length > 0,
+  });
+  const aMap = new Map((aProfiles as any[]).map(p => [p.id, p]));
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex-1 text-left flex items-baseline gap-2 flex-wrap pr-8">
+            {item.code && <span className="text-xs font-mono font-semibold text-muted-foreground">{item.code}</span>}
+            <span>{item.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            <Badge variant="outline" className={cn('text-[10px]', statusColors[item.status])}>{statusLabels[item.status]}</Badge>
+            <Badge variant="outline" className={cn('text-[10px]', channelColors[item.channel])}>{channelLabels[item.channel]}</Badge>
+            <Badge variant="outline" className="text-[10px]">{typeLabels[item.content_type]}</Badge>
+            {item.content_category && <Badge variant="outline" className="text-[10px]">{item.content_category}</Badge>}
+            {item.is_repost && <Badge variant="outline" className="text-[10px] bg-muted">Repost</Badge>}
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            <p>Criado por {(author as any)?.full_name || 'Usuario'} em {format(new Date(item.created_at), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}</p>
+          </div>
+
+          <LinkedItems sourceType="conteudo" sourceId={item.id} />
+
+          <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+            <TabsList className="flex flex-wrap h-auto">
+              <TabsTrigger value="details">Detalhes</TabsTrigger>
+              <TabsTrigger value="project">Projeto</TabsTrigger>
+              <TabsTrigger value="files">Arquivos</TabsTrigger>
+              <TabsTrigger value="activity">Atividade ({activity.length})</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {tab === 'details' && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs">Titulo</Label>
+                <Input className="h-8" value={item.title} onChange={(e) => onUpdate({ title: e.target.value })} />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Status</Label>
+                  <Select value={item.status} onValueChange={(v) => onUpdate({ status: v as ConteudoStatus })}>
+                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(statusLabels) as ConteudoStatus[]).map(k => (
+                        <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Responsavel</Label>
+                  <Select value={item.assigned_to || '_none'} onValueChange={(v) => onUpdate({ assigned_to: v === '_none' ? null : v } as any)}>
+                    <SelectTrigger className="h-8"><SelectValue placeholder="Ninguem" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Ninguem</SelectItem>
+                      {orgMembers.map((m: any) => (
+                        <SelectItem key={m.id} value={m.id}>{m.full_name || 'Usuario'}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Canal</Label>
+                  <Select value={item.channel} onValueChange={(v) => onUpdate({ channel: v as ConteudoChannel })}>
+                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {channelOrder.map(k => (
+                        <SelectItem key={k} value={k}>{channelLabels[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Tipo de conteudo</Label>
+                  <Select value={item.content_type} onValueChange={(v) => onUpdate({ content_type: v as ConteudoType })}>
+                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(typeLabels) as ConteudoType[]).map(k => (
+                        <SelectItem key={k} value={k}>{typeLabels[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Data agendada</Label>
+                  <Input type="date" className="h-8" value={item.scheduled_date || ''} onChange={(e) => onUpdate({ scheduled_date: e.target.value || null } as any)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Horario</Label>
+                  <Input className="h-8" value={item.time_slot || ''} onChange={(e) => onUpdate({ time_slot: e.target.value || null } as any)} placeholder="Ex: Manha, Tarde, 10h" />
+                </div>
+                <div>
+                  <Label className="text-xs">Categoria / tipo do Excel</Label>
+                  <Input className="h-8" value={item.content_category || ''} onChange={(e) => onUpdate({ content_category: e.target.value || null } as any)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Foto principal do Excel</Label>
+                  <Input className="h-8" value={item.photo_url || ''} onChange={(e) => onUpdate({ photo_url: e.target.value || null } as any)} />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={item.is_repost} onChange={(e) => onUpdate({ is_repost: e.target.checked })} />
+                <span>Repost</span>
+              </label>
+              {item.photo_url && (
+                <a href={item.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+                  <ExternalLink className="h-3.5 w-3.5" />Abrir foto principal
+                </a>
+              )}
+              <div>
+                <Label className="text-xs">Observacoes</Label>
+                <Textarea rows={4} value={item.notes || ''} onChange={(e) => onUpdate({ notes: e.target.value || null } as any)} />
+              </div>
+            </div>
+          )}
+
+          {tab === 'project' && <ConteudoProjectPanel conteudoItemId={item.id} orgMembers={orgMembers} />}
+          {tab === 'files' && <ConteudoFilesPanel conteudoItemId={item.id} />}
+
+          {tab === 'activity' && (
+            <div className="space-y-2">
+              {activity.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>}
+              {activity.map(a => {
+                const ap = a.user_id ? (aMap.get(a.user_id) as any) : null;
+                return (
+                  <div key={a.id} className="flex items-start gap-2 text-xs">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{ap?.full_name || 'Sistema'}</span>
+                      {a.action === 'created' && <span> criou o conteudo</span>}
+                      {a.action === 'status' && <span> alterou status: {a.from_value} -&gt; {a.to_value}</span>}
+                      {a.action === 'channel' && <span> alterou canal: {a.from_value} -&gt; {a.to_value}</span>}
+                      {a.action === 'assigned' && <span> alterou responsavel</span>}
+                      <span className="text-muted-foreground ml-2">
+                        {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {isOwner && (
+            <div className="pt-2 border-t">
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />Excluir conteudo
+              </Button>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ConteudoProjectPanel({
+  conteudoItemId,
+  orgMembers,
+}: {
+  conteudoItemId: string;
+  orgMembers: { id: string; full_name: string | null }[];
+}) {
+  const { data: items = [] } = useConteudoChecklist(conteudoItemId);
+  const createItem = useCreateConteudoChecklistItem();
+  const updateItem = useUpdateConteudoChecklistItem();
+  const deleteItem = useDeleteConteudoChecklistItem();
+  const [newTitle, setNewTitle] = useState('');
+
+  const done = items.filter((item) => item.status === 'concluido').length;
+  const progress = items.length ? Math.round((done / items.length) * 100) : 0;
+
+  const addItem = () => {
+    if (!newTitle.trim()) return;
+    createItem.mutate({
+      conteudo_item_id: conteudoItemId,
+      title: newTitle.trim(),
+      position: items.length,
+    }, {
+      onSuccess: () => setNewTitle(''),
+      onError: (e: any) => toast.error(e?.message || 'Erro ao criar item'),
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <Card className="p-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium">Checklist do elemento</span>
+          <span className="text-muted-foreground">{done}/{items.length}</span>
+        </div>
+        <div className="h-2 rounded-full bg-muted mt-2 overflow-hidden">
+          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      </Card>
+
+      <div className="space-y-2">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum item de projeto cadastrado.</p>
+        ) : items.map((item) => (
+          <ConteudoChecklistRow
+            key={item.id}
+            item={item}
+            orgMembers={orgMembers}
+            onUpdate={(patch) => updateItem.mutate({ id: item.id, conteudo_item_id: conteudoItemId, ...patch })}
+            onDelete={() => deleteItem.mutate({ id: item.id, conteudo_item_id: conteudoItemId })}
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Input
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
+          placeholder="Adicionar etapa, entrega ou pendencia..."
+          className="h-8"
+        />
+        <Button size="sm" className="h-8" onClick={addItem} disabled={!newTitle.trim() || createItem.isPending}>
+          <Plus className="h-3.5 w-3.5 mr-1" />Item
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ConteudoChecklistRow({
+  item,
+  orgMembers,
+  onUpdate,
+  onDelete,
+}: {
+  item: ConteudoChecklistItem;
+  orgMembers: { id: string; full_name: string | null }[];
+  onUpdate: (patch: Partial<ConteudoChecklistItem>) => void;
+  onDelete: () => void;
+}) {
+  const isDone = item.status === 'concluido';
+  return (
+    <div className="grid gap-2 rounded-md border bg-card p-2 sm:grid-cols-[auto_1fr_120px_120px_140px_130px_auto] sm:items-center">
+      <button
+        className={cn('h-5 w-5 rounded border flex items-center justify-center', isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/40')}
+        onClick={() => onUpdate({ status: isDone ? 'pendente' : 'concluido' })}
+      >
+        {isDone && <CheckCircle2 className="h-3.5 w-3.5" />}
+      </button>
+      <Input className="h-8" value={item.title} onChange={(e) => onUpdate({ title: e.target.value })} />
+      <Select value={item.status} onValueChange={(value) => onUpdate({ status: value as ConteudoChecklistStatus })}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {Object.keys(pautaItemStatusLabels).map((key) => (
+            <SelectItem key={key} value={key}>{pautaItemStatusLabels[key]}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={(item as any).priority || 'medium'} onValueChange={(value) => onUpdate({ priority: value } as any)}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="low">Baixa</SelectItem>
+          <SelectItem value="medium">Média</SelectItem>
+          <SelectItem value="high">Alta</SelectItem>
+          <SelectItem value="critical">Crítica</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={item.assigned_to || '_none'} onValueChange={(value) => onUpdate({ assigned_to: value === '_none' ? null : value } as any)}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="_none">Ninguém</SelectItem>
+          {orgMembers.map((member) => (
+            <SelectItem key={member.id} value={member.id}>{member.full_name || 'Usuário'}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input type="date" className="h-8" value={item.due_date || ''} onChange={(e) => onUpdate({ due_date: e.target.value || null } as any)} />
+      <button className="text-muted-foreground hover:text-destructive justify-self-start sm:justify-self-end" onClick={onDelete}>
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function ConteudoFilesPanel({ conteudoItemId }: { conteudoItemId: string }) {
+  const { user } = useAuth();
+  const { attachments, isLoading, uploadFile, deleteAttachment } = useConteudoAttachments(conteudoItemId);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      uploadFile.mutate({ conteudoItemId, file }, {
+        onSuccess: () => toast.success(`${file.name} enviado`),
+        onError: (e: any) => toast.error(e?.message || `Erro ao enviar ${file.name}`),
+      });
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        className="w-full rounded-md border-2 border-dashed p-4 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors flex items-center justify-center gap-2"
+      >
+        <Paperclip className="h-4 w-4" />Anexar fotos ou videos
+      </button>
+
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Carregando arquivos...</p>
+      ) : attachments.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum arquivo anexado.</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-2">
+          {attachments.map((attachment) => {
+            const isVideo = attachment.file_type?.startsWith('video/');
+            const isImage = attachment.file_type?.startsWith('image/');
+            return (
+              <Card key={attachment.id} className="p-2">
+                <div className="flex items-start gap-2">
+                  <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center shrink-0">
+                    {isVideo ? <Video className="h-4 w-4 text-muted-foreground" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {attachment.signed_url ? (
+                      <a href={attachment.signed_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline truncate block">
+                        {attachment.file_name}
+                      </a>
+                    ) : (
+                      <p className="text-sm font-medium truncate">{attachment.file_name}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      {attachment.file_size ? `${(attachment.file_size / 1024 / 1024).toFixed(2)} MB` : 'Arquivo'}
+                      {attachment.profile?.full_name ? ` - ${attachment.profile.full_name}` : ''}
+                    </p>
+                  </div>
+                  {attachment.user_id === user?.id && (
+                    <button className="text-muted-foreground hover:text-destructive" onClick={() => deleteAttachment.mutate(attachment.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {isImage && attachment.signed_url && (
+                  <img src={attachment.signed_url} alt={attachment.file_name} className="mt-2 h-28 w-full rounded object-cover" />
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

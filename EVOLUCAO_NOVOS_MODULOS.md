@@ -177,32 +177,95 @@ A MOOUI opera com 23 boards no Monday.com que precisam migrar para o Collab Hub.
 
 ## Inventario de Arquivos
 
-### Novos (criados)
-| Arquivo | Tipo | Linhas aprox |
-|---------|------|-------------|
-| `supabase/migrations/20260603010000_melhorias_module.sql` | Migration | 180 |
-| `supabase/migrations/20260603020000_conteudo_module.sql` | Migration | 200 |
-| `supabase/migrations/20260603030000_sessoes_module.sql` | Migration | 185 |
-| `supabase/migrations/20260603040000_produto_module.sql` | Migration | 230 |
-| `src/hooks/useMelhorias.ts` | Hook | 240 |
-| `src/hooks/useMelhoriaAttachments.ts` | Hook | ~80 |
-| `src/hooks/useConteudo.ts` | Hook | 140 |
-| `src/hooks/useNewsletters.ts` | Hook | 95 |
-| `src/hooks/usePautas.ts` | Hook | 155 |
-| `src/pages/MelhoriasPage.tsx` | Page | 630 |
-| `src/pages/ConteudoPage.tsx` | Page | 700 |
-| `src/components/conteudo/ContentCalendar.tsx` | Component | 115 |
+### Novos (criados) — 33 arquivos, +12.332 linhas
 
-### Modificados
+**Migrations (5)**
+| Arquivo | Descricao |
+|---------|-----------|
+| `supabase/migrations/20260603010000_melhorias_module.sql` | DB melhorias, comments, attachments, activity, code_seq, storage bucket |
+| `supabase/migrations/20260603020000_conteudo_module.sql` | DB conteudo_items, newsletters, pautas, pauta_items, activity |
+| `supabase/migrations/20260603030000_sessoes_module.sql` | DB sessoes, shots, contracts, ideas, activity |
+| `supabase/migrations/20260603040000_produto_module.sql` | DB produtos, stages (15 auto-seed), design_items, activity |
+| `supabase/migrations/20260603050000_calendario_etapas.sql` | DB annual_event_etapas |
+
+**Hooks (11)**
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/hooks/useMelhorias.ts` | CRUD melhorias + comments + activity, notificacoes, auto-post |
+| `src/hooks/useMelhoriaAttachments.ts` | Upload/download com signed URLs |
+| `src/hooks/useConteudo.ts` | CRUD conteudo_items + activity, notificacoes |
+| `src/hooks/useNewsletters.ts` | CRUD newsletters |
+| `src/hooks/usePautas.ts` | CRUD pautas + pauta_items |
+| `src/hooks/useSessoes.ts` | CRUD sessoes + shots + activity |
+| `src/hooks/useSessaoContracts.ts` | CRUD contratos de fotografos |
+| `src/hooks/useSessaoIdeas.ts` | CRUD banco de ideias |
+| `src/hooks/useProdutos.ts` | CRUD produtos + stages + design items + activity |
+| `src/hooks/useEventEtapas.ts` | CRUD etapas do calendario |
+
+**Pages (4)**
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/pages/MelhoriasPage.tsx` | Pagina completa com filtros, tabs, detail dialog (~630 linhas) |
+| `src/pages/ConteudoPage.tsx` | 3 abas: Programacao, Newsletters, Pautas (~970 linhas) |
+| `src/pages/SessoesPage.tsx` | 3 abas: Sessoes, Contratos, Banco de Ideias (~840 linhas) |
+| `src/pages/ProdutoPage.tsx` | Lista com progress bar + pipeline tracker (~580 linhas) |
+
+**Componentes (2)**
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/components/conteudo/ContentCalendar.tsx` | Calendario mensal visual com cores por canal |
+| `src/components/produto/PipelineTracker.tsx` | Visualizacao das 15 etapas com status visual |
+
+### Modificados (9)
 | Arquivo | Mudanca |
 |---------|---------|
 | `src/App.tsx` | +4 imports, +4 Routes |
 | `src/components/AppSidebar.tsx` | +4 nav items em Operacoes |
 | `src/components/LinkedItems.tsx` | +4 entradas MODULE_META |
 | `src/i18n/translations.ts` | +nav keys pt-BR e es |
+| `src/pages/CalendarPage.tsx` | +aba Etapas no dialog de evento |
+| `src/pages/TimelinePage.tsx` | +4 fontes de dados dos novos modulos |
+| `src/pages/Dashboard.tsx` | Integracoes com novos modulos |
+| `src/components/dashboard/PersonalPanel.tsx` | +cards e contadores dos novos modulos |
+| `src/hooks/useModuleInstances.ts` | ModuleKey estendido |
+| `src/lib/personalAgenda.ts` | AgendaKind estendido |
 
-### Pendentes de criar
-Nenhum arquivo pendente para as fases 1 a 5.
+---
+
+## Dados Populados (importados do Monday.com)
+
+Data de importacao: 2026-06-03
+Organizacao: MOOUI Brasil (`0d32934f-9628-4bd5-b3f4-1bc74f9227de`)
+
+| Tabela | Registros | Fonte Monday |
+|--------|-----------|-------------|
+| `produtos` | 125 | 4_Novos_Produtos, 2_Design |
+| `produto_stages` | 1.000 | Auto-seed (15 etapas por produto) |
+| `produto_design_items` | 450 | 2_Design (variacoes de estampa) |
+| `conteudo_items` | 179 | Programacao_* (Kids, Home, Amo, Barcelona, Outras) |
+| `newsletters` | 1.000+ | Newsletter_Mooui_Brasil, Newsletter_Barcelona |
+| `pautas` | 51 | Marketing_Demandas |
+| `pauta_items` | 37+ | Marketing_Demandas (subitens) |
+| `sessoes` | 148 | Calendario_de_Fotos_e_Videos |
+| `sessao_shots` | 401 | Calendario_de_Fotos_e_Videos (shots por sessao) |
+| `melhorias` | 302 | 6_Site, 6_1_Site_Shopify_Novo, NP_SEO_On_Page, NP_SEO_Tecnico |
+| `annual_events` | 45 | 0_Acoes_Mensais |
+| `annual_event_etapas` | 135 | 0_Acoes_Mensais (etapas por evento) |
+
+### Arquivos ignorados na importacao
+- `1_Producao_1780430055.xlsx` — coberto pelo modulo Producao existente
+- `3_Financeiro_1780430090.xlsx` — fica como projeto Sunday
+- `5_Marketing_1780430128.xlsx` — coberto pelo modulo Conteudo
+- `7_Atacado_1780430159.xlsx` — fica como projeto Sunday
+- `9_Internacional_1780430178.xlsx` — fica como projeto Sunday
+- `NP_Gestao_de_Funil_1780430218.xlsx` — dados de 2020, descartados
+- `Marketing_Demandas_1780430344.xlsx` — duplicata
+
+### Scripts de importacao
+- `scripts/generate-monday-import-sql.mjs` — gera SQL a partir dos Excel (requer JSZip)
+- `scripts/run-import.mjs` — executa importacao via REST API autenticada (idempotente)
+- `generated/monday-import.sql` — SQL gerado (6.695 linhas)
+- `generated/monday-import-summary.json` — contagem por tabela
 
 ---
 

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Plus, Globe, Monitor, Search as SearchIcon, Code, BarChart3, X, Send, Trash2, Paperclip, Clock, CheckCircle2, AlertCircle, FileText, LayoutList } from 'lucide-react';
+import { Plus, Globe, Monitor, Search as SearchIcon, Code, BarChart3, X, Send, Trash2, Paperclip, Clock, CheckCircle2, AlertCircle, FileText, LayoutList, ChevronDown, ChevronRight, Circle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +7,8 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useMelhorias, useCreateMelhoria, useUpdateMelhoria, useDeleteMelhoria,
   useMelhoriaComments, useAddMelhoriaComment, useMelhoriaActivity,
-  type Melhoria, type MelhoriaStatus, type MelhoriaPriority, type MelhoriaArea,
+  useMelhoriaSubitems, useCreateMelhoriaSubitem, useUpdateMelhoriaSubitem, useDeleteMelhoriaSubitem,
+  type Melhoria, type MelhoriaStatus, type MelhoriaPriority, type MelhoriaArea, type MelhoriaSubitem,
 } from '@/hooks/useMelhorias';
 import { useMelhoriaAttachments } from '@/hooks/useMelhoriaAttachments';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +26,7 @@ import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { LinkedItems } from '@/components/LinkedItems';
+import { Progress } from '@/components/ui/progress';
 
 const priorityColors: Record<MelhoriaPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
@@ -602,6 +604,9 @@ function MelhoriaDetail({
             {item.data_conclusao && <p>Concluído em {format(new Date(item.data_conclusao), 'dd/MM/yyyy', { locale: ptBR })}</p>}
           </div>
 
+          {/* Subelementos */}
+          <MelhoriaSubitemsSection melhoriaId={item.id} orgMembers={orgMembers} />
+
           {/* Linked items */}
           <LinkedItems sourceType="melhoria" sourceId={item.id} />
 
@@ -720,5 +725,155 @@ function MelhoriaDetail({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Subitems Section (Sunday-like)                                    */
+/* ---------------------------------------------------------------- */
+function MelhoriaSubitemsSection({
+  melhoriaId,
+  orgMembers,
+}: {
+  melhoriaId: string;
+  orgMembers: { id: string; full_name: string | null }[];
+}) {
+  const { data: subitems = [], isLoading } = useMelhoriaSubitems(melhoriaId);
+  const createMut = useCreateMelhoriaSubitem();
+  const updateMut = useUpdateMelhoriaSubitem();
+  const deleteMut = useDeleteMelhoriaSubitem();
+  const [expanded, setExpanded] = useState(true);
+  const [newTitle, setNewTitle] = useState('');
+
+  const doneCount = subitems.filter(s => s.status === 'done').length;
+  const total = subitems.length;
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+  const handleAdd = () => {
+    if (!newTitle.trim()) return;
+    createMut.mutate(
+      { melhoria_id: melhoriaId, title: newTitle.trim(), position: total },
+      { onSuccess: () => setNewTitle('') },
+    );
+  };
+
+  const toggleStatus = (si: MelhoriaSubitem) => {
+    const next = si.status === 'done' ? 'open' : 'done';
+    updateMut.mutate({ id: si.id, melhoria_id: melhoriaId, status: next });
+  };
+
+  return (
+    <div className="border rounded-md">
+      <button
+        className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        <span className="text-sm font-medium flex-1 text-left">
+          Subelementos
+          {total > 0 && (
+            <span className="text-muted-foreground font-normal ml-2">
+              {doneCount}/{total} ({pct}%)
+            </span>
+          )}
+        </span>
+        {total > 0 && (
+          <div className="w-24">
+            <Progress value={pct} className="h-1.5" />
+          </div>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="border-t px-3 pb-3">
+          {isLoading && <p className="text-xs text-muted-foreground py-2">Carregando…</p>}
+
+          {subitems.length > 0 && (
+            <div className="divide-y">
+              {subitems.map((si) => (
+                <div key={si.id} className="flex items-center gap-2 py-2 group">
+                  {/* Status toggle */}
+                  <button onClick={() => toggleStatus(si)} className="shrink-0">
+                    {si.status === 'done' ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    ) : si.status === 'in_progress' ? (
+                      <Circle className="h-4 w-4 text-blue-500 fill-blue-500/20" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+
+                  {/* Title */}
+                  <span className={cn(
+                    'text-sm flex-1 min-w-0 truncate',
+                    si.status === 'done' && 'line-through text-muted-foreground',
+                  )}>
+                    {si.title}
+                  </span>
+
+                  {/* Priority badge */}
+                  <Badge variant="outline" className={cn('text-[9px] shrink-0', priorityColors[si.priority])}>
+                    {priorityLabels[si.priority]}
+                  </Badge>
+
+                  {/* Status select */}
+                  <Select
+                    value={si.status}
+                    onValueChange={(v) => updateMut.mutate({ id: si.id, melhoria_id: melhoriaId, status: v as MelhoriaStatus })}
+                  >
+                    <SelectTrigger className="h-6 w-[110px] text-[10px] shrink-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(statusLabels) as MelhoriaStatus[]).map(k => (
+                        <SelectItem key={k} value={k} className="text-xs">{statusLabels[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Assignee */}
+                  <Select
+                    value={si.assigned_to || '_none'}
+                    onValueChange={(v) => updateMut.mutate({ id: si.id, melhoria_id: melhoriaId, assigned_to: v === '_none' ? null : v } as any)}
+                  >
+                    <SelectTrigger className="h-6 w-[100px] text-[10px] shrink-0">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none" className="text-xs">Ninguém</SelectItem>
+                      {orgMembers.map((m) => (
+                        <SelectItem key={m.id} value={m.id} className="text-xs">{m.full_name || 'Usuário'}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Delete */}
+                  <button
+                    onClick={() => deleteMut.mutate({ id: si.id, melhoria_id: melhoriaId })}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add new */}
+          <div className="flex gap-2 mt-2">
+            <Input
+              placeholder="Novo subelemento…"
+              className="h-7 text-sm"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+            />
+            <Button size="sm" className="h-7 px-2" onClick={handleAdd} disabled={!newTitle.trim() || createMut.isPending}>
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

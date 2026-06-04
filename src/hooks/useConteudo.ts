@@ -38,6 +38,38 @@ export interface ConteudoActivity {
   created_at: string;
 }
 
+export type ConteudoChecklistStatus = 'pendente' | 'em_andamento' | 'concluido';
+
+export type ConteudoChecklistPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ConteudoChecklistItem {
+  id: string;
+  conteudo_item_id: string;
+  title: string;
+  status: ConteudoChecklistStatus;
+  priority: ConteudoChecklistPriority;
+  assigned_to: string | null;
+  due_date: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConteudoAttachment {
+  id: string;
+  conteudo_item_id: string;
+  user_id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string | null;
+  file_size: number | null;
+  created_at: string;
+  signed_url?: string;
+  profile?: { full_name: string | null } | null;
+}
+
+const CONTEUDO_ATTACHMENTS_BUCKET = 'conteudo-attachments';
+
 export function useConteudoItems() {
   const { currentOrg } = useOrganization();
   return useQuery({
@@ -71,6 +103,143 @@ export function useConteudoActivity(itemId: string | null) {
     },
     enabled: !!itemId,
   });
+}
+
+export function useConteudoChecklist(itemId: string | null) {
+  return useQuery({
+    queryKey: ['conteudo-checklist', itemId],
+    queryFn: async () => {
+      if (!itemId) return [];
+      const { data, error } = await supabase
+        .from('conteudo_checklist_items' as any)
+        .select('*')
+        .eq('conteudo_item_id', itemId)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as ConteudoChecklistItem[];
+    },
+    enabled: !!itemId,
+  });
+}
+
+export function useCreateConteudoChecklistItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      conteudo_item_id: string;
+      title: string;
+      assigned_to?: string | null;
+      due_date?: string | null;
+      position?: number;
+    }) => {
+      const { error } = await supabase.from('conteudo_checklist_items' as any).insert({
+        conteudo_item_id: input.conteudo_item_id,
+        title: input.title,
+        assigned_to: input.assigned_to || null,
+        due_date: input.due_date || null,
+        position: input.position || 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['conteudo-checklist', vars.conteudo_item_id] }),
+  });
+}
+
+export function useUpdateConteudoChecklistItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, conteudo_item_id, ...patch }: Partial<ConteudoChecklistItem> & { id: string; conteudo_item_id: string }) => {
+      const { error } = await supabase.from('conteudo_checklist_items' as any).update(patch).eq('id', id);
+      if (error) throw error;
+      return { conteudo_item_id };
+    },
+    onSuccess: (result) => qc.invalidateQueries({ queryKey: ['conteudo-checklist', result.conteudo_item_id] }),
+  });
+}
+
+export function useDeleteConteudoChecklistItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, conteudo_item_id }: { id: string; conteudo_item_id: string }) => {
+      const { error } = await supabase.from('conteudo_checklist_items' as any).delete().eq('id', id);
+      if (error) throw error;
+      return { conteudo_item_id };
+    },
+    onSuccess: (result) => qc.invalidateQueries({ queryKey: ['conteudo-checklist', result.conteudo_item_id] }),
+  });
+}
+
+export function useConteudoAttachments(itemId: string | null) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  const query = useQuery({
+    queryKey: ['conteudo-attachments', itemId],
+    queryFn: async () => {
+      if (!itemId) return [] as ConteudoAttachment[];
+      const { data, error } = await supabase
+        .from('conteudo_attachments' as any)
+        .select('*')
+        .eq('conteudo_item_id', itemId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const rows = (data || []) as unknown as ConteudoAttachment[];
+      const userIds = [...new Set(rows.map((row) => row.user_id))];
+      const { data: profs } = userIds.length
+        ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
+        : { data: [] as any[] };
+      const profileMap = new Map((profs || []).map((profile: any) => [profile.id, profile]));
+
+      return Promise.all(rows.map(async (row) => {
+        const { data: signed } = await supabase.storage.from(CONTEUDO_ATTACHMENTS_BUCKET).createSignedUrl(row.file_url, 3600);
+        return { ...row, signed_url: signed?.signedUrl, profile: profileMap.get(row.user_id) || null };
+      }));
+    },
+    enabled: !!itemId,
+  });
+
+  const uploadFile = useMutation({
+    mutationFn: async ({ conteudoItemId, file }: { conteudoItemId: string; file: File }) => {
+      if (!user) throw new Error('Sem usuario');
+      const ext = file.name.split('.').pop() || 'bin';
+      const path = `${conteudoItemId}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(CONTEUDO_ATTACHMENTS_BUCKET).upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+
+      const { error: insertError } = await supabase.from('conteudo_attachments' as any).insert({
+        conteudo_item_id: conteudoItemId,
+        user_id: user.id,
+        file_url: path,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type || null,
+      });
+      if (insertError) throw insertError;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conteudo-attachments', itemId] }),
+  });
+
+  const deleteAttachment = useMutation({
+    mutationFn: async (id: string) => {
+      const attachment = query.data?.find((item) => item.id === id);
+      if (attachment) await supabase.storage.from(CONTEUDO_ATTACHMENTS_BUCKET).remove([attachment.file_url]);
+      const { error } = await supabase.from('conteudo_attachments' as any).delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conteudo-attachments', itemId] }),
+  });
+
+  return {
+    attachments: query.data || [],
+    isLoading: query.isLoading,
+    uploadFile,
+    deleteAttachment,
+  };
 }
 
 export function useCreateConteudo() {

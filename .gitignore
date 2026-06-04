@@ -27,3 +27,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Monday.com exports (reference only)
+*.xlsx
+
+# Generated import scripts
+generated/
+scripts/generate-monday-import-sql.mjs
+scripts/inspect-xlsx-subitems.mjs

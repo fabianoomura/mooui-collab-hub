@@ -96,6 +96,89 @@ export function useMelhoriaActivity(melhoriaId: string | null) {
   });
 }
 
+// ---- Subitems (Sunday-like sub-elements) ----
+
+export interface MelhoriaSubitem {
+  id: string;
+  melhoria_id: string;
+  title: string;
+  status: MelhoriaStatus;
+  priority: MelhoriaPriority;
+  assigned_to: string | null;
+  due_date: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useMelhoriaSubitems(melhoriaId: string | null) {
+  return useQuery({
+    queryKey: ['melhoria-subitems', melhoriaId],
+    queryFn: async () => {
+      if (!melhoriaId) return [];
+      const { data, error } = await supabase
+        .from('melhoria_subitems' as any)
+        .select('*')
+        .eq('melhoria_id', melhoriaId)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as MelhoriaSubitem[];
+    },
+    enabled: !!melhoriaId,
+  });
+}
+
+export function useCreateMelhoriaSubitem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      melhoria_id: string;
+      title: string;
+      priority?: MelhoriaPriority;
+      assigned_to?: string | null;
+      due_date?: string | null;
+      position?: number;
+    }) => {
+      const { error } = await supabase.from('melhoria_subitems' as any).insert({
+        melhoria_id: input.melhoria_id,
+        title: input.title,
+        status: 'open',
+        priority: input.priority || 'medium',
+        assigned_to: input.assigned_to || null,
+        due_date: input.due_date || null,
+        position: input.position ?? 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['melhoria-subitems', vars.melhoria_id] }),
+  });
+}
+
+export function useUpdateMelhoriaSubitem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, melhoria_id, ...patch }: Partial<MelhoriaSubitem> & { id: string; melhoria_id: string }) => {
+      const { error } = await supabase.from('melhoria_subitems' as any).update(patch).eq('id', id);
+      if (error) throw error;
+      return { melhoria_id };
+    },
+    onSuccess: (result) => qc.invalidateQueries({ queryKey: ['melhoria-subitems', result.melhoria_id] }),
+  });
+}
+
+export function useDeleteMelhoriaSubitem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, melhoria_id }: { id: string; melhoria_id: string }) => {
+      const { error } = await supabase.from('melhoria_subitems' as any).delete().eq('id', id);
+      if (error) throw error;
+      return { melhoria_id };
+    },
+    onSuccess: (result) => qc.invalidateQueries({ queryKey: ['melhoria-subitems', result.melhoria_id] }),
+  });
+}
+
 export function useCreateMelhoria() {
   const { currentOrg } = useOrganization();
   const { user } = useAuth();
