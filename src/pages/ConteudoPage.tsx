@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  Plus, Search as SearchIcon, X, Calendar as CalendarIcon, List, Clock, Trash2,
+  Plus, Search as SearchIcon, X, Calendar as CalendarIcon, List, Clock, Trash2, Send,
   ChevronDown, ChevronRight, Mail, FileText, CheckCircle2, Paperclip, Image as ImageIcon,
   Video, ExternalLink,
 } from 'lucide-react';
@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useConteudoItems, useCreateConteudo, useUpdateConteudo, useDeleteConteudo,
-  useConteudoActivity, useConteudoAttachments, useConteudoChecklist,
+  useConteudoActivity, useConteudoComments, useAddConteudoComment, useConteudoAttachments, useConteudoChecklist,
   useCreateConteudoChecklistItem, useUpdateConteudoChecklistItem, useDeleteConteudoChecklistItem,
   type ConteudoItem, type ConteudoStatus, type ConteudoChannel, type ConteudoType,
   type ConteudoChecklistItem, type ConteudoChecklistStatus,
@@ -597,10 +597,28 @@ function ConteudoElementDetail({
   orgMembers: { id: string; full_name: string | null }[];
   profileMap: Map<string, { id: string; full_name: string | null }>;
 }) {
+  const { user } = useAuth();
   const { data: activity = [] } = useConteudoActivity(item.id);
-  const [tab, setTab] = useState<'details' | 'project' | 'files' | 'activity'>('details');
+  const { data: comments = [] } = useConteudoComments(item.id);
+  const addComment = useAddConteudoComment();
+  const [tab, setTab] = useState<'details' | 'comments' | 'project' | 'files' | 'activity'>('details');
+  const [commentText, setCommentText] = useState('');
   const author = profileMap.get(item.created_by);
 
+  // Comment profiles
+  const commentUserIds = [...new Set(comments.map(c => c.user_id))];
+  const { data: cProfiles = [] } = useQuery({
+    queryKey: ['conteudo-cprofiles', commentUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (commentUserIds.length === 0) return [];
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', commentUserIds);
+      return data || [];
+    },
+    enabled: commentUserIds.length > 0,
+  });
+  const cMap = new Map((cProfiles as any[]).map(p => [p.id, p]));
+
+  // Activity profiles
   const actUserIds = [...new Set(activity.filter(a => a.user_id).map(a => a.user_id!))];
   const { data: aProfiles = [] } = useQuery({
     queryKey: ['conteudo-aprofiles-element', actUserIds.sort().join(',')],
@@ -612,6 +630,14 @@ function ConteudoElementDetail({
     enabled: actUserIds.length > 0,
   });
   const aMap = new Map((aProfiles as any[]).map(p => [p.id, p]));
+
+  const sendComment = () => {
+    if (!commentText.trim()) return;
+    addComment.mutate({ conteudoItemId: item.id, content: commentText.trim() }, {
+      onSuccess: () => setCommentText(''),
+      onError: () => toast.error('Erro ao enviar'),
+    });
+  };
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -641,6 +667,7 @@ function ConteudoElementDetail({
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
             <TabsList className="flex flex-wrap h-auto">
               <TabsTrigger value="details">Detalhes</TabsTrigger>
+              <TabsTrigger value="comments">Comentarios ({comments.length})</TabsTrigger>
               <TabsTrigger value="project">Projeto</TabsTrigger>
               <TabsTrigger value="files">Arquivos</TabsTrigger>
               <TabsTrigger value="activity">Atividade ({activity.length})</TabsTrigger>
@@ -732,6 +759,38 @@ function ConteudoElementDetail({
             </div>
           )}
 
+          {tab === 'comments' && (
+            <div className="space-y-3">
+              {comments.length === 0 && <p className="text-xs text-muted-foreground">Nenhum comentario.</p>}
+              {comments.map(c => {
+                const cp = cMap.get(c.user_id) as any;
+                return (
+                  <div key={c.id} className="flex gap-2">
+                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium shrink-0">
+                      {cp?.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs font-medium">{cp?.full_name || 'Usuario'}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                        </span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex gap-2">
+                <Input placeholder="Escrever comentario..." value={commentText} onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } }} className="h-8 text-sm" />
+                <Button size="sm" className="h-8 px-3" onClick={sendComment} disabled={!commentText.trim() || addComment.isPending}>
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {tab === 'project' && <ConteudoProjectPanel conteudoItemId={item.id} orgMembers={orgMembers} />}
           {tab === 'files' && <ConteudoFilesPanel conteudoItemId={item.id} />}
 
@@ -746,8 +805,8 @@ function ConteudoElementDetail({
                     <div className="flex-1 min-w-0">
                       <span className="font-medium">{ap?.full_name || 'Sistema'}</span>
                       {a.action === 'created' && <span> criou o conteudo</span>}
-                      {a.action === 'status' && <span> alterou status: {a.from_value} -&gt; {a.to_value}</span>}
-                      {a.action === 'channel' && <span> alterou canal: {a.from_value} -&gt; {a.to_value}</span>}
+                      {a.action === 'status' && <span> alterou status: {a.from_value} → {a.to_value}</span>}
+                      {a.action === 'channel' && <span> alterou canal: {a.from_value} → {a.to_value}</span>}
                       {a.action === 'assigned' && <span> alterou responsavel</span>}
                       <span className="text-muted-foreground ml-2">
                         {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}

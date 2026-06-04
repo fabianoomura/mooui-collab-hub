@@ -88,6 +88,64 @@ export function useConteudoItems() {
   });
 }
 
+export interface ConteudoComment {
+  id: string;
+  conteudo_item_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+export function useConteudoComments(itemId: string | null) {
+  return useQuery({
+    queryKey: ['conteudo-comments', itemId],
+    queryFn: async () => {
+      if (!itemId) return [];
+      const { data, error } = await supabase
+        .from('conteudo_comments' as any)
+        .select('*')
+        .eq('conteudo_item_id', itemId)
+        .order('created_at');
+      if (error) throw error;
+      return (data || []) as unknown as ConteudoComment[];
+    },
+    enabled: !!itemId,
+  });
+}
+
+export function useAddConteudoComment() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ conteudoItemId, content }: { conteudoItemId: string; content: string }) => {
+      if (!user) throw new Error('Sem usuario');
+      const { error } = await supabase.from('conteudo_comments' as any).insert({
+        conteudo_item_id: conteudoItemId,
+        user_id: user.id,
+        content,
+      });
+      if (error) throw error;
+      try {
+        const { data: c } = await supabase.from('conteudo_items' as any)
+          .select('title, created_by, assigned_to').eq('id', conteudoItemId).single();
+        if (c) {
+          const targets = new Set<string>();
+          if ((c as any).created_by !== user.id) targets.add((c as any).created_by);
+          if ((c as any).assigned_to && (c as any).assigned_to !== user.id) targets.add((c as any).assigned_to);
+          await Promise.all([...targets].map(id => notifyUser({
+            userId: id,
+            type: 'conteudo_comment',
+            title: `Novo comentario em "${(c as any).title}"`,
+            message: content.slice(0, 80),
+            link: '/conteudo',
+          })));
+        }
+      } catch (e) { console.warn('conteudo comment notify failed', e); }
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['conteudo-comments', vars.conteudoItemId] }),
+  });
+}
+
 export function useConteudoActivity(itemId: string | null) {
   return useQuery({
     queryKey: ['conteudo-activity', itemId],
