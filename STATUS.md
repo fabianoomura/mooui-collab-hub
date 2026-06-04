@@ -1,6 +1,6 @@
 # MOOUI Collab Hub — Status do Projeto
 
-Atualizado em: 2026-06-03
+Atualizado em: 2026-06-04
 
 ---
 
@@ -45,7 +45,7 @@ Atualizado em: 2026-06-03
 | # | Modulo | Rota | Status |
 |---|--------|------|--------|
 | 14 | Melhorias | `/melhorias` | OK — site/shopify/SEO, subitems com CRUD completo, progresso |
-| 15 | Conteudo | `/conteudo` | OK — 3 abas (programacao+calendario, newsletters, pautas), checklist com prioridade, comentarios, anexos, atividade em todos os sub-modulos |
+| 15 | Conteudo | `/conteudo` | OK — 3 abas (programacao+calendario+kanban, newsletters, pautas), checklist com prioridade, comentarios, anexos, atividade em todos os sub-modulos |
 | 16 | Sessoes | `/sessoes` | OK — foto/video, shots, contratos, banco de ideias, comentarios, anexos |
 | 17 | Produto | `/produtos` | OK — pipeline 15 etapas, design items, auto-progress, comentarios, anexos |
 
@@ -137,6 +137,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-02 | 4 novos modulos: Melhorias, Conteudo, Sessoes, Produto |
 | 2026-06-03 | Subelementos completos, reimportacao com subitems, fix LinkedItems |
 | 2026-06-03 | Comentarios + Anexos + Atividade em tabs para Sessoes e Produto |
+| 2026-06-04 | Comentarios + Atividade em Newsletters e Pautas, Kanban DnD em Conteudo, validacao upload 50MB |
 | 2026-06-04 | Comentarios em Conteudo, fix HTML entities, paridade completa entre modulos |
 | 2026-06-04 | Comentarios + Atividade em tabs para Newsletters e Pautas, cleanup scripts temp |
 | 2026-06-04 | Integracao Dashboard (KPI+Executive+Personal) com 4 novos modulos, Command Palette expandido |
