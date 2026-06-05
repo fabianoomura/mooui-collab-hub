@@ -72,6 +72,24 @@ Data: 2026-06-03 | Org: MOOUI Brasil
 | annual_events | 45 | 0_Acoes_Mensais |
 | annual_event_etapas | 135 | Etapas por evento |
 
+### Carga Sunday via Excel
+
+Data: 2026-06-04 | Origem: todas as planilhas `.xlsx` da raiz | Script: `scripts/import-excels-to-sunday.mjs`
+
+| Area Sunday | Registros | Observacao |
+|-------------|-----------|------------|
+| Projetos importados | 23 | Um projeto por planilha Excel |
+| Tarefas principais | 3.976 | Linhas principais das planilhas |
+| Subelementos | 1.425 | Subitems/Subelementos preservados como subtarefas |
+| Total em tasks | 5.401 | Tarefas principais + subelementos |
+| Colunas customizadas | 361 | Colunas dinamicas por projeto |
+| Valores customizados | 24.458 | Valores das colunas do Excel |
+| Responsaveis atribuidos | 667 | Gravados em `task_assignees` |
+
+Pessoas casadas na carga: Fabiano Omura, Bheatriz Graciano, Mariana Bergamasco, Maria Rosa, Clara Koga, Wagner Lima, Thais Master, Adria Baratelli e Luana Kihara.
+
+Entradas antigas/removidas mantidas apenas como texto nas colunas importadas: `Membro excluido`, `Deleted member`, `Deleted outdated pending user`.
+
 ---
 
 ## Integracao Cross-Module
@@ -110,6 +128,8 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 |--------|-----|
 | `scripts/run-import.mjs` | Importa dados gerais do Monday.com via REST API |
 | `scripts/reimport-melhorias-conteudo.mjs` | Re-importa melhorias + conteudo com subitems |
+| `scripts/reimport-operational-excel.mjs` | Limpa e recarrega Melhorias, Conteudo e Sessoes a partir dos Excel |
+| `scripts/import-excels-to-sunday.mjs` | Popula Sunday com todas as planilhas Excel, subelementos e responsaveis |
 | `scripts/cleanup-old-data.mjs` | Remove dados anteriores a 2026 |
 | `scripts/generate-monday-import-sql.mjs` | Gera SQL a partir dos Excel |
 
@@ -143,3 +163,4 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-04 | Comentarios + Atividade em tabs para Newsletters e Pautas, cleanup scripts temp |
 | 2026-06-04 | Integracao Dashboard (KPI+Executive+Personal) com 4 novos modulos, Command Palette expandido |
 | 2026-06-04 | Auto-posts em Speaks para Conteudo (#social), Sessoes (#producao), Produtos (#produtos) |
+| 2026-06-04 | Sunday populado com 23 planilhas Excel: 5.401 tarefas, 1.425 subelementos e 667 atribuicoes |

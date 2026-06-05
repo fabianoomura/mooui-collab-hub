@@ -840,12 +840,12 @@ function DesignItemsPanel({ produtoId }: { produtoId: string }) {
   return (
     <Card className="p-3">
       <div className="flex items-center justify-between gap-2 mb-3">
-        <Label className="text-xs">Design variations</Label>
+        <Label className="text-xs">Subelementos do produto</Label>
         <Badge variant="outline" className="text-[10px]">{items.length} itens</Badge>
       </div>
       <div className="space-y-2">
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma variacao cadastrada.</p>
+          <p className="text-sm text-muted-foreground">Nenhum subelemento cadastrado.</p>
         ) : items.map((item) => (
           <DesignItemRow
             key={item.id}
@@ -856,7 +856,7 @@ function DesignItemsPanel({ produtoId }: { produtoId: string }) {
         ))}
       </div>
       <div className="grid sm:grid-cols-[1fr_90px_auto] gap-2 mt-3">
-        <Input className="h-8" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nova variacao..." onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }} />
+        <Input className="h-8" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Novo subelemento..." onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }} />
         <Input className="h-8" type="number" min="1" value={newQty} onChange={(e) => setNewQty(e.target.value)} />
         <Button size="sm" className="h-8" onClick={addItem} disabled={!newName.trim()}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar</Button>
       </div>
@@ -897,4 +897,3 @@ function DesignItemRow({ item, onUpdate, onDelete }: {
     </div>
   );
 }
-

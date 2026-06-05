@@ -792,7 +792,7 @@ function ConteudoElementDetail({
             <TabsList className="flex flex-wrap h-auto">
               <TabsTrigger value="details">Detalhes</TabsTrigger>
               <TabsTrigger value="comments">Comentarios ({comments.length})</TabsTrigger>
-              <TabsTrigger value="project">Projeto</TabsTrigger>
+              <TabsTrigger value="project">Subelementos</TabsTrigger>
               <TabsTrigger value="files">Arquivos</TabsTrigger>
               <TabsTrigger value="activity">Atividade ({activity.length})</TabsTrigger>
             </TabsList>
@@ -987,7 +987,7 @@ function ConteudoProjectPanel({
     <div className="space-y-3">
       <Card className="p-3">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium">Checklist do elemento</span>
+          <span className="font-medium">Subelementos do item</span>
           <span className="text-muted-foreground">{done}/{items.length}</span>
         </div>
         <div className="h-2 rounded-full bg-muted mt-2 overflow-hidden">
@@ -997,7 +997,7 @@ function ConteudoProjectPanel({
 
       <div className="space-y-2">
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum item de projeto cadastrado.</p>
+          <p className="text-sm text-muted-foreground">Nenhum subelemento cadastrado.</p>
         ) : items.map((item) => (
           <ConteudoChecklistRow
             key={item.id}
@@ -1014,11 +1014,11 @@ function ConteudoProjectPanel({
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-          placeholder="Adicionar etapa, entrega ou pendencia..."
+          placeholder="Adicionar subelemento..."
           className="h-8"
         />
         <Button size="sm" className="h-8" onClick={addItem} disabled={!newTitle.trim() || createItem.isPending}>
-          <Plus className="h-3.5 w-3.5 mr-1" />Item
+          <Plus className="h-3.5 w-3.5 mr-1" />Subelemento
         </Button>
       </div>
     </div>

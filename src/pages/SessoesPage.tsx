@@ -615,7 +615,7 @@ function SessaoExpanded({
         <div className="space-y-3">
           <Card className="p-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Shots concluidos</span>
+              <span className="font-medium">Subelementos concluidos</span>
               <span className="text-muted-foreground">{done}/{shots.length}</span>
             </div>
             <div className="h-2 rounded-full bg-muted mt-2 overflow-hidden">
@@ -628,7 +628,7 @@ function SessaoExpanded({
 
       <div>
         <div className="flex items-center justify-between gap-2 mb-2">
-          <Label className="text-xs">Shots da sessao</Label>
+          <Label className="text-xs">Subelementos da sessao</Label>
           <Badge variant="outline" className="text-[10px]">{shots.length} itens</Badge>
         </div>
         <div className="space-y-2">
@@ -646,7 +646,7 @@ function SessaoExpanded({
             value={newShotTitle}
             onChange={(e) => setNewShotTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addShot(); } }}
-            placeholder="Adicionar shot..."
+            placeholder="Adicionar subelemento..."
             className="h-8"
           />
           <Select value={newShotTipo} onValueChange={(value) => setNewShotTipo(value as SessaoShotTipo)}>
@@ -656,7 +656,7 @@ function SessaoExpanded({
               <SelectItem value="video">Video</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" className="h-8" onClick={addShot} disabled={!newShotTitle.trim()}><Plus className="h-3.5 w-3.5 mr-1" />Shot</Button>
+          <Button size="sm" className="h-8" onClick={addShot} disabled={!newShotTitle.trim()}><Plus className="h-3.5 w-3.5 mr-1" />Subelemento</Button>
         </div>
       </div>
 
