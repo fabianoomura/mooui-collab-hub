@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Plus, Search as SearchIcon, X, Calendar as CalendarIcon, List, Clock, Trash2, Send,
   ChevronDown, ChevronRight, Mail, FileText, CheckCircle2, Paperclip, Image as ImageIcon,
@@ -124,6 +124,41 @@ function buildGroupStats<T extends { custom_fields?: Record<string, unknown> | n
   return [...map.entries()]
     .map(([group, total]) => ({ group, total }))
     .sort((a, b) => a.group.localeCompare(b.group, 'pt-BR'));
+}
+
+function sheetValue(value: unknown) {
+  if (value == null) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function sheetColumns<T extends { custom_fields?: Record<string, unknown> | null }>(items: T[]) {
+  const columns: string[] = [];
+  const seen = new Set<string>();
+  items.forEach((item) => {
+    Object.keys(item.custom_fields || {}).forEach((key) => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      columns.push(key);
+    });
+  });
+  return columns;
+}
+
+function SheetCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r px-2 py-2 text-xs last:border-r-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+function SheetHeaderCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r bg-muted/60 px-2 py-2 text-xs font-semibold text-muted-foreground last:border-r-0', className)}>
+      {children}
+    </div>
+  );
 }
 
 /* ================================================================ */
@@ -268,6 +303,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   });
   const visibleForGroups = items.filter(i => channelFilter === 'all' || i.channel === channelFilter);
   const programacaoGroups = useMemo(() => buildGroupStats(visibleForGroups), [visibleForGroups]);
+  const programacaoSheetColumns = useMemo(() => sheetColumns(filtered), [filtered]);
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -431,7 +467,9 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
       ) : filtered.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhum conteúdo encontrado.</Card>
       ) : (
-        <div className="space-y-2">
+        <>
+          <ProgramacaoSheetTable items={filtered} columns={programacaoSheetColumns} onOpen={setOpenItem} />
+          <div className="hidden">
           {filtered.map(item => {
             const author = profileMap.get(item.created_by) as any;
             return (
@@ -465,7 +503,8 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
               </Card>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       {/* New dialog */}
@@ -552,6 +591,55 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
 /* ================================================================ */
 /* Conteudo Kanban                                                   */
 /* ================================================================ */
+
+function ProgramacaoSheetTable({
+  items,
+  columns,
+  onOpen,
+}: {
+  items: ConteudoItem[];
+  columns: string[];
+  onOpen: (item: ConteudoItem) => void;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          <div className="grid grid-flow-col auto-cols-max border-b">
+            <SheetHeaderCell className="sticky left-0 z-10 min-w-[280px] bg-muted">Elemento</SheetHeaderCell>
+            <SheetHeaderCell>Canal</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Tipo</SheetHeaderCell>
+            <SheetHeaderCell>Data</SheetHeaderCell>
+            {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
+          </div>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onOpen(item)}
+              className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
+            >
+              <SheetCell className="sticky left-0 z-10 min-w-[280px] bg-background font-medium">
+                <div className="truncate">{item.title}</div>
+                {item.code && <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">{item.code}</div>}
+              </SheetCell>
+              <SheetCell><Badge className={cn('text-[10px]', channelColors[item.channel])} variant="outline">{channelLabels[item.channel]}</Badge></SheetCell>
+              <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
+              <SheetCell>{typeLabels[item.content_type]}</SheetCell>
+              <SheetCell>{item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : ''}</SheetCell>
+              {columns.map((column) => (
+                <SheetCell key={column} className="max-w-[260px] break-words">
+                  {sheetValue(item.custom_fields?.[column])}
+                </SheetCell>
+              ))}
+            </button>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 const kanbanStatuses: ConteudoStatus[] = ['nao_iniciado', 'em_andamento', 'em_revisao', 'aprovado', 'publicado'];
 const kanbanColumnColors: Record<ConteudoStatus, string> = {
@@ -1299,6 +1387,7 @@ function NewslettersTab() {
   const channelFilteredNewsletters = newsletters.filter(n => channelFilter === 'all' || n.channel === channelFilter);
   const newsletterGroups = useMemo(() => buildGroupStats(channelFilteredNewsletters), [channelFilteredNewsletters]);
   const filtered = channelFilteredNewsletters.filter(n => groupFilter === 'all' || spreadsheetGroup(n.custom_fields) === groupFilter);
+  const newsletterSheetColumns = useMemo(() => sheetColumns(filtered), [filtered]);
   const channelStats = (Object.keys(nlChannelLabels) as NewsletterChannel[]).map((channel) => {
     const channelItems = newsletters.filter((item) => item.channel === channel);
     return {
@@ -1404,7 +1493,9 @@ function NewslettersTab() {
       ) : filtered.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma newsletter encontrada.</Card>
       ) : (
-        <div className="space-y-2">
+        <>
+          <NewsletterSheetTable items={filtered} columns={newsletterSheetColumns} onOpen={setOpenItem} />
+        <div className="hidden">
           {filtered.map(nl => (
             <Card key={nl.id} onClick={() => setOpenItem(nl)} className="p-3 cursor-pointer hover:border-primary/40 transition-colors">
               <div className="flex items-start gap-3">
@@ -1429,6 +1520,7 @@ function NewslettersTab() {
             </Card>
           ))}
         </div>
+        </>
       )}
 
       {/* New dialog */}
@@ -1474,6 +1566,52 @@ function NewslettersTab() {
         />
       )}
     </div>
+  );
+}
+
+function NewsletterSheetTable({
+  items,
+  columns,
+  onOpen,
+}: {
+  items: Newsletter[];
+  columns: string[];
+  onOpen: (item: Newsletter) => void;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          <div className="grid grid-flow-col auto-cols-max border-b">
+            <SheetHeaderCell className="sticky left-0 z-10 min-w-[280px] bg-muted">Elemento</SheetHeaderCell>
+            <SheetHeaderCell>Canal</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Data</SheetHeaderCell>
+            <SheetHeaderCell>Tema</SheetHeaderCell>
+            {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
+          </div>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onOpen(item)}
+              className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
+            >
+              <SheetCell className="sticky left-0 z-10 min-w-[280px] bg-background font-medium">{item.title}</SheetCell>
+              <SheetCell>{nlChannelLabels[item.channel]}</SheetCell>
+              <SheetCell><Badge variant="outline" className={cn('text-[10px]', nlStatusColors[item.status])}>{nlStatusLabels[item.status]}</Badge></SheetCell>
+              <SheetCell>{item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : ''}</SheetCell>
+              <SheetCell>{item.tema || ''}</SheetCell>
+              {columns.map((column) => (
+                <SheetCell key={column} className="max-w-[260px] break-words">
+                  {sheetValue(item.custom_fields?.[column])}
+                </SheetCell>
+              ))}
+            </button>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -1686,6 +1824,7 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
   const profileMap = useMemo(() => new Map(profiles.map((p: any) => [p.id, p])), [profiles]);
   const pautaGroups = useMemo(() => buildGroupStats(pautas), [pautas]);
   const filteredPautas = pautas.filter((pauta) => groupFilter === 'all' || spreadsheetGroup(pauta.custom_fields) === groupFilter);
+  const pautaSheetColumns = useMemo(() => sheetColumns(filteredPautas), [filteredPautas]);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -1745,7 +1884,28 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
       ) : filteredPautas.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma demanda cadastrada.</Card>
       ) : (
-        <div className="space-y-2">
+        <>
+          <PautaSheetTable
+            items={filteredPautas}
+            columns={pautaSheetColumns}
+            expandedId={expandedId}
+            onToggle={(id) => setExpandedId(expandedId === id ? null : id)}
+            profileMap={profileMap as any}
+            renderExpanded={(pauta) => (
+              <PautaExpanded
+                pauta={pauta}
+                orgMembers={orgMembers}
+                onUpdate={(patch) => updateMut.mutate({ id: pauta.id, ...patch })}
+                onDelete={async () => {
+                  const ok = await confirm({ title: 'Excluir esta pauta?', destructive: true, confirmText: 'Excluir' });
+                  if (!ok) return;
+                  deleteMut.mutate(pauta.id, { onSuccess: () => { toast.success('Pauta excluida'); setExpandedId(null); } });
+                }}
+                isOwner={pauta.created_by === user?.id}
+              />
+            )}
+          />
+        <div className="hidden">
           {filteredPautas.map(pauta => {
             const isExpanded = expandedId === pauta.id;
             const author = profileMap.get(pauta.created_by) as any;
@@ -1791,6 +1951,7 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
             );
           })}
         </div>
+        </>
       )}
 
       {/* New dialog */}
@@ -1828,6 +1989,67 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function PautaSheetTable({
+  items,
+  columns,
+  expandedId,
+  onToggle,
+  profileMap,
+  renderExpanded,
+}: {
+  items: Pauta[];
+  columns: string[];
+  expandedId: string | null;
+  onToggle: (id: string) => void;
+  profileMap: Map<string, { id: string; full_name: string | null }>;
+  renderExpanded: (item: Pauta) => ReactNode;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          <div className="grid grid-flow-col auto-cols-max border-b">
+            <SheetHeaderCell className="sticky left-0 z-10 min-w-[300px] bg-muted">Elemento</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Prioridade</SheetHeaderCell>
+            <SheetHeaderCell>Responsavel</SheetHeaderCell>
+            <SheetHeaderCell>Data</SheetHeaderCell>
+            {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
+          </div>
+          {items.map((item) => {
+            const assignee = item.assigned_to ? (profileMap.get(item.assigned_to) as any) : null;
+            const isExpanded = expandedId === item.id;
+            return (
+              <div key={item.id} className="border-b last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => onToggle(item.id)}
+                  className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-muted/40"
+                >
+                  <SheetCell className="sticky left-0 z-10 flex min-w-[300px] items-center gap-2 bg-background font-medium">
+                    {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    <span className="truncate">{item.title}</span>
+                  </SheetCell>
+                  <SheetCell><Badge variant="outline" className={cn('text-[10px]', pautaStatusColors[item.status])}>{pautaStatusLabels[item.status]}</Badge></SheetCell>
+                  <SheetCell><Badge variant="outline" className={cn('text-[10px]', pautaPriorityColors[item.priority])}>{pautaPriorityLabels[item.priority]}</Badge></SheetCell>
+                  <SheetCell>{assignee?.full_name || ''}</SheetCell>
+                  <SheetCell>{item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : ''}</SheetCell>
+                  {columns.map((column) => (
+                    <SheetCell key={column} className="max-w-[260px] break-words">
+                      {sheetValue(item.custom_fields?.[column])}
+                    </SheetCell>
+                  ))}
+                </button>
+                {isExpanded && <div className="min-w-[720px] bg-background">{renderExpanded(item)}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
   );
 }
 
