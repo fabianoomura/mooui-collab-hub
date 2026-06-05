@@ -45,8 +45,8 @@ Atualizado em: 2026-06-05
 | # | Modulo | Rota | Status |
 |---|--------|------|--------|
 | 14 | Melhorias | `/melhorias` | OK — site/shopify/SEO, subitems com CRUD completo, progresso, kanban DnD |
-| 15 | Conteudo | `/conteudo` | OK — 3 abas (programacao+calendario+kanban, newsletters, pautas), checklist com prioridade, comentarios, anexos, atividade em todos os sub-modulos |
-| 16 | Sessoes | `/sessoes` | OK — foto/video, shots, contratos, banco de ideias, comentarios, anexos, kanban DnD |
+| 15 | Marketing | `/conteudo` | OK — Programacao, Newsletters por card Brasil/Barcelona e Demandas Marketing com subelementos estilo Sunday |
+| 16 | Calendario de Fotos e Videos | `/sessoes` | OK — foto/video, shots, contratos, banco de ideias, cards de status, comentarios, anexos, kanban DnD |
 | 17 | Produto | `/produtos` | OK — pipeline 15 etapas, design items, auto-progress, comentarios, anexos, kanban DnD |
 
 ---
@@ -57,20 +57,20 @@ Data: 2026-06-03 | Org: MOOUI Brasil
 
 | Tabela | Registros | Fonte |
 |--------|-----------|-------|
-| melhorias | 302 | 6_Site, 6_1_Shopify, NP_SEO_On_Page, NP_SEO_Tecnico |
-| melhoria_subitems | 182 | Subitens dos boards acima |
-| conteudo_items | 178 | Programacao (Kids, Home, Amo, Barcelona, Outras) |
-| conteudo_checklist_items | 26 | Subitens de conteudo |
 | produtos | 125 | 4_Novos_Produtos, 2_Design |
 | produto_stages | 1.000 | Auto-seed (15 etapas/produto) |
 | produto_design_items | 450 | 2_Design (variacoes) |
-| newsletters | 1.000+ | Newsletter Brasil + Barcelona |
-| pautas | 51 | Marketing_Demandas |
-| pauta_items | 37+ | Marketing_Demandas subitens |
-| sessoes | 148 | Calendario_de_Fotos_e_Videos |
-| sessao_shots | 401 | Shots por sessao |
 | annual_events | 45 | 0_Acoes_Mensais via Sunday; 15 itens sem data foram mantidos fora do calendario |
 | annual_event_etapas | 225 | Etapas por evento |
+| conteudo_items | 178 | Programacao redes sociais, 2026+ |
+| conteudo_checklist_items | 26 | Subelementos/checklist de Programacao |
+| newsletters | 101 | Newsletter Brasil + Barcelona, 2026+ |
+| pautas | 42 | Demandas Marketing, 2026+ |
+| pauta_items | 33 | Subelementos de Demandas Marketing |
+| sessoes | 95 | Calendario de Fotos e Videos, 2026+ |
+| sessao_shots | 171 | Shots/subelementos de Fotos e Videos |
+| melhorias | 302 | Site/Shopify/SEO importado |
+| melhoria_subitems | 227 | Subelementos de Melhorias |
 
 ### Carga Sunday via Excel
 
@@ -169,3 +169,14 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-04 | Configuracoes passou a permitir editar o nome dos usuarios pela aba Usuarios |
 | 2026-06-05 | Calendario de Acoes Mensais recarregado a partir do Sunday 0_Acoes_Mensais |
 | 2026-06-05 | Calendario de Acoes Mensais passou a exibir somente eventos do proprio modulo, sem fontes Conteudo/Sessoes |
+| 2026-06-05 | Configuracoes validada para edicao de nome de membros apos policy admin_update_member_profiles |
+| 2026-06-05 | Marketing reorganizado em Programacao, Newsletters e Demandas Marketing; Fotos/Videos separado em modulo proprio |
+| 2026-06-05 | Tabelas proprias de Marketing, Fotos/Videos e Melhorias recarregadas dos Excel/Sunday com corte 2026+ |
+
+### Validacao 2026-06-05
+
+- `npm run build`: OK.
+- Smoke HTTP local `8082`: OK em `/`, `/conteudo`, `/sessoes`, `/melhorias`, `/configuracoes`.
+- `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
+- `npm run test`: falha em suites antigas por RLS/fixtures remotos (`42501`, `23503`, RPC `notify_user` ambigua), nao por build.
+- `npm run lint`: falha por divida preexistente ampla (`no-explicit-any`, fast refresh, etc.).

@@ -109,7 +109,7 @@ export default function SessoesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Sessoes de Foto & Video</h1>
+        <h1 className="text-2xl font-bold">Calendario de Fotos e Videos</h1>
         <p className="text-sm text-muted-foreground">Planejamento de producao, shots, contratos e banco de ideias.</p>
       </div>
 
@@ -183,6 +183,15 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
       (sessao.code || '').toLowerCase().includes(q)
     );
   });
+  const statusStats = (Object.keys(sessaoStatusLabels) as SessaoStatus[]).map((status) => {
+    const statusItems = sessoes.filter((sessao) => sessao.status === status);
+    return {
+      status,
+      total: statusItems.length,
+      dated: statusItems.filter((sessao) => !!sessao.scheduled_date).length,
+      withProfessional: statusItems.filter((sessao) => !!sessao.professional).length,
+    };
+  });
 
   const toggleNewResponsible = (id: string) => {
     setNResponsaveis((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -212,6 +221,33 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+        {statusStats.map((stat) => {
+          const active = statusFilter === stat.status;
+          return (
+            <button
+              key={stat.status}
+              type="button"
+              onClick={() => setStatusFilter(active ? 'all' : stat.status)}
+              className={cn(
+                'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                active && 'border-primary ring-1 ring-primary/30',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium truncate">{sessaoStatusLabels[stat.status]}</span>
+                <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', sessaoKanbanDotColors[stat.status])} />
+              </div>
+              <div className="mt-2 text-2xl font-semibold leading-none">{stat.total}</div>
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <span>{stat.dated} datadas</span>
+                <span>{stat.withProfessional} prof.</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-1 min-w-[240px] gap-2">
           <div className="relative flex-1 min-w-0">

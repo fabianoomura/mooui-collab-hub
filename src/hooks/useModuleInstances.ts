@@ -98,8 +98,9 @@ export function useRenameModuleInstance() {
       const patch: { name?: string; color?: string } = {};
       if (name !== undefined) patch.name = name;
       if (color !== undefined) patch.color = color;
-      const { error } = await supabase.from('module_instances').update(patch).eq('id', id);
+      const { data, error } = await supabase.from('module_instances').update(patch).eq('id', id).select('id').maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('Espaco nao foi atualizado. Verifique permissao de administrador.');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['module-instances', currentOrg?.id] }),
   });

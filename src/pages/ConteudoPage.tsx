@@ -116,7 +116,7 @@ const pautaItemStatusColors: Record<string, string> = {
 export default function ConteudoPage() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
-  const [mainTab, setMainTab] = useState<'programacao' | 'newsletters' | 'pautas'>('programacao');
+  const [mainTab, setMainTab] = useState<'programacao' | 'newsletters' | 'demandas'>('programacao');
 
   // Org members for assignment
   const { data: orgMembers = [] } = useQuery({
@@ -135,15 +135,15 @@ export default function ConteudoPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Conteúdo & Redes Sociais</h1>
-        <p className="text-sm text-muted-foreground">Programação de posts, newsletters e pautas editoriais.</p>
+        <h1 className="text-2xl font-bold">Marketing</h1>
+        <p className="text-sm text-muted-foreground">Programação de posts, newsletters e demandas do time.</p>
       </div>
 
       <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as any)}>
         <TabsList>
           <TabsTrigger value="programacao"><CalendarIcon className="h-3.5 w-3.5 mr-1.5" />Programação</TabsTrigger>
           <TabsTrigger value="newsletters"><Mail className="h-3.5 w-3.5 mr-1.5" />Newsletters</TabsTrigger>
-          <TabsTrigger value="pautas"><FileText className="h-3.5 w-3.5 mr-1.5" />Pautas</TabsTrigger>
+          <TabsTrigger value="demandas"><FileText className="h-3.5 w-3.5 mr-1.5" />Demandas Marketing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="programacao" className="mt-4">
@@ -152,7 +152,7 @@ export default function ConteudoPage() {
         <TabsContent value="newsletters" className="mt-4">
           <NewslettersTab />
         </TabsContent>
-        <TabsContent value="pautas" className="mt-4">
+        <TabsContent value="demandas" className="mt-4">
           <PautasTab orgMembers={orgMembers as any} />
         </TabsContent>
       </Tabs>
@@ -1196,6 +1196,16 @@ function NewslettersTab() {
   const [nChannel, setNChannel] = useState<NewsletterChannel>('brasil');
 
   const filtered = newsletters.filter(n => channelFilter === 'all' || n.channel === channelFilter);
+  const channelStats = (Object.keys(nlChannelLabels) as NewsletterChannel[]).map((channel) => {
+    const channelItems = newsletters.filter((item) => item.channel === channel);
+    return {
+      channel,
+      total: channelItems.length,
+      pending: channelItems.filter((item) => item.status !== 'enviado').length,
+      sent: channelItems.filter((item) => item.status === 'enviado').length,
+      scheduled: channelItems.filter((item) => !!item.scheduled_date).length,
+    };
+  });
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -1213,11 +1223,38 @@ function NewslettersTab() {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {channelStats.map((stat) => {
+          const active = channelFilter === stat.channel;
+          return (
+            <button
+              key={stat.channel}
+              type="button"
+              onClick={() => setChannelFilter(active ? 'all' : stat.channel)}
+              className={cn(
+                'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                active && 'border-primary ring-1 ring-primary/30',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">{nlChannelLabels[stat.channel]}</span>
+                <Badge variant="outline" className="text-[10px]">{stat.pending} pendentes</Badge>
+              </div>
+              <div className="mt-2 text-2xl font-semibold leading-none">{stat.total}</div>
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <span>{stat.sent} enviadas</span>
+                <span>{stat.scheduled} datadas</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as any)}>
           <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os canais</SelectItem>
+            <SelectItem value="all">Todos os cards</SelectItem>
             {(Object.keys(nlChannelLabels) as NewsletterChannel[]).map(k => (
               <SelectItem key={k} value={k}>{nlChannelLabels[k]}</SelectItem>
             ))}
@@ -1518,7 +1555,7 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
       assigned_to: nAssigned || undefined,
     }, {
       onSuccess: () => {
-        toast.success('Pauta criada!');
+        toast.success('Demanda criada!');
         setShowNew(false);
         setNTitle(''); setNPriority('medium'); setNAssigned('');
       },
@@ -1529,14 +1566,14 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         <Button onClick={() => setShowNew(true)} size="sm">
-          <Plus className="h-4 w-4 mr-1" />Nova pauta
+          <Plus className="h-4 w-4 mr-1" />Nova demanda
         </Button>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : pautas.length === 0 ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma pauta cadastrada.</Card>
+        <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma demanda cadastrada.</Card>
       ) : (
         <div className="space-y-2">
           {pautas.map(pauta => {
@@ -1588,9 +1625,9 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
       {/* New dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Nova pauta</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Nova demanda marketing</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div><Label className="text-xs">Título</Label><Input autoFocus value={nTitle} onChange={(e) => setNTitle(e.target.value)} placeholder="Título da pauta" /></div>
+            <div><Label className="text-xs">Título</Label><Input autoFocus value={nTitle} onChange={(e) => setNTitle(e.target.value)} placeholder="Título da demanda" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Prioridade</Label>

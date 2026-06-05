@@ -40,7 +40,7 @@ const FILES = {
     ['Newsletter_Mooui_Brasil_1780430246.xlsx', 'brasil'],
     ['Newsletter_Barcelona_1780430265.xlsx', 'barcelona'],
   ],
-  pautas: [['Marketing_Demandas_1780430326.xlsx', null]],
+  pautas: [['Marketing_Demandas_1780430344.xlsx', null]],
   sessoes: [['Calendario_de_Fotos_e_Videos_1780430231.xlsx', null]],
 };
 
@@ -546,6 +546,13 @@ function stripPrivate(rows) {
   });
 }
 
+function withCodes(rows, prefix) {
+  return rows.map((row, index) => ({
+    ...row,
+    code: `${prefix}-${String(index + 1).padStart(3, '0')}`,
+  }));
+}
+
 async function existingCounts() {
   const [melhorias, conteudo, newsletters, pautas, sessoes] = await Promise.all([
     rest('melhorias', `select=id&organization_id=eq.${ORG_ID}`),
@@ -610,7 +617,7 @@ async function main() {
 
   await deleteCurrent();
 
-  await insertBatch('melhorias', stripPrivate(payloads.melhorias));
+  await insertBatch('melhorias', withCodes(stripPrivate(payloads.melhorias), 'ML'));
   const melRows = await rest('melhorias', `select=id,title,area&organization_id=eq.${ORG_ID}`);
   const melMap = new Map(melRows.map((row) => [`${row.area}::${row.title}`, row.id]));
   const melSubs = payloads.melhorias.flatMap((item) =>
@@ -618,7 +625,7 @@ async function main() {
   );
   if (melSubs.length) await insertBatch('melhoria_subitems', melSubs);
 
-  await insertBatch('conteudo_items', stripPrivate(payloads.conteudo));
+  await insertBatch('conteudo_items', withCodes(stripPrivate(payloads.conteudo), 'CT'));
   const contRows = await rest('conteudo_items', `select=id,title,channel,scheduled_date&organization_id=eq.${ORG_ID}`);
   const contMap = new Map(contRows.map((row) => [`${row.channel}::${row.title}::${row.scheduled_date || ''}`, row.id]));
   const contSubs = payloads.conteudo.flatMap((item) =>
@@ -636,7 +643,7 @@ async function main() {
   );
   if (pautaSubs.length) await insertBatch('pauta_items', pautaSubs);
 
-  await insertBatch('sessoes', stripPrivate(payloads.sessoes));
+  await insertBatch('sessoes', withCodes(stripPrivate(payloads.sessoes), 'SS'));
   const sessRows = await rest('sessoes', `select=id,title,scheduled_date&organization_id=eq.${ORG_ID}`);
   const sessMap = new Map(sessRows.map((row) => [`${row.title}::${row.scheduled_date || ''}`, row.id]));
   const shots = payloads.sessoes.flatMap((item) =>

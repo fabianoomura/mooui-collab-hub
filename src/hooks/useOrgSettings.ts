@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export interface OrgDepartment {
   id: string;
@@ -158,11 +159,26 @@ export function useOrgMembersFull(orgId?: string) {
 
 export function useUpdateMemberProfile() {
   const qc = useQueryClient();
+  const { currentOrg } = useOrganization();
   return useMutation({
     mutationFn: async (input: { user_id: string; department?: string | null; position?: string | null; full_name?: string }) => {
+      if (!currentOrg) throw new Error('Sem organizacao');
       const { user_id, ...patch } = input;
-      const { error } = await supabase.from('profiles').update(patch).eq('id', user_id);
-      if (error) throw error;
+      const { data: directData, error: directError } = await supabase
+        .from('profiles')
+        .update(patch)
+        .eq('id', user_id)
+        .select('id')
+        .maybeSingle();
+      if (directError) throw directError;
+      if (directData) return;
+
+      const { data, error } = await supabase.functions.invoke('admin-update-member-profile', {
+        body: { organization_id: currentOrg.id, ...input },
+      });
+      if (error) throw new Error(error.message || 'Perfil nao foi atualizado. A funcao administrativa ainda nao esta publicada.');
+      if (data?.error) throw new Error(data.error);
+      if (!data?.profile) throw new Error('Perfil nao foi atualizado.');
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['org-members-full'] });
