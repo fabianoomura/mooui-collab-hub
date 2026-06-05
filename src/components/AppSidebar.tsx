@@ -61,7 +61,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Marketing',
     items: [
-      { title: 'Calendário de Marketing', url: '/calendario', icon: CalendarDays },
+      { title: 'Calendário de Ações Mensais', url: '/calendario', icon: CalendarDays },
       { title: 'Conteúdo', url: '/conteudo', icon: Camera },
       { title: 'Sessões', url: '/sessoes', icon: Camera },
     ],

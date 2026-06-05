@@ -19,7 +19,7 @@ const ROUTES = [
   { label: 'Speaks', href: '/mensagens', icon: MessageSquare, kw: 'slack chat mensagens' },
   { label: 'Papelinho', href: '/docs', icon: BookOpen, kw: 'notinha notion docs documentação' },
   { label: 'Salas', href: '/salas', icon: Calendar, kw: 'reserva reuniao' },
-  { label: 'Calendário', href: '/calendario', icon: CalendarDays, kw: 'eventos ano' },
+  { label: 'Calendário de Ações Mensais', href: '/calendario', icon: CalendarDays, kw: 'acoes mensais calendario eventos ano marketing' },
   { label: 'Produção', href: '/lancamentos', icon: Rocket, kw: 'launches etapas lancamentos producao' },
   { label: 'Check Lançamentos', href: '/checagens', icon: ClipboardCheck, kw: 'checklist checagem site' },
   { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },

@@ -261,9 +261,9 @@ export default function CalendarPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        crumbs={[{ label: 'Início', to: '/' }, { label: 'Calendário de Marketing' }]}
-        title="Calendário de Marketing"
-        subtitle="Planejamento de lançamentos, ações e datas-chave"
+        crumbs={[{ label: 'Início', to: '/' }, { label: 'Calendário de Ações Mensais' }]}
+        title="Calendário de Ações Mensais"
+        subtitle="Planejamento anual de ações mensais, lançamentos e datas-chave"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={() => setYear(y => y - 1)}><ChevronLeft className="h-4 w-4" /></Button>

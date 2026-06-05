@@ -1,6 +1,6 @@
 # MOOUI Collab Hub — Status do Projeto
 
-Atualizado em: 2026-06-04
+Atualizado em: 2026-06-05
 
 ---
 
@@ -34,7 +34,7 @@ Atualizado em: 2026-06-04
 
 | # | Modulo | Rota | Status |
 |---|--------|------|--------|
-| 9 | Calendario Mkt | `/calendario` | OK — anual, categorias, etapas por evento, timeline |
+| 9 | Calendario de Acoes Mensais | `/calendario` | OK — anual, categorias, etapas por evento, timeline |
 | 10 | Producao (Lancamentos) | `/lancamentos` | OK — pipeline com Gantt, etapas, anexos, activity |
 | 11 | Check Lancamentos | `/checagens` | OK — checklists com evidencia, templates |
 | 12 | Pedidos (SAC/Exp) | `/pedidos` | OK — workflow, SLA, anexos, escalation, relatorio |
@@ -69,8 +69,8 @@ Data: 2026-06-03 | Org: MOOUI Brasil
 | pauta_items | 37+ | Marketing_Demandas subitens |
 | sessoes | 148 | Calendario_de_Fotos_e_Videos |
 | sessao_shots | 401 | Shots por sessao |
-| annual_events | 45 | 0_Acoes_Mensais |
-| annual_event_etapas | 135 | Etapas por evento |
+| annual_events | 45 | 0_Acoes_Mensais via Sunday; 15 itens sem data foram mantidos fora do calendario |
+| annual_event_etapas | 225 | Etapas por evento |
 
 ### Carga Sunday via Excel
 
@@ -167,3 +167,4 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-04 | Sunday recebeu abas Tabela/Kanban/Timeline/Calendario, filtros integrados e exclusao de elementos |
 | 2026-06-04 | Sunday ganhou edicao de responsaveis diretamente nos cards de Kanban/Timeline |
 | 2026-06-04 | Configuracoes passou a permitir editar o nome dos usuarios pela aba Usuarios |
+| 2026-06-05 | Calendario de Marketing renomeado para Calendario de Acoes Mensais e recarregado a partir do Sunday 0_Acoes_Mensais |
