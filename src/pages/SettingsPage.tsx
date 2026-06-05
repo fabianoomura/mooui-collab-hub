@@ -227,6 +227,11 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const [editName, setEditName] = useState('');
   const [newPwd, setNewPwd] = useState('');
 
+  const openEditUser = (userId: string, fullName: string | null) => {
+    setEditTarget({ userId, name: fullName || '' });
+    setEditName(fullName || '');
+  };
+
   return (
     <div>
       {canEdit && (
@@ -256,20 +261,23 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                         {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.full_name ?? ''} />}
                         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                       </Avatar>
-                      <div className="min-w-0">
+                      <button
+                        type="button"
+                        disabled={!canEdit}
+                        className="min-w-0 flex-1 text-left disabled:cursor-default"
+                        onClick={() => openEditUser(m.user_id, m.full_name)}
+                        title={canEdit ? 'Editar usuário' : undefined}
+                      >
                         <div className="font-medium truncate">{m.full_name || 'Sem nome'}</div>
                         {m.email && <div className="text-xs text-muted-foreground truncate">{m.email}</div>}
-                      </div>
+                      </button>
                       {canEdit && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground"
                           title="Editar nome"
-                          onClick={() => {
-                            setEditTarget({ userId: m.user_id, name: m.full_name || '' });
-                            setEditName(m.full_name || '');
-                          }}
+                          onClick={() => openEditUser(m.user_id, m.full_name)}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -371,6 +379,15 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                   <td className="px-4 py-2">
                     {canEdit && (
                       <div className="flex items-center gap-1 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5"
+                          title="Editar usuário"
+                          onClick={() => openEditUser(m.user_id, m.full_name)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Editar
+                        </Button>
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8"
                           title="Resetar senha"
