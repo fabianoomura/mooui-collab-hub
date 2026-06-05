@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check, CornerDownRight, ArrowUp, FileStack } from 'lucide-react';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check, CornerDownRight, ArrowUp, FileStack, Columns3, GanttChart, CalendarDays } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -88,6 +88,7 @@ const columnTypeIcons: Record<ColumnType, typeof Type> = {
 type SortField = 'title' | 'priority' | 'status' | 'due_date' | 'created_at';
 type SortDir = 'asc' | 'desc';
 type GroupBy = 'month' | 'status' | 'priority' | 'none';
+type ViewMode = 'table' | 'kanban' | 'timeline' | 'calendar';
 
 const priorityOrder: Record<TaskPriority, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const statusOrder: Record<TaskStatus, number> = { backlog: 0, todo: 1, in_progress: 2, in_review: 3, done: 4 };
@@ -114,6 +115,21 @@ function getMonthYearLabel(key: string): string {
   if (key === 'sem-data') return 'Sem Data';
   const [year, month] = key.split('-').map(Number);
   return `${monthNames[month]} - ${year}`;
+}
+
+function taskMatchesAssignee(task: TaskWithAssignees, assignees: Set<string>) {
+  return task.task_assignees.some(a => assignees.has(a.user_id)) ||
+    task.subtasks?.some(sub => sub.task_assignees.some(a => assignees.has(a.user_id)));
+}
+
+function taskMatchesSearch(task: TaskWithAssignees, lower: string) {
+  return task.title.toLowerCase().includes(lower) ||
+    (task.ticket_number || '').toLowerCase().includes(lower) ||
+    task.subtasks?.some(s => s.title.toLowerCase().includes(lower));
+}
+
+function taskDate(task: TaskWithAssignees) {
+  return task.due_date || task.start_date || task.created_at?.slice(0, 10) || null;
 }
 
 // Inline editable cells
@@ -623,7 +639,7 @@ function TaskRow({
   dynamicColumns, customValues, onSetCustomValue,
   statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
   projectMembers, onAddAssignee, onRemoveAssignee,
-  allTopLevelTasks, onMoveToParent, onPromoteToTopLevel,
+  allTopLevelTasks, onMoveToParent, onPromoteToTopLevel, onDeleteTask,
   draggedTaskId, onDragStartTask, onDragEndTask,
 }: {
   task: TaskWithAssignees;
@@ -651,6 +667,7 @@ function TaskRow({
   allTopLevelTasks: TaskWithAssignees[];
   onMoveToParent: (taskId: string, parentId: string) => void;
   onPromoteToTopLevel: (taskId: string) => void;
+  onDeleteTask: (task: TaskWithAssignees) => void;
   draggedTaskId: string | null;
   onDragStartTask: (id: string) => void;
   onDragEndTask: () => void;
@@ -737,6 +754,10 @@ function TaskRow({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onDeleteTask(task)} className="text-destructive">
+                <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir {isSubtask ? 'subelemento' : 'elemento'}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -795,6 +816,7 @@ function TaskRow({
               onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
               projectMembers={projectMembers} onAddAssignee={onAddAssignee} onRemoveAssignee={onRemoveAssignee}
               allTopLevelTasks={allTopLevelTasks} onMoveToParent={onMoveToParent} onPromoteToTopLevel={onPromoteToTopLevel}
+              onDeleteTask={onDeleteTask}
               draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
             />
           ))}
@@ -804,6 +826,237 @@ function TaskRow({
         </>
       )}
     </>
+  );
+}
+
+function SundayTaskMiniCard({
+  task, profilesMap, onOpen, onDelete, onStatusChange,
+}: {
+  task: TaskWithAssignees;
+  profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  onOpen: (task: TaskWithAssignees) => void;
+  onDelete: (task: TaskWithAssignees) => void;
+  onStatusChange?: (taskId: string, status: TaskStatus) => void;
+}) {
+  return (
+    <div className="group rounded-md border bg-card p-3 shadow-sm hover:border-primary/40 transition-colors cursor-pointer" onClick={() => onOpen(task)}>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground line-clamp-2">{task.title}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${priorityCellColors[task.priority]}`}>{priorityLabels[task.priority]}</span>
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${statusCellColors[task.status]}`}>{statusLabels[task.status]}</span>
+            {task.due_date && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{formatDateShort(task.due_date)}</span>}
+            {(task.subtasks?.length || 0) > 0 && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{task.subtasks?.length} sub</span>}
+          </div>
+        </div>
+        <button
+          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1"
+          onClick={(e) => { e.stopPropagation(); onDelete(task); }}
+          title="Excluir elemento"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} />
+        {onStatusChange && (
+          <Select value={task.status} onValueChange={(value) => onStatusChange(task.id, value as TaskStatus)}>
+            <SelectTrigger className="h-7 w-[118px] text-xs" onClick={(e) => e.stopPropagation()}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(['backlog', 'todo', 'in_progress', 'in_review', 'done'] as TaskStatus[]).map(status => (
+                <SelectItem key={status} value={status}>{statusLabels[status]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SundayKanbanView({
+  tasks, profilesMap, onOpen, onDelete, onStatusChange, onQuickAdd,
+}: {
+  tasks: TaskWithAssignees[];
+  profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  onOpen: (task: TaskWithAssignees) => void;
+  onDelete: (task: TaskWithAssignees) => void;
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onQuickAdd: (status: TaskStatus) => void;
+}) {
+  const columns = (['backlog', 'todo', 'in_progress', 'in_review', 'done'] as TaskStatus[]).map(status => ({
+    status,
+    tasks: tasks.filter(task => task.status === status),
+  }));
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-3">
+      {columns.map(({ status, tasks: columnTasks }) => (
+        <div key={status} className="w-72 shrink-0">
+          <div className="mb-2 flex items-center justify-between rounded-md border bg-card px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${statusCellColors[status].split(' ')[0]}`} />
+              <span className="text-sm font-semibold">{statusLabels[status]}</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{columnTasks.length}</span>
+            </div>
+            <button className="text-muted-foreground hover:text-foreground" onClick={() => onQuickAdd(status)} title="Adicionar elemento">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="space-y-2 rounded-md bg-muted/25 p-2 min-h-[220px]">
+            {columnTasks.map(task => (
+              <SundayTaskMiniCard
+                key={task.id}
+                task={task}
+                profilesMap={profilesMap}
+                onOpen={onOpen}
+                onDelete={onDelete}
+                onStatusChange={onStatusChange}
+              />
+            ))}
+            {columnTasks.length === 0 && (
+              <button onClick={() => onQuickAdd(status)} className="w-full rounded-md border border-dashed py-8 text-xs text-muted-foreground hover:text-foreground hover:bg-background">
+                + Adicionar elemento
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SundayTimelineView({
+  tasks, profilesMap, onOpen, onDelete,
+}: {
+  tasks: TaskWithAssignees[];
+  profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  onOpen: (task: TaskWithAssignees) => void;
+  onDelete: (task: TaskWithAssignees) => void;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, TaskWithAssignees[]>();
+    tasks.forEach(task => {
+      const key = getMonthYearKey(taskDate(task));
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(task);
+    });
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => ({
+      key,
+      label: getMonthYearLabel(key),
+      items: items.sort((a, b) => (taskDate(a) || '').localeCompare(taskDate(b) || '')),
+    }));
+  }, [tasks]);
+
+  return (
+    <div className="space-y-4">
+      {groups.map(group => (
+        <div key={group.key} className="rounded-lg border bg-card/40">
+          <div className="flex items-center gap-2 border-b px-4 py-3">
+            <GanttChart className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">{group.label}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{group.items.length}</span>
+          </div>
+          <div className="divide-y">
+            {group.items.map(task => (
+              <div key={task.id} className="group flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 cursor-pointer" onClick={() => onOpen(task)}>
+                <div className="w-20 text-xs text-muted-foreground">{formatDateShort(taskDate(task))}</div>
+                <div className={`h-2.5 w-2.5 rounded-full ${statusCellColors[task.status].split(' ')[0]}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{task.title}</p>
+                  <p className="text-xs text-muted-foreground">{statusLabels[task.status]} · {priorityLabels[task.priority]}</p>
+                </div>
+                <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} />
+                <button className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1" onClick={(e) => { e.stopPropagation(); onDelete(task); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SundayCalendarView({
+  tasks, onOpen,
+}: {
+  tasks: TaskWithAssignees[];
+  onOpen: (task: TaskWithAssignees) => void;
+}) {
+  const months = useMemo(() => {
+    const map = new Map<string, TaskWithAssignees[]>();
+    tasks.filter(task => taskDate(task)).forEach(task => {
+      const key = getMonthYearKey(taskDate(task));
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(task);
+    });
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(0, 6);
+  }, [tasks]);
+
+  if (months.length === 0) {
+    return <div className="rounded-lg border py-12 text-center text-sm text-muted-foreground">Nenhum elemento com data para exibir no calendário.</div>;
+  }
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-2">
+      {months.map(([key, monthTasks]) => {
+        const [year, month] = key.split('-').map(Number);
+        const first = new Date(year, month, 1);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const startWeekday = first.getDay();
+        const byDay = new Map<number, TaskWithAssignees[]>();
+        monthTasks.forEach(task => {
+          const date = new Date(`${taskDate(task)}T00:00:00`);
+          const day = date.getDate();
+          if (!byDay.has(day)) byDay.set(day, []);
+          byDay.get(day)!.push(task);
+        });
+        const cells = [
+          ...Array.from({ length: startWeekday }, () => null),
+          ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+        ];
+        return (
+          <div key={key} className="rounded-lg border bg-card/40 overflow-hidden">
+            <div className="flex items-center gap-2 border-b px-4 py-3">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold">{getMonthYearLabel(key)}</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{monthTasks.length}</span>
+            </div>
+            <div className="grid grid-cols-7 border-b bg-muted/30 text-center text-[10px] font-semibold uppercase text-muted-foreground">
+              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(day => <div key={day} className="py-2">{day}</div>)}
+            </div>
+            <div className="grid grid-cols-7">
+              {cells.map((day, index) => {
+                const dayTasks = day ? byDay.get(day) || [] : [];
+                return (
+                  <div key={`${key}-${index}`} className="min-h-[96px] border-r border-b p-1.5 last:border-r-0">
+                    {day && <div className="mb-1 text-xs font-medium text-muted-foreground">{day}</div>}
+                    <div className="space-y-1">
+                      {dayTasks.slice(0, 3).map(task => (
+                        <button
+                          key={task.id}
+                          className={`block w-full truncate rounded px-1.5 py-1 text-left text-[10px] font-medium ${statusCellColors[task.status]}`}
+                          onClick={() => onOpen(task)}
+                          title={task.title}
+                        >
+                          {task.title}
+                        </button>
+                      ))}
+                      {dayTasks.length > 3 && <span className="block text-[10px] text-muted-foreground">+{dayTasks.length - 3}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -825,6 +1078,7 @@ export default function TableViewPage() {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
   const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -890,11 +1144,11 @@ export default function TableViewPage() {
     let result = tasks;
     if (searchText.trim()) {
       const lower = searchText.toLowerCase();
-      result = result.filter(t => t.title.toLowerCase().includes(lower) || t.subtasks?.some(s => s.title.toLowerCase().includes(lower)));
+      result = result.filter(t => taskMatchesSearch(t, lower));
     }
-    if (filterStatus.size > 0) result = result.filter(t => filterStatus.has(t.status));
-    if (filterPriority.size > 0) result = result.filter(t => filterPriority.has(t.priority));
-    if (filterAssignee.size > 0) result = result.filter(t => t.task_assignees.some(a => filterAssignee.has(a.user_id)));
+    if (filterStatus.size > 0) result = result.filter(t => filterStatus.has(t.status) || t.subtasks?.some(s => filterStatus.has(s.status)));
+    if (filterPriority.size > 0) result = result.filter(t => filterPriority.has(t.priority) || t.subtasks?.some(s => filterPriority.has(s.priority)));
+    if (filterAssignee.size > 0) result = result.filter(t => taskMatchesAssignee(t, filterAssignee));
     return result;
   }, [tasks, searchText, filterStatus, filterPriority, filterAssignee]);
 
@@ -1000,6 +1254,24 @@ export default function TableViewPage() {
     setCustomValue.mutate({ taskId, columnId, value });
   };
 
+  const handleDeleteTask = async (task: TaskWithAssignees) => {
+    const hasSubtasks = (task.subtasks?.length || 0) > 0;
+    const ok = await confirm({
+      title: hasSubtasks ? `Excluir "${task.title}" e seus subelementos?` : `Excluir "${task.title}"?`,
+      description: hasSubtasks ? 'Os subelementos vinculados tambem serao removidos.' : 'Esta acao remove o elemento do projeto.',
+      destructive: true,
+      confirmText: 'Excluir',
+    });
+    if (!ok) return;
+    deleteTask.mutate(task.id, {
+      onSuccess: () => {
+        toast.success('Elemento excluido!');
+        setSidePanelTask((current) => current?.task.id === task.id ? null : current);
+      },
+      onError: (e: any) => toast.error(e.message || 'Erro ao excluir elemento'),
+    });
+  };
+
   // Grid template: color bar + title + fixed columns + dynamic columns + add-column spacer
   const gridCols = useMemo(() => {
     const cols = ['3px', '1fr'];
@@ -1043,6 +1315,20 @@ export default function TableViewPage() {
           <Button onClick={() => handleQuickAdd('todo')} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium text-xs h-8">
             <Plus className="h-3.5 w-3.5 mr-1" /> Criar elemento
           </Button>
+          <div className="flex items-center gap-1 rounded-md border bg-background p-0.5">
+            <Button variant={viewMode === 'table' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setViewMode('table')}>
+              <LayoutGrid className="h-3.5 w-3.5" /> Tabela
+            </Button>
+            <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setViewMode('kanban')}>
+              <Columns3 className="h-3.5 w-3.5" /> Kanban
+            </Button>
+            <Button variant={viewMode === 'timeline' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setViewMode('timeline')}>
+              <GanttChart className="h-3.5 w-3.5" /> Timeline
+            </Button>
+            <Button variant={viewMode === 'calendar' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setViewMode('calendar')}>
+              <CalendarDays className="h-3.5 w-3.5" /> Calendario
+            </Button>
+          </div>
           <div className="h-5 w-px bg-border mx-1" />
           <Button variant="ghost" size="sm" className={`gap-1.5 text-xs h-8 ${searchOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchText(''); }}>
             <Search className="h-3.5 w-3.5" /> Pesquisar
@@ -1122,6 +1408,27 @@ export default function TableViewPage() {
           <p className="text-muted-foreground text-sm mb-4">Crie seu primeiro projeto para começar</p>
           <Button onClick={handleCreateProject}><Plus className="h-4 w-4 mr-1" /> Criar Projeto</Button>
         </div>
+      ) : viewMode === 'kanban' ? (
+        <SundayKanbanView
+          tasks={sortedTasks}
+          profilesMap={profilesMap || new Map()}
+          onOpen={handleClickTask}
+          onDelete={handleDeleteTask}
+          onStatusChange={(taskId, status) => updateTask.mutate({ taskId, updates: { status } })}
+          onQuickAdd={(status) => handleQuickAdd(status)}
+        />
+      ) : viewMode === 'timeline' ? (
+        <SundayTimelineView
+          tasks={sortedTasks}
+          profilesMap={profilesMap || new Map()}
+          onOpen={handleClickTask}
+          onDelete={handleDeleteTask}
+        />
+      ) : viewMode === 'calendar' ? (
+        <SundayCalendarView
+          tasks={sortedTasks}
+          onOpen={handleClickTask}
+        />
       ) : (
         <div className="space-y-5 overflow-x-auto">
           {groups.map((group) => {
@@ -1173,6 +1480,7 @@ export default function TableViewPage() {
                         allTopLevelTasks={tasks}
                         onMoveToParent={(taskId, parentId) => { updateTask.mutate({ taskId, updates: { parent_task_id: parentId } }); toast.success('Elemento movido!'); }}
                         onPromoteToTopLevel={(taskId) => { updateTask.mutate({ taskId, updates: { parent_task_id: null } }); toast.success('Elemento promovido!'); }}
+                        onDeleteTask={handleDeleteTask}
                         draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
                       />
                     ))}

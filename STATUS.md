@@ -164,3 +164,4 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-04 | Integracao Dashboard (KPI+Executive+Personal) com 4 novos modulos, Command Palette expandido |
 | 2026-06-04 | Auto-posts em Speaks para Conteudo (#social), Sessoes (#producao), Produtos (#produtos) |
 | 2026-06-04 | Sunday populado com 23 planilhas Excel: 5.401 tarefas, 1.425 subelementos e 667 atribuicoes |
+| 2026-06-04 | Sunday recebeu abas Tabela/Kanban/Timeline/Calendario, filtros integrados e exclusao de elementos |
