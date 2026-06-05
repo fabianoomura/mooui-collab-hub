@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, Globe, Monitor, Search as SearchIcon, Code, BarChart3, X, Send, Trash2, Paperclip, Clock, CheckCircle2, AlertCircle, FileText, LayoutList, Columns3, ChevronDown, ChevronRight, Circle } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -65,6 +65,57 @@ function getInitials(name?: string | null) {
   return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
 }
 
+function spreadsheetGroup(fields?: Record<string, unknown> | null) {
+  const group = fields?.Grupo ?? fields?.grupo ?? fields?.Group ?? fields?.group;
+  return group == null || String(group).trim() === '' ? 'Sem grupo' : String(group).trim();
+}
+
+function sheetValue(value: unknown) {
+  if (value == null) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function sheetColumns(items: Melhoria[]) {
+  const columns: string[] = [];
+  const seen = new Set<string>();
+  items.forEach((item) => {
+    Object.keys(item.custom_fields || {}).forEach((key) => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      columns.push(key);
+    });
+  });
+  return columns;
+}
+
+function groupStats(items: Melhoria[]) {
+  const counts = new Map<string, number>();
+  items.forEach((item) => {
+    const group = spreadsheetGroup(item.custom_fields);
+    counts.set(group, (counts.get(group) || 0) + 1);
+  });
+  return [...counts.entries()]
+    .map(([group, total]) => ({ group, total }))
+    .sort((a, b) => a.group.localeCompare(b.group, 'pt-BR'));
+}
+
+function SheetCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r px-2 py-2 text-xs last:border-r-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+function SheetHeaderCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r bg-muted/60 px-2 py-2 text-xs font-semibold text-muted-foreground last:border-r-0', className)}>
+      {children}
+    </div>
+  );
+}
+
 export default function MelhoriasPage() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
@@ -80,6 +131,7 @@ export default function MelhoriasPage() {
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | MelhoriaPriority>('all');
   const [areaFilter, setAreaFilter] = useState<'all' | MelhoriaArea>('all');
+  const [groupFilter, setGroupFilter] = useState('all');
   const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
 
@@ -126,7 +178,7 @@ export default function MelhoriasPage() {
 
   // Filtering
   const q = search.trim().toLowerCase();
-  const baseFiltered = melhorias.filter(m => {
+  const preGroupFiltered = melhorias.filter(m => {
     if (scope === 'mine' && m.created_by !== user?.id) return false;
     if (scope === 'assigned' && m.assigned_to !== user?.id) return false;
     if (priorityFilter !== 'all' && m.priority !== priorityFilter) return false;
@@ -134,7 +186,10 @@ export default function MelhoriasPage() {
     if (q && !(m.title.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q))) return false;
     return true;
   });
+  const melhoriaGroups = useMemo(() => groupStats(preGroupFiltered), [preGroupFiltered]);
+  const baseFiltered = preGroupFiltered.filter(m => groupFilter === 'all' || spreadsheetGroup(m.custom_fields) === groupFilter);
   const filtered = baseFiltered.filter(m => filter === 'all' ? true : m.status === filter);
+  const melhoriaSheetColumns = useMemo(() => sheetColumns(filtered), [filtered]);
   const counts = {
     all: baseFiltered.length,
     open: baseFiltered.filter(m => m.status === 'open').length,
@@ -142,7 +197,7 @@ export default function MelhoriasPage() {
     done: baseFiltered.filter(m => m.status === 'done').length,
     rejected: baseFiltered.filter(m => m.status === 'rejected').length,
   };
-  const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (areaFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0);
+  const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (areaFilter !== 'all' ? 1 : 0) + (groupFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -214,6 +269,15 @@ export default function MelhoriasPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={groupFilter} onValueChange={setGroupFilter}>
+            <SelectTrigger className="h-9 w-[170px]"><SelectValue placeholder="Grupo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os grupos</SelectItem>
+              {melhoriaGroups.map((stat) => (
+                <SelectItem key={stat.group} value={stat.group}>{stat.group}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
             <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent>
@@ -225,7 +289,7 @@ export default function MelhoriasPage() {
           </Select>
           {activeChips > 0 && (
             <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
-              onClick={() => { setSearch(''); setPriorityFilter('all'); setAreaFilter('all'); setScope('all'); }}>
+              onClick={() => { setSearch(''); setPriorityFilter('all'); setAreaFilter('all'); setGroupFilter('all'); setScope('all'); }}>
               <X className="h-3.5 w-3.5 mr-1" />Limpar
             </Button>
           )}
@@ -239,6 +303,28 @@ export default function MelhoriasPage() {
           </div>
         </div>
       </div>
+
+      {melhoriaGroups.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+          {melhoriaGroups.map((stat) => {
+            const active = groupFilter === stat.group;
+            return (
+              <button
+                key={stat.group}
+                type="button"
+                onClick={() => setGroupFilter(active ? 'all' : stat.group)}
+                className={cn(
+                  'rounded-md border bg-card p-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                  active && 'border-primary ring-1 ring-primary/30',
+                )}
+              >
+                <div className="truncate text-xs font-medium">{stat.group}</div>
+                <div className="mt-1 text-lg font-semibold leading-none">{stat.total}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Status tabs */}
       <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
@@ -269,7 +355,14 @@ export default function MelhoriasPage() {
           })}
         />
       ) : (
-        <div className="space-y-2">
+        <>
+          <MelhoriasSheetTable
+            melhorias={filtered}
+            columns={melhoriaSheetColumns}
+            profileMap={profileMap as any}
+            onOpen={setOpenItem}
+          />
+          <div className="hidden">
           {filtered.map((m) => {
             const AreaIcon = areaIcons[m.area] || Globe;
             const author = profileMap.get(m.created_by) as any;
@@ -304,7 +397,8 @@ export default function MelhoriasPage() {
               </Card>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       {/* New dialog */}
@@ -395,6 +489,70 @@ export default function MelhoriasPage() {
         />
       )}
     </div>
+  );
+}
+
+function MelhoriasSheetTable({
+  melhorias,
+  columns,
+  profileMap,
+  onOpen,
+}: {
+  melhorias: Melhoria[];
+  columns: string[];
+  profileMap: Map<string, { full_name: string | null }>;
+  onOpen: (item: Melhoria) => void;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          <div className="grid grid-flow-col auto-cols-max border-b">
+            <SheetHeaderCell className="sticky left-0 z-10 min-w-[300px] bg-muted">Elemento</SheetHeaderCell>
+            <SheetHeaderCell>Grupo</SheetHeaderCell>
+            <SheetHeaderCell>Area</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Prioridade</SheetHeaderCell>
+            <SheetHeaderCell>Responsavel</SheetHeaderCell>
+            <SheetHeaderCell>Criado por</SheetHeaderCell>
+            <SheetHeaderCell>Atualizado</SheetHeaderCell>
+            {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
+          </div>
+          {melhorias.map((item) => {
+            const author = profileMap.get(item.created_by);
+            const assignee = item.assigned_to ? profileMap.get(item.assigned_to) : null;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onOpen(item)}
+                className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
+              >
+                <SheetCell className="sticky left-0 z-10 min-w-[300px] bg-background font-medium">
+                  <div className="truncate">{item.title}</div>
+                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                    {item.code && <span className="font-mono">{item.code}</span>}
+                    {item.description && <span className="max-w-[220px] truncate">{item.description}</span>}
+                  </div>
+                </SheetCell>
+                <SheetCell>{spreadsheetGroup(item.custom_fields)}</SheetCell>
+                <SheetCell>{areaLabels[item.area]}</SheetCell>
+                <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
+                <SheetCell><Badge className={cn('text-[10px]', priorityColors[item.priority])} variant="outline">{priorityLabels[item.priority]}</Badge></SheetCell>
+                <SheetCell>{assignee?.full_name || ''}</SheetCell>
+                <SheetCell>{author?.full_name || 'Usuario'}</SheetCell>
+                <SheetCell>{formatDistanceToNow(new Date(item.updated_at), { addSuffix: true, locale: ptBR })}</SheetCell>
+                {columns.map((column) => (
+                  <SheetCell key={column} className="max-w-[260px] break-words">
+                    {sheetValue(item.custom_fields?.[column])}
+                  </SheetCell>
+                ))}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
   );
 }
 

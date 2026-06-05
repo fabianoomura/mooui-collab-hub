@@ -275,6 +275,29 @@ export function useRemoveOrgMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { organization_id: string; user_id: string }) => {
+      const { data: deptIds, error: deptErr } = await supabase
+        .from('org_departments')
+        .select('id')
+        .eq('organization_id', input.organization_id);
+      if (deptErr) throw deptErr;
+
+      const departmentIds = (deptIds ?? []).map((d: any) => d.id);
+      if (departmentIds.length > 0) {
+        const { error: deptMemberErr } = await supabase
+          .from('department_members')
+          .delete()
+          .eq('user_id', input.user_id)
+          .in('department_id', departmentIds);
+        if (deptMemberErr) throw deptMemberErr;
+      }
+
+      const { error: roleErr } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', input.user_id)
+        .in('role', ['admin', 'manager', 'member', 'director', 'operator', 'it_support']);
+      if (roleErr) throw roleErr;
+
       const { error } = await supabase
         .from('organization_members')
         .delete()
@@ -282,7 +305,32 @@ export function useRemoveOrgMember() {
         .eq('user_id', input.user_id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['org-members-full'] }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+      qc.invalidateQueries({ queryKey: ['department-members', vars.organization_id] });
+      qc.invalidateQueries({ queryKey: ['it-support-flags'] });
+      qc.invalidateQueries({ queryKey: ['it-support-members'] });
+    },
+  });
+}
+
+export function useDeleteOrgUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { organization_id: string; user_id: string }) => {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', { body: input });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { ok: true; deleted_auth_user?: boolean };
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+      qc.invalidateQueries({ queryKey: ['department-members', vars.organization_id] });
+      qc.invalidateQueries({ queryKey: ['it-support-flags'] });
+      qc.invalidateQueries({ queryKey: ['it-support-members'] });
+      qc.invalidateQueries({ queryKey: ['project-members'] });
+      qc.invalidateQueries({ queryKey: ['assignee-profiles'] });
+    },
   });
 }
 

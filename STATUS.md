@@ -178,23 +178,32 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | Marketing ganhou cards/filtros por grupos do Monday em Programacao, Newsletters e Demandas Marketing |
 | 2026-06-05 | Marketing foi dividido em rotas proprias: `/programacao`, `/newsletters` e `/demandas-marketing`; `/conteudo` ficou como visao agregadora legada |
 | 2026-06-05 | Programacao, Newsletters e Demandas Marketing passaram a exibir elementos em tabela estilo Excel/Monday com colunas dinamicas das planilhas |
+| 2026-06-05 | Configuracoes ganhou opcao de excluir usuario, com limpeza de vinculos e Edge Function `admin-delete-user` para remover Auth quando publicada |
+| 2026-06-05 | Melhorias passou a exibir elementos em tabela estilo Sunday/Excel com grupos e colunas dinamicas das planilhas |
 
 ### Validacao 2026-06-05
 
 - `npm run build`: OK apos custom fields operacionais.
 - `npm run build`: OK apos rotas separadas de Marketing.
 - `npm run build`: OK apos tabelas estilo Excel em Programacao, Newsletters e Demandas Marketing.
+- `npm run build`: OK apos opcao de excluir usuario em Configuracoes.
+- `npm run build`: OK apos tabela estilo Sunday/Excel em Melhorias.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters` e `/demandas-marketing` apos tabelas estilo Excel.
 - Smoke HTTP local `8082`: OK em `/`, `/conteudo`, `/sessoes`, `/melhorias`, `/configuracoes`.
+- Smoke HTTP local `8082`: OK em `/melhorias` e `/configuracoes` apos tabela de Melhorias e exclusao de usuario.
 - `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
 - `npm run test`: OK, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos rotas separadas de Marketing, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos tabelas estilo Excel em Marketing, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos opcao de excluir usuario em Configuracoes, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos tabela estilo Sunday/Excel em Melhorias, 9 arquivos e 94 testes passando.
 - `node --check scripts/reimport-operational-excel.mjs`: OK.
 - `node scripts/reimport-operational-excel.mjs`: bloqueado localmente por ausencia de `generated/.auth2.json` ou `generated/.auth_response.json`; a carga real precisa desse auth e da migration `20260605113000_operational_custom_fields.sql` aplicada.
 - Browser visual embutido indisponivel na sessao (`iab` nao disponivel); validacao visual substituida por build, testes e smoke HTTP.
+- `deno`: indisponivel localmente; Edge Function `admin-delete-user` validada por revisao e build do app, pendente publicar no Supabase.
+- `supabase functions deploy admin-delete-user`: bloqueado localmente por projeto Supabase nao linkado (`Cannot find project ref`).
 - `npm run lint`: falha por divida preexistente ampla (`no-explicit-any`, fast refresh, etc.).
 - Migration criada para remover a ambiguidade da RPC `notify_user`: `20260605103000_fix_notify_user_rpc_ambiguity.sql`.
 - Migration criada para campos originais das planilhas em modulos operacionais: `20260605113000_operational_custom_fields.sql`.

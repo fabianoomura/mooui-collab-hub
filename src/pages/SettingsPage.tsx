@@ -9,6 +9,7 @@ import {
   useUpdateOrgRole,
   useUpdateAppRole,
   useRemoveOrgMember,
+  useDeleteOrgUser,
   useCreateOrgUser,
   useDepartmentMembers,
   useAddDepartmentMember,
@@ -41,6 +42,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 function OrgLogoUploader() {
   const { currentOrg } = useOrganization();
@@ -210,6 +212,7 @@ export default function SettingsPage() {
 
 /* ----- Usuários ----- */
 function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
+  const { user } = useAuth();
   const { data: members = [] } = useOrgMembersFull(orgId);
   const { data: departments = [] } = useDepartments(orgId);
   const { data: deptMembers = [] } = useDepartmentMembers(orgId);
@@ -218,6 +221,7 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const updateProfile = useUpdateMemberProfile();
   const updateOrgRole = useUpdateOrgRole();
   const removeMember = useRemoveOrgMember();
+  const deleteUser = useDeleteOrgUser();
   const resetPassword = useResetUserPassword();
   const confirm = useConfirm();
 
@@ -253,6 +257,9 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
           <tbody>
             {members.map((m) => {
               const initials = (m.full_name ?? '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              const isCurrentUser = m.user_id === user?.id;
+              const isLastAdmin = m.org_role === 'admin' && members.filter((member) => member.org_role === 'admin').length <= 1;
+              const canDeleteUser = canEdit && !isCurrentUser && !isLastAdmin;
               return (
                 <tr key={m.user_id} className="border-t">
                   <td className="px-4 py-2">
@@ -397,21 +404,31 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                             setResetTarget({ userId: m.user_id, name: m.full_name || 'Usuário' });
                           }}
                         ><KeyRound className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                          title="Remover da organização"
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          disabled={!canDeleteUser || deleteUser.isPending || removeMember.isPending}
+                          title={isCurrentUser ? 'Voce nao pode excluir seu proprio usuario' : isLastAdmin ? 'Nao e possivel excluir o ultimo admin' : 'Excluir usuario'}
                           onClick={async () => {
                             const ok = await confirm({
-                              title: `Remover ${m.full_name || 'usuário'} da organização?`,
+                              title: `Excluir ${m.full_name || 'usuario'}?`,
                               destructive: true,
-                              confirmText: 'Remover',
+                              description: 'O usuario sera removido da organizacao, dos setores e das permissoes. Se a funcao administrativa estiver publicada, a conta de login tambem sera excluida.',
+                              confirmText: 'Excluir usuario',
                             });
                             if (!ok) return;
-                            removeMember.mutate({ organization_id: orgId, user_id: m.user_id }, {
-                              onSuccess: () => toast.success('Removido'),
-                              onError: () => toast.error('Erro ao remover'),
+                            deleteUser.mutate({ organization_id: orgId, user_id: m.user_id }, {
+                              onSuccess: () => toast.success('Usuario excluido'),
+                              onError: () => {
+                                removeMember.mutate({ organization_id: orgId, user_id: m.user_id }, {
+                                  onSuccess: () => toast.success('Usuario removido da organizacao'),
+                                  onError: () => toast.error('Erro ao excluir usuario'),
+                                });
+                              },
                             });
                           }}
-                        ><Trash2 className="h-4 w-4" /></Button>
+                        ><Trash2 className="h-3.5 w-3.5" /> Excluir</Button>
                       </div>
                     )}
                   </td>
