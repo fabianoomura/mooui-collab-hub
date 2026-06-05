@@ -20,7 +20,14 @@ function newClient() {
 async function signIn(c: SupabaseClient, creds: { email: string; password: string }) {
   const { data, error } = await c.auth.signInWithPassword(creds);
   if (error) throw error;
-  return data.user!.id;
+  const user = data.user!;
+  const { error: profileError } = await c.from("profiles").upsert({
+    id: user.id,
+    email: user.email,
+    full_name: user.email?.split("@")[0] ?? "Test User",
+  }, { onConflict: "id" });
+  if (profileError) throw profileError;
+  return user.id;
 }
 
 describe("Orders module — lifecycle, conflicts and cross-module flows", () => {
@@ -241,6 +248,7 @@ describe("Orders module — lifecycle, conflicts and cross-module flows", () => 
       _title: `Pedido ${o.code} atribuído a você`,
       _message: "Tratativa: furo de estoque",
       _link: "/pedidos",
+      _metadata: {},
     });
     expect(error).toBeNull();
     expect(nid).toBeTruthy();

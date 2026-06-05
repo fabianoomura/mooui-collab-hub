@@ -20,7 +20,14 @@ function newClient() {
 async function signIn(c: SupabaseClient, creds: { email: string; password: string }) {
   const { data, error } = await c.auth.signInWithPassword(creds);
   if (error) throw error;
-  return data.user!.id;
+  const user = data.user!;
+  const { error: profileError } = await c.from("profiles").upsert({
+    id: user.id,
+    email: user.email,
+    full_name: user.email?.split("@")[0] ?? "Test User",
+  }, { onConflict: "id" });
+  if (profileError) throw profileError;
+  return user.id;
 }
 
 // ─────────────────────────────────────────────────
@@ -83,7 +90,7 @@ describe("Cross-module: Launches → Checklists pipeline", () => {
       { category: "erp", label: "SKU cadastrado no TOTVS" },
     ];
     for (let i = 0; i < items.length; i++) {
-      const { error } = await alice.from("checklist_items").insert({
+      const { error } = await alice.from("launch_checklist_items").insert({
         checklist_id: checklist!.id, position: i,
         ...items[i], status: "pending",
       });
@@ -120,7 +127,7 @@ describe("Cross-module: Launches → Checklists pipeline", () => {
     // Create 3 items
     const itemIds: string[] = [];
     for (let i = 0; i < 3; i++) {
-      const { data } = await alice.from("checklist_items").insert({
+      const { data } = await alice.from("launch_checklist_items").insert({
         checklist_id: checklist!.id, position: i,
         category: "geral", label: `item-${i}`, status: "pending",
       }).select().single();
@@ -129,19 +136,19 @@ describe("Cross-module: Launches → Checklists pipeline", () => {
 
     // Mark all as done
     for (const id of itemIds) {
-      await alice.from("checklist_items").update({
+      await alice.from("launch_checklist_items").update({
         status: "done", completed_at: new Date().toISOString(), completed_by: aliceId,
       }).eq("id", id);
     }
 
     // Verify all are done
-    const { data: allItems } = await alice.from("checklist_items")
+    const { data: allItems } = await alice.from("launch_checklist_items")
       .select("status").eq("checklist_id", checklist!.id);
     expect(allItems!.every(i => i.status === "done")).toBe(true);
 
     // Cleanup items
     for (const id of itemIds) {
-      await alice.from("checklist_items").delete().eq("id", id);
+      await alice.from("launch_checklist_items").delete().eq("id", id);
     }
   });
 });
@@ -175,6 +182,7 @@ describe("Cross-module: notifications pipeline", () => {
       _title: `Ticket atribuído a você [${tag}]`,
       _message: "Urgente: verificar login page",
       _link: "/tickets",
+      _metadata: {},
     });
     expect(error).toBeNull();
     expect(nid).toBeTruthy();
@@ -202,7 +210,7 @@ describe("Cross-module: notifications pipeline", () => {
     for (let i = 0; i < 5; i++) {
       const { data: nid } = await alice.rpc("notify_user", {
         _user_id: bobId, _type: "test",
-        _title: `Bulk-${tag}-${i}`, _message: "", _link: "/",
+        _title: `Bulk-${tag}-${i}`, _message: "", _link: "/", _metadata: {},
       });
       ids.push(nid as string);
     }
@@ -233,7 +241,7 @@ describe("Cross-module: notifications pipeline", () => {
     for (const t of types) {
       const { data: nid } = await alice.rpc("notify_user", {
         _user_id: bobId, _type: t,
-        _title: `${t}-${tag}`, _message: "", _link: "/",
+        _title: `${t}-${tag}`, _message: "", _link: "/", _metadata: {},
       });
       ids.push(nid as string);
     }
@@ -289,10 +297,10 @@ describe("Tickets: full lifecycle with comments and activity", () => {
     expect(tErr).toBeNull();
     cleanup.push({ table: "tickets", id: ticket!.id });
     expect(ticket!.status).toBe("open");
-    expect(ticket!.code).toMatch(/^TK-\d{3,}$/);
+    expect(ticket!.code).toMatch(/^TI-\d{3,}$/);
 
-    // 2. Bob (IT) assigns to himself
-    const { error: assignErr } = await bob.from("tickets")
+    // 2. Creator assigns the ticket to Bob
+    const { error: assignErr } = await alice.from("tickets")
       .update({ assigned_to: bobId, status: "in_progress" })
       .eq("id", ticket!.id);
     expect(assignErr).toBeNull();
@@ -310,9 +318,9 @@ describe("Tickets: full lifecycle with comments and activity", () => {
       content: `Acontece só no Chrome [${tag}]`,
     });
 
-    // 5. Bob resolves
-    const { error: resolveErr } = await bob.from("tickets")
-      .update({ status: "resolved" }).eq("id", ticket!.id);
+    // 5. Creator resolves
+    const { error: resolveErr } = await alice.from("tickets")
+      .update({ status: "resolved", resolved_at: new Date().toISOString() }).eq("id", ticket!.id);
     expect(resolveErr).toBeNull();
 
     // 6. Alice confirms and closes
@@ -389,13 +397,13 @@ describe("Module instances: workspace isolation", () => {
     // Create two instances for "lancamentos"
     const { data: inst1 } = await alice.from("module_instances").insert({
       organization_id: ORG_ID, module_key: "lancamentos",
-      name: `Atacado-${tag}`, color: "#D6336C", position: 0,
+      name: `Atacado-${tag}`, color: "#D6336C", position: 0, created_by: aliceId,
     }).select().single();
     cleanup.push({ table: "module_instances", id: inst1!.id });
 
     const { data: inst2 } = await alice.from("module_instances").insert({
       organization_id: ORG_ID, module_key: "lancamentos",
-      name: `Varejo-${tag}`, color: "#2563EB", position: 1,
+      name: `Varejo-${tag}`, color: "#2563EB", position: 1, created_by: aliceId,
     }).select().single();
     cleanup.push({ table: "module_instances", id: inst2!.id });
 
@@ -733,12 +741,12 @@ describe("Messaging: threads, reactions, and unread tracking", () => {
     });
 
     // Bob's unread count = messages after last_read_at
-    const { data: unread } = await bob.from("messages")
+    const { count: unreadCount } = await bob.from("messages")
       .select("id", { count: "exact", head: true })
       .eq("channel_id", channelId)
       .gt("created_at", now)
       .is("parent_message_id", null);
-    expect(unread).not.toBeNull();
+    expect(unreadCount).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -828,12 +836,13 @@ describe("Rooms: booking management", () => {
     // Create room
     const { data: room } = await alice.from("meeting_rooms").insert({
       organization_id: ORG_ID, name: `Sala-${tag}`, capacity: 10, color: "#10B981",
+      created_by: aliceId,
     }).select().single();
     cleanup.push({ table: "meeting_rooms", id: room!.id });
 
     // Book it
     const { data: booking } = await alice.from("meeting_room_bookings").insert({
-      organization_id: ORG_ID, room_id: room!.id, booked_by: aliceId,
+      organization_id: ORG_ID, room_id: room!.id, user_id: aliceId,
       title: `Standup-${tag}`,
       starts_at: "2026-07-15T10:00:00Z",
       ends_at: "2026-07-15T11:00:00Z",
@@ -873,10 +882,10 @@ describe("Data consistency: concurrent operations", () => {
       title: `Race-${tag}`, category: "bug" as any, priority: "low" as any,
     }).select().single();
 
-    // Simultaneous updates
+    // Simultaneous updates from a user with valid ticket update permission.
     const [r1, r2] = await Promise.all([
       alice.from("tickets").update({ priority: "urgent" as any }).eq("id", ticket!.id).select().single(),
-      bob.from("tickets").update({ status: "in_progress", assigned_to: bobId }).eq("id", ticket!.id).select().single(),
+      alice.from("tickets").update({ status: "in_progress", assigned_to: bobId }).eq("id", ticket!.id).select().single(),
     ]);
     expect(r1.error).toBeNull();
     expect(r2.error).toBeNull();

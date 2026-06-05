@@ -22,7 +22,14 @@ function newClient() {
 async function signIn(c: SupabaseClient, creds: { email: string; password: string }) {
   const { data, error } = await c.auth.signInWithPassword(creds);
   if (error) throw error;
-  return data.user!.id;
+  const user = data.user!;
+  const { error: profileError } = await c.from("profiles").upsert({
+    id: user.id,
+    email: user.email,
+    full_name: user.email?.split("@")[0] ?? "Test User",
+  }, { onConflict: "id" });
+  if (profileError) throw profileError;
+  return user.id;
 }
 
 // ─────────────────────────────────────────────────
@@ -105,7 +112,7 @@ describe("Security: multi-tenant RLS isolation", () => {
   it("cannot read notifications belonging to another user", async () => {
     // Create a notification for Alice
     const { data: nid } = await alice.rpc("notify_user", {
-      _user_id: aliceId, _type: "test", _title: `sec-${tag}`, _message: "x", _link: "/",
+      _user_id: aliceId, _type: "test", _title: `sec-${tag}`, _message: "x", _link: "/", _metadata: {},
     });
     expect(nid).toBeTruthy();
 
@@ -197,7 +204,7 @@ describe("Security: privilege escalation prevention", () => {
   it("cannot delete another user's notification", async () => {
     // Create notification for Alice
     const { data: nid } = await alice.rpc("notify_user", {
-      _user_id: aliceId, _type: "test", _title: `sec-notif-${tag}`, _message: "x", _link: "/",
+      _user_id: aliceId, _type: "test", _title: `sec-notif-${tag}`, _message: "x", _link: "/", _metadata: {},
     });
 
     // Bob tries to delete

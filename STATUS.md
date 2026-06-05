@@ -132,6 +132,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | `scripts/import-excels-to-sunday.mjs` | Popula Sunday com todas as planilhas Excel, subelementos e responsaveis |
 | `scripts/cleanup-old-data.mjs` | Remove dados anteriores a 2026 |
 | `scripts/generate-monday-import-sql.mjs` | Gera SQL a partir dos Excel |
+| `scripts/ensure-test-fixtures.mjs` | Garante profiles/memberships dos usuarios de teste para suites remotas |
 
 ---
 
@@ -172,11 +173,13 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | Configuracoes validada para edicao de nome de membros apos policy admin_update_member_profiles |
 | 2026-06-05 | Marketing reorganizado em Programacao, Newsletters e Demandas Marketing; Fotos/Videos separado em modulo proprio |
 | 2026-06-05 | Tabelas proprias de Marketing, Fotos/Videos e Melhorias recarregadas dos Excel/Sunday com corte 2026+ |
+| 2026-06-05 | RPC notify_user normalizada e suites de testes ajustadas ao schema atual |
 
 ### Validacao 2026-06-05
 
 - `npm run build`: OK.
 - Smoke HTTP local `8082`: OK em `/`, `/conteudo`, `/sessoes`, `/melhorias`, `/configuracoes`.
 - `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
-- `npm run test`: falha em suites antigas por RLS/fixtures remotos (`42501`, `23503`, RPC `notify_user` ambigua), nao por build.
+- `npm run test`: OK, 9 arquivos e 94 testes passando.
 - `npm run lint`: falha por divida preexistente ampla (`no-explicit-any`, fast refresh, etc.).
+- Migration criada para remover a ambiguidade da RPC `notify_user`: `20260605103000_fix_notify_user_rpc_ambiguity.sql`.
