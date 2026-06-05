@@ -34,18 +34,9 @@ const CATEGORIES = [
   { value: 'data', label: 'Data importante', color: '#F59E0B' },
 ];
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-type MarketingCalendarOrigin = 'calendar' | 'conteudo' | 'sessao';
-type MarketingCalendarItem = AnnualEvent & {
-  origin: MarketingCalendarOrigin;
+type MonthlyActionCalendarItem = AnnualEvent & {
   originLabel: string;
   originDetail?: string;
-  readonly?: boolean;
-};
-
-const ORIGIN_LABELS: Record<MarketingCalendarOrigin, string> = {
-  calendar: 'Calendario',
-  conteudo: 'Conteudo',
-  sessao: 'Sessao',
 };
 
 const ETAPA_STATUS_LABELS: Record<EventEtapaStatus, string> = {
@@ -65,36 +56,6 @@ export default function CalendarPage() {
 
   const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('calendario');
   const { data: events = [], isLoading } = useAnnualEvents(year, activeInstance);
-  const { data: conteudos = [] } = useQuery({
-    queryKey: ['calendar-origin-conteudo', currentOrg?.id, year],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data, error } = await supabase
-        .from('conteudo_items' as any)
-        .select('id, title, channel, content_type, status, scheduled_date')
-        .eq('organization_id', currentOrg.id)
-        .gte('scheduled_date', `${year}-01-01`)
-        .lte('scheduled_date', `${year}-12-31`);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!currentOrg,
-  });
-  const { data: sessoes = [] } = useQuery({
-    queryKey: ['calendar-origin-sessoes', currentOrg?.id, year],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data, error } = await supabase
-        .from('sessoes' as any)
-        .select('id, title, status, scheduled_date, professional')
-        .eq('organization_id', currentOrg.id)
-        .gte('scheduled_date', `${year}-01-01`)
-        .lte('scheduled_date', `${year}-12-31`);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!currentOrg,
-  });
   const createEvt = useCreateAnnualEvent();
   const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
@@ -118,66 +79,24 @@ export default function CalendarPage() {
   const currentMonth = today.getMonth();
   const isCurrentYear = year === today.getFullYear();
 
-  const calendarItems = useMemo<MarketingCalendarItem[]>(() => {
-    const annualItems = events.map((event) => ({
+  const calendarItems = useMemo<MonthlyActionCalendarItem[]>(() => {
+    return events.map((event) => ({
       ...event,
-      origin: 'calendar' as const,
-      originLabel: ORIGIN_LABELS.calendar,
+      originLabel: 'Ações Mensais',
       originDetail: CATEGORIES.find((category) => category.value === event.category)?.label || event.category,
     }));
-    const contentItems = (conteudos as any[])
-      .filter((item) => item.scheduled_date)
-      .map((item) => ({
-        id: `conteudo-${item.id}`,
-        organization_id: currentOrg?.id || '',
-        title: item.title,
-        description: item.content_type || item.status || null,
-        category: 'conteudo',
-        color: '#ec4899',
-        start_date: item.scheduled_date,
-        end_date: null,
-        project_id: null,
-        created_by: '',
-        created_at: '',
-        updated_at: '',
-        origin: 'conteudo' as const,
-        originLabel: ORIGIN_LABELS.conteudo,
-        originDetail: [item.channel, item.content_type].filter(Boolean).join(' / '),
-        readonly: true,
-      }));
-    const sessionItems = (sessoes as any[])
-      .filter((item) => item.scheduled_date)
-      .map((item) => ({
-        id: `sessao-${item.id}`,
-        organization_id: currentOrg?.id || '',
-        title: item.title,
-        description: item.professional || item.status || null,
-        category: 'sessao',
-        color: '#8b5cf6',
-        start_date: item.scheduled_date,
-        end_date: null,
-        project_id: null,
-        created_by: '',
-        created_at: '',
-        updated_at: '',
-        origin: 'sessao' as const,
-        originLabel: ORIGIN_LABELS.sessao,
-        originDetail: item.professional || item.status,
-        readonly: true,
-      }));
-    return [...annualItems, ...contentItems, ...sessionItems];
-  }, [events, conteudos, sessoes, currentOrg?.id]);
+  }, [events]);
 
   const filtered = useMemo(() => {
     return calendarItems.filter((e) => {
-      if (activeCats.length && (e.origin !== 'calendar' || !activeCats.includes(e.category))) return false;
+      if (activeCats.length && !activeCats.includes(e.category)) return false;
       if (search.trim() && !`${e.title} ${e.originLabel} ${e.originDetail || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
   }, [calendarItems, activeCats, search]);
 
   const byMonth = useMemo(() => {
-    const map: Record<number, MarketingCalendarItem[]> = {};
+    const map: Record<number, MonthlyActionCalendarItem[]> = {};
     for (let i = 0; i < 12; i++) map[i] = [];
     filtered.forEach(e => {
       const startM = new Date(e.start_date + 'T00:00:00').getMonth();
@@ -209,13 +128,7 @@ export default function CalendarPage() {
     setOpen(true);
   };
 
-  const openCalendarItem = (item: MarketingCalendarItem) => {
-    if (item.origin === 'calendar') {
-      openEdit(item);
-      return;
-    }
-    toast.info(`Origem: ${item.originLabel}${item.originDetail ? ` - ${item.originDetail}` : ''}`);
-  };
+  const openCalendarItem = (item: MonthlyActionCalendarItem) => openEdit(item);
 
   const handleSave = () => {
     if (!form.title.trim() || !form.start_date) return;
@@ -542,9 +455,9 @@ function TimelineView({
   year, events, isCurrentYear, onEventClick,
 }: {
   year: number;
-  events: MarketingCalendarItem[];
+  events: MonthlyActionCalendarItem[];
   isCurrentYear: boolean;
-  onEventClick: (e: MarketingCalendarItem) => void;
+  onEventClick: (e: MonthlyActionCalendarItem) => void;
 }) {
   const totalDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
 
@@ -698,8 +611,8 @@ function TimelineView({
 function AgendaView({
   events, onEventClick, onNew,
 }: {
-  events: MarketingCalendarItem[];
-  onEventClick: (e: MarketingCalendarItem) => void;
+  events: MonthlyActionCalendarItem[];
+  onEventClick: (e: MonthlyActionCalendarItem) => void;
   onNew: () => void;
 }) {
   const today = new Date();

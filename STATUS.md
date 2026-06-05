@@ -167,4 +167,5 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-04 | Sunday recebeu abas Tabela/Kanban/Timeline/Calendario, filtros integrados e exclusao de elementos |
 | 2026-06-04 | Sunday ganhou edicao de responsaveis diretamente nos cards de Kanban/Timeline |
 | 2026-06-04 | Configuracoes passou a permitir editar o nome dos usuarios pela aba Usuarios |
-| 2026-06-05 | Calendario de Marketing renomeado para Calendario de Acoes Mensais e recarregado a partir do Sunday 0_Acoes_Mensais |
+| 2026-06-05 | Calendario de Acoes Mensais recarregado a partir do Sunday 0_Acoes_Mensais |
+| 2026-06-05 | Calendario de Acoes Mensais passou a exibir somente eventos do proprio modulo, sem fontes Conteudo/Sessoes |

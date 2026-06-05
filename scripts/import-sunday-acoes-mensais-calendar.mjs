@@ -212,11 +212,12 @@ async function verifyImport() {
     `select=id,title,start_date,end_date,description&organization_id=eq.${ORG_ID}&start_date=gte.2026-01-01`
   );
   const imported = events.filter((event) => clean(event.description).includes(IMPORT_MARKER));
+  const other = events.filter((event) => !clean(event.description).includes(IMPORT_MARKER));
   const ids = imported.map((event) => event.id);
   const etapas = ids.length
     ? await rest('annual_event_etapas', `select=id,event_id&event_id=in.(${ids.join(',')})`)
     : [];
-  console.log(`Verificacao: ${imported.length} eventos importados e ${etapas.length} etapas.`);
+  console.log(`Verificacao: ${imported.length} eventos importados, ${other.length} outros eventos 2026+ e ${etapas.length} etapas.`);
   console.log(imported.slice(0, 5).map((event) => `${event.start_date} - ${event.title}`).join('\n'));
 }
 
