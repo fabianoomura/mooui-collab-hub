@@ -31,7 +31,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown, Mail, ArrowLeft, ArrowRight, KeyRound, Wrench } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown, Mail, ArrowLeft, ArrowRight, KeyRound, Wrench, Pencil } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 
@@ -223,6 +223,8 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
 
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [editName, setEditName] = useState('');
   const [newPwd, setNewPwd] = useState('');
 
   return (
@@ -254,7 +256,24 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                         {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.full_name ?? ''} />}
                         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                       </Avatar>
-                      <div className="font-medium">{m.full_name || 'Sem nome'}</div>
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{m.full_name || 'Sem nome'}</div>
+                        {m.email && <div className="text-xs text-muted-foreground truncate">{m.email}</div>}
+                      </div>
+                      {canEdit && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          title="Editar nome"
+                          onClick={() => {
+                            setEditTarget({ userId: m.user_id, name: m.full_name || '' });
+                            setEditName(m.full_name || '');
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-2">
@@ -395,6 +414,47 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
         orgId={orgId}
         departments={departments}
       />
+
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar usuário</DialogTitle>
+            <DialogDescription>Atualize o nome exibido em responsáveis, equipe e configurações.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Nome completo</Label>
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Ex.: Maria Silva"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && editTarget && editName.trim()) {
+                  updateProfile.mutate({ user_id: editTarget.userId, full_name: editName.trim() }, {
+                    onSuccess: () => { toast.success('Nome atualizado'); setEditTarget(null); },
+                    onError: () => toast.error('Erro ao atualizar nome'),
+                  });
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Cancelar</Button>
+            <Button
+              disabled={!editName.trim() || updateProfile.isPending}
+              onClick={() => {
+                if (!editTarget) return;
+                updateProfile.mutate({ user_id: editTarget.userId, full_name: editName.trim() }, {
+                  onSuccess: () => { toast.success('Nome atualizado'); setEditTarget(null); },
+                  onError: () => toast.error('Erro ao atualizar nome'),
+                });
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
         <DialogContent className="max-w-md">

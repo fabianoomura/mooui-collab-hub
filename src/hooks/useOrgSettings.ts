@@ -164,7 +164,12 @@ export function useUpdateMemberProfile() {
       const { error } = await supabase.from('profiles').update(patch).eq('id', user_id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['org-members-full'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+      qc.invalidateQueries({ queryKey: ['project-members'] });
+      qc.invalidateQueries({ queryKey: ['assignee-profiles'] });
+      qc.invalidateQueries({ queryKey: ['my-profile'] });
+    },
   });
 }
 
