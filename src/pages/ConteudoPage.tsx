@@ -227,6 +227,39 @@ const pautaFixedColumns = new Set([
   'subitems',
 ]);
 
+const newsletterFixedColumns = new Set([
+  'grupomonday',
+  'grupo',
+  'canal',
+  'channel',
+  'pessoas',
+  'pessoa',
+  'responsavel',
+  'responsaveis',
+  'data',
+  'date',
+  'status',
+  'tema',
+  'base',
+  'hora',
+  'tituloemail',
+  'titulodoe-mail',
+  'titulodoemail',
+  'subelementos',
+  'subitems',
+]);
+
+function dynamicNewsletterColumns(items: Newsletter[]) {
+  return sheetColumns(items).filter((column) => {
+    const normalized = column
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9/]+/g, '');
+    return !newsletterFixedColumns.has(normalized);
+  });
+}
+
 function dynamicPautaColumns(items: Pauta[]) {
   return sheetColumns(items).filter((column) => {
     const normalized = column
@@ -1617,7 +1650,7 @@ function NewslettersTab() {
   const channelFilteredNewsletters = newsletters.filter(n => channelFilter === 'all' || n.channel === channelFilter);
   const newsletterGroups = useMemo(() => buildGroupStats(channelFilteredNewsletters), [channelFilteredNewsletters]);
   const filtered = channelFilteredNewsletters.filter(n => groupFilter === 'all' || spreadsheetGroup(n.custom_fields) === groupFilter);
-  const newsletterSheetColumns = useMemo(() => sheetColumns(filtered), [filtered]);
+  const newsletterSheetColumns = useMemo(() => dynamicNewsletterColumns(filtered), [filtered]);
   const channelStats = (Object.keys(nlChannelLabels) as NewsletterChannel[]).map((channel) => {
     const channelItems = newsletters.filter((item) => item.channel === channel);
     return {
@@ -1713,9 +1746,6 @@ function NewslettersTab() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={() => setShowWorkspaceDialog(true)} size="sm">
-          <Plus className="h-4 w-4 mr-1" />Novo workspace
-        </Button>
         <Button onClick={() => setShowNew(true)} size="sm">
           <Plus className="h-4 w-4 mr-1" />Nova newsletter
         </Button>
@@ -1811,36 +1841,71 @@ function NewsletterSheetTable({
   columns: string[];
   onOpen: (item: Newsletter) => void;
 }) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, Newsletter[]>();
+    items.forEach((item) => {
+      const group = spreadsheetGroup(item.custom_fields);
+      map.set(group, [...(map.get(group) || []), item]);
+    });
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+  }, [items]);
+
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <div className="min-w-max">
           <div className="grid grid-flow-col auto-cols-max border-b">
             <SheetHeaderCell className="sticky left-0 z-10 min-w-[280px] bg-muted">Elemento</SheetHeaderCell>
+            <SheetHeaderCell>Subelementos</SheetHeaderCell>
             <SheetHeaderCell>Canal</SheetHeaderCell>
-            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Pessoas</SheetHeaderCell>
             <SheetHeaderCell>Data</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
             <SheetHeaderCell>Tema</SheetHeaderCell>
+            <SheetHeaderCell>Hora</SheetHeaderCell>
+            <SheetHeaderCell>Base</SheetHeaderCell>
+            <SheetHeaderCell>Titulo e-mail</SheetHeaderCell>
             {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
           </div>
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onOpen(item)}
-              className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
-            >
-              <SheetCell className="sticky left-0 z-10 min-w-[280px] bg-background font-medium">{item.title}</SheetCell>
-              <SheetCell>{nlChannelLabels[item.channel]}</SheetCell>
-              <SheetCell><Badge variant="outline" className={cn('text-[10px]', nlStatusColors[item.status])}>{nlStatusLabels[item.status]}</Badge></SheetCell>
-              <SheetCell>{item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : ''}</SheetCell>
-              <SheetCell>{item.tema || ''}</SheetCell>
-              {columns.map((column) => (
-                <SheetCell key={column} className="max-w-[260px] break-words">
-                  {sheetValue(item.custom_fields?.[column])}
-                </SheetCell>
-              ))}
-            </button>
+          {grouped.map(([group, groupItems]) => (
+            <div key={group}>
+              <div className="border-b bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                {group} <span className="ml-2 font-normal">{groupItems.length} elementos</span>
+              </div>
+              {groupItems.map((item) => {
+                const people = sheetField(item.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis');
+                const date = sheetField(item.custom_fields, 'Data', 'Date') || (item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '');
+                const subelements = sheetField(item.custom_fields, 'Subelementos', 'Subitems');
+                const tema = sheetField(item.custom_fields, 'Tema') || item.tema || '';
+                const hora = sheetField(item.custom_fields, 'Hora') || item.hora || '';
+                const base = sheetField(item.custom_fields, 'Base') || item.base || '';
+                const tituloEmail = sheetField(item.custom_fields, 'Titulo Email', 'Titulo do Email', 'Titulo do E-mail') || item.titulo_email || '';
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onOpen(item)}
+                    className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
+                  >
+                    <SheetCell className="sticky left-0 z-10 min-w-[280px] bg-background font-medium">{item.title}</SheetCell>
+                    <SheetCell className="max-w-[180px] break-words">{subelements}</SheetCell>
+                    <SheetCell>{nlChannelLabels[item.channel]}</SheetCell>
+                    <SheetCell className="max-w-[220px] break-words">{people}</SheetCell>
+                    <SheetCell>{date}</SheetCell>
+                    <SheetCell><Badge variant="outline" className={cn('text-[10px]', nlStatusColors[item.status])}>{nlStatusLabels[item.status]}</Badge></SheetCell>
+                    <SheetCell className="max-w-[220px] break-words">{tema}</SheetCell>
+                    <SheetCell>{hora}</SheetCell>
+                    <SheetCell className="max-w-[180px] break-words">{base}</SheetCell>
+                    <SheetCell className="max-w-[260px] break-words">{tituloEmail}</SheetCell>
+                    {columns.map((column) => (
+                      <SheetCell key={column} className="max-w-[260px] break-words">
+                        {sheetValue(item.custom_fields?.[column])}
+                      </SheetCell>
+                    ))}
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </div>
       </div>
