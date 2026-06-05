@@ -66,14 +66,34 @@ function getInitials(name?: string | null) {
 }
 
 function spreadsheetGroup(fields?: Record<string, unknown> | null) {
-  const group = fields?.Grupo ?? fields?.grupo ?? fields?.Group ?? fields?.group;
+  const group = fields?.['Grupo Monday'] ?? fields?.Grupo ?? fields?.grupo ?? fields?.Group ?? fields?.group;
   return group == null || String(group).trim() === '' ? 'Sem grupo' : String(group).trim();
+}
+
+function normalizedSheetKey(value: unknown) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9/]+/g, '');
 }
 
 function sheetValue(value: unknown) {
   if (value == null) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function sheetField(fields: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  if (!fields) return '';
+  for (const key of keys) {
+    const direct = fields[key];
+    if (direct != null && String(direct).trim()) return sheetValue(direct);
+    const normalized = normalizedSheetKey(key);
+    const found = Object.entries(fields).find(([fieldKey, value]) => value != null && String(value).trim() && normalizedSheetKey(fieldKey) === normalized);
+    if (found) return sheetValue(found[1]);
+  }
+  return '';
 }
 
 function sheetColumns(items: Melhoria[]) {
@@ -87,6 +107,29 @@ function sheetColumns(items: Melhoria[]) {
     });
   });
   return columns;
+}
+
+const melhoriaFixedColumns = new Set([
+  'grupomonday',
+  'grupo',
+  'pessoas',
+  'pessoa',
+  'responsavel',
+  'responsaveis',
+  'data',
+  'date',
+  'status',
+  'prioridade',
+  'priority',
+  'area',
+  'subelementos',
+  'subitems',
+  'codigo',
+  'code',
+]);
+
+function dynamicMelhoriaColumns(items: Melhoria[]) {
+  return sheetColumns(items).filter((column) => !melhoriaFixedColumns.has(normalizedSheetKey(column)));
 }
 
 function groupStats(items: Melhoria[]) {
@@ -189,7 +232,7 @@ export default function MelhoriasPage() {
   const melhoriaGroups = useMemo(() => groupStats(preGroupFiltered), [preGroupFiltered]);
   const baseFiltered = preGroupFiltered.filter(m => groupFilter === 'all' || spreadsheetGroup(m.custom_fields) === groupFilter);
   const filtered = baseFiltered.filter(m => filter === 'all' ? true : m.status === filter);
-  const melhoriaSheetColumns = useMemo(() => sheetColumns(filtered), [filtered]);
+  const melhoriaSheetColumns = useMemo(() => dynamicMelhoriaColumns(filtered), [filtered]);
   const counts = {
     all: baseFiltered.length,
     open: baseFiltered.filter(m => m.status === 'open').length,
@@ -503,53 +546,69 @@ function MelhoriasSheetTable({
   profileMap: Map<string, { full_name: string | null }>;
   onOpen: (item: Melhoria) => void;
 }) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, Melhoria[]>();
+    melhorias.forEach((item) => {
+      const group = spreadsheetGroup(item.custom_fields);
+      map.set(group, [...(map.get(group) || []), item]);
+    });
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+  }, [melhorias]);
+
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <div className="min-w-max">
           <div className="grid grid-flow-col auto-cols-max border-b">
             <SheetHeaderCell className="sticky left-0 z-10 min-w-[300px] bg-muted">Elemento</SheetHeaderCell>
-            <SheetHeaderCell>Grupo</SheetHeaderCell>
-            <SheetHeaderCell>Area</SheetHeaderCell>
+            <SheetHeaderCell>Subelementos</SheetHeaderCell>
+            <SheetHeaderCell>Pessoas</SheetHeaderCell>
+            <SheetHeaderCell>Data</SheetHeaderCell>
             <SheetHeaderCell>Status</SheetHeaderCell>
             <SheetHeaderCell>Prioridade</SheetHeaderCell>
-            <SheetHeaderCell>Responsavel</SheetHeaderCell>
-            <SheetHeaderCell>Criado por</SheetHeaderCell>
-            <SheetHeaderCell>Atualizado</SheetHeaderCell>
+            <SheetHeaderCell>Area</SheetHeaderCell>
             {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
           </div>
-          {melhorias.map((item) => {
-            const author = profileMap.get(item.created_by);
-            const assignee = item.assigned_to ? profileMap.get(item.assigned_to) : null;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onOpen(item)}
-                className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
-              >
-                <SheetCell className="sticky left-0 z-10 min-w-[300px] bg-background font-medium">
-                  <div className="truncate">{item.title}</div>
-                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                    {item.code && <span className="font-mono">{item.code}</span>}
-                    {item.description && <span className="max-w-[220px] truncate">{item.description}</span>}
-                  </div>
-                </SheetCell>
-                <SheetCell>{spreadsheetGroup(item.custom_fields)}</SheetCell>
-                <SheetCell>{areaLabels[item.area]}</SheetCell>
-                <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
-                <SheetCell><Badge className={cn('text-[10px]', priorityColors[item.priority])} variant="outline">{priorityLabels[item.priority]}</Badge></SheetCell>
-                <SheetCell>{assignee?.full_name || ''}</SheetCell>
-                <SheetCell>{author?.full_name || 'Usuario'}</SheetCell>
-                <SheetCell>{formatDistanceToNow(new Date(item.updated_at), { addSuffix: true, locale: ptBR })}</SheetCell>
-                {columns.map((column) => (
-                  <SheetCell key={column} className="max-w-[260px] break-words">
-                    {sheetValue(item.custom_fields?.[column])}
-                  </SheetCell>
-                ))}
-              </button>
-            );
-          })}
+          {grouped.map(([group, groupItems]) => (
+            <div key={group}>
+              <div className="border-b bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                {group} <span className="ml-2 font-normal">{groupItems.length} elementos</span>
+              </div>
+              {groupItems.map((item) => {
+                const assignee = item.assigned_to ? profileMap.get(item.assigned_to) : null;
+                const people = sheetField(item.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis') || assignee?.full_name || '';
+                const date = sheetField(item.custom_fields, 'Data', 'Date') || (item.data_abertura ? format(new Date(item.data_abertura), 'dd/MM/yyyy', { locale: ptBR }) : '');
+                const subelements = sheetField(item.custom_fields, 'Subelementos', 'Subitems');
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onOpen(item)}
+                    className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
+                  >
+                    <SheetCell className="sticky left-0 z-10 min-w-[300px] bg-background font-medium">
+                      <div className="truncate">{item.title}</div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                        {item.code && <span className="font-mono">{item.code}</span>}
+                        {item.description && <span className="max-w-[220px] truncate">{item.description}</span>}
+                      </div>
+                    </SheetCell>
+                    <SheetCell className="max-w-[180px] break-words">{subelements}</SheetCell>
+                    <SheetCell className="max-w-[220px] break-words">{people}</SheetCell>
+                    <SheetCell>{date}</SheetCell>
+                    <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
+                    <SheetCell><Badge className={cn('text-[10px]', priorityColors[item.priority])} variant="outline">{priorityLabels[item.priority]}</Badge></SheetCell>
+                    <SheetCell>{areaLabels[item.area]}</SheetCell>
+                    {columns.map((column) => (
+                      <SheetCell key={column} className="max-w-[260px] break-words">
+                        {sheetValue(item.custom_fields?.[column])}
+                      </SheetCell>
+                    ))}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </Card>
