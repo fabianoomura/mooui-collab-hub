@@ -28,6 +28,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { LinkedItems } from '@/components/LinkedItems';
 import { Progress } from '@/components/ui/progress';
+import { SpreadsheetFields } from '@/components/SpreadsheetFields';
 
 const priorityColors: Record<MelhoriaPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
@@ -568,6 +569,7 @@ function MelhoriaDetail({
           </div>
 
           {item.description && <p className="text-sm whitespace-pre-wrap">{item.description}</p>}
+          <SpreadsheetFields fields={item.custom_fields} />
 
           {/* Editable fields */}
           <div className="grid grid-cols-2 gap-3">
@@ -812,7 +814,7 @@ function MelhoriaSubitemsSection({
           {subitems.length > 0 && (
             <div className="divide-y">
               {subitems.map((si) => (
-                <div key={si.id} className="flex items-center gap-2 py-2 group">
+                <div key={si.id} className="flex flex-wrap items-center gap-2 py-2 group">
                   {/* Status toggle */}
                   <button onClick={() => toggleStatus(si)} className="shrink-0">
                     {si.status === 'done' ? (
@@ -875,6 +877,7 @@ function MelhoriaSubitemsSection({
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
+                  <SpreadsheetFields fields={si.custom_fields} className="basis-full" />
                 </div>
               ))}
             </div>

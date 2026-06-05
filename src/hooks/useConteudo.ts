@@ -23,6 +23,7 @@ export interface ConteudoItem {
   content_category: string | null;
   photo_url: string | null;
   notes: string | null;
+  custom_fields: Record<string, unknown> | null;
   assigned_to: string | null;
   created_by: string;
   created_at: string;
@@ -51,6 +52,7 @@ export interface ConteudoChecklistItem {
   priority: ConteudoChecklistPriority;
   assigned_to: string | null;
   due_date: string | null;
+  custom_fields: Record<string, unknown> | null;
   position: number;
   created_at: string;
   updated_at: string;

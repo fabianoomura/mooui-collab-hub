@@ -19,6 +19,7 @@ export interface Sessao {
   status: SessaoStatus;
   responsaveis: string[] | null;
   notes: string | null;
+  custom_fields: Record<string, unknown> | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -35,6 +36,7 @@ export interface SessaoShot {
   content_type: string | null;
   modelo: string | null;
   data_entrega: string | null;
+  custom_fields: Record<string, unknown> | null;
   position: number;
   created_at: string;
   updated_at: string;

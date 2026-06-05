@@ -43,6 +43,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { LinkedItems } from '@/components/LinkedItems';
 import { ContentCalendar } from '@/components/conteudo/ContentCalendar';
+import { SpreadsheetFields } from '@/components/SpreadsheetFields';
 
 /* ================================================================ */
 /* Labels & Colors                                                   */
@@ -109,6 +110,22 @@ const pautaItemStatusColors: Record<string, string> = {
   concluido: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 };
 
+function spreadsheetGroup(fields?: Record<string, unknown> | null) {
+  const group = fields?.['Grupo Monday'];
+  return typeof group === 'string' && group.trim() ? group.trim() : 'Sem grupo';
+}
+
+function buildGroupStats<T extends { custom_fields?: Record<string, unknown> | null }>(items: T[]) {
+  const map = new Map<string, number>();
+  items.forEach((item) => {
+    const group = spreadsheetGroup(item.custom_fields);
+    map.set(group, (map.get(group) || 0) + 1);
+  });
+  return [...map.entries()]
+    .map(([group, total]) => ({ group, total }))
+    .sort((a, b) => a.group.localeCompare(b.group, 'pt-BR'));
+}
+
 /* ================================================================ */
 /* Main Page                                                         */
 /* ================================================================ */
@@ -174,6 +191,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
 
   const [view, setView] = useState<'list' | 'calendar' | 'kanban'>('list');
   const [channelFilter, setChannelFilter] = useState<'all' | ConteudoChannel>('all');
+  const [groupFilter, setGroupFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ConteudoStatus>('all');
   const [search, setSearch] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -208,10 +226,13 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   const q = search.trim().toLowerCase();
   const filtered = items.filter(i => {
     if (channelFilter !== 'all' && i.channel !== channelFilter) return false;
+    if (groupFilter !== 'all' && spreadsheetGroup(i.custom_fields) !== groupFilter) return false;
     if (statusFilter !== 'all' && i.status !== statusFilter) return false;
     if (q && !i.title.toLowerCase().includes(q)) return false;
     return true;
   });
+  const visibleForGroups = items.filter(i => channelFilter === 'all' || i.channel === channelFilter);
+  const programacaoGroups = useMemo(() => buildGroupStats(visibleForGroups), [visibleForGroups]);
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -298,6 +319,38 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         })}
       </div>
 
+      {programacaoGroups.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Grupos do Monday</span>
+            {groupFilter !== 'all' && (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setGroupFilter('all')}>
+                Limpar grupo
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
+            {programacaoGroups.map((stat) => {
+              const active = groupFilter === stat.group;
+              return (
+                <button
+                  key={stat.group}
+                  type="button"
+                  onClick={() => setGroupFilter(active ? 'all' : stat.group)}
+                  className={cn(
+                    'rounded-md border bg-card p-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                    active && 'border-primary ring-1 ring-primary/30',
+                  )}
+                >
+                  <div className="truncate text-xs font-medium">{stat.group}</div>
+                  <div className="mt-1 text-lg font-semibold leading-none">{stat.total}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
         <div className="relative flex-1 min-w-0">
@@ -310,6 +363,15 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
             <SelectItem value="all">Todos os canais</SelectItem>
             {channelOrder.map(k => (
               <SelectItem key={k} value={k}>{channelLabels[k]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={groupFilter} onValueChange={setGroupFilter}>
+          <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os grupos</SelectItem>
+            {programacaoGroups.map((stat) => (
+              <SelectItem key={stat.group} value={stat.group}>{stat.group}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -349,6 +411,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-1">
                       <Badge variant="outline" className="text-[10px]">{typeLabels[item.content_type]}</Badge>
+                      <Badge variant="outline" className="text-[10px]">{spreadsheetGroup(item.custom_fields)}</Badge>
                       {item.is_repost && <Badge variant="outline" className="text-[10px] bg-muted">Repost</Badge>}
                       {item.scheduled_date && (
                         <span className="text-[10px] text-muted-foreground">
@@ -880,6 +943,7 @@ function ConteudoElementDetail({
                 <Label className="text-xs">Observacoes</Label>
                 <Textarea rows={4} value={item.notes || ''} onChange={(e) => onUpdate({ notes: e.target.value || null } as any)} />
               </div>
+              <SpreadsheetFields fields={item.custom_fields} />
             </div>
           )}
 
@@ -1076,6 +1140,7 @@ function ConteudoChecklistRow({
       <button className="text-muted-foreground hover:text-destructive justify-self-start sm:justify-self-end" onClick={onDelete}>
         <X className="h-3.5 w-3.5" />
       </button>
+      <SpreadsheetFields fields={item.custom_fields} className="sm:col-span-7" />
     </div>
   );
 }
@@ -1188,6 +1253,7 @@ function NewslettersTab() {
   const [showNew, setShowNew] = useState(false);
   const [openItem, setOpenItem] = useState<Newsletter | null>(null);
   const [channelFilter, setChannelFilter] = useState<'all' | NewsletterChannel>('all');
+  const [groupFilter, setGroupFilter] = useState('all');
 
   // New form
   const [nTitle, setNTitle] = useState('');
@@ -1195,7 +1261,9 @@ function NewslettersTab() {
   const [nTema, setNTema] = useState('');
   const [nChannel, setNChannel] = useState<NewsletterChannel>('brasil');
 
-  const filtered = newsletters.filter(n => channelFilter === 'all' || n.channel === channelFilter);
+  const channelFilteredNewsletters = newsletters.filter(n => channelFilter === 'all' || n.channel === channelFilter);
+  const newsletterGroups = useMemo(() => buildGroupStats(channelFilteredNewsletters), [channelFilteredNewsletters]);
+  const filtered = channelFilteredNewsletters.filter(n => groupFilter === 'all' || spreadsheetGroup(n.custom_fields) === groupFilter);
   const channelStats = (Object.keys(nlChannelLabels) as NewsletterChannel[]).map((channel) => {
     const channelItems = newsletters.filter((item) => item.channel === channel);
     return {
@@ -1250,6 +1318,28 @@ function NewslettersTab() {
         })}
       </div>
 
+      {newsletterGroups.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
+          {newsletterGroups.map((stat) => {
+            const active = groupFilter === stat.group;
+            return (
+              <button
+                key={stat.group}
+                type="button"
+                onClick={() => setGroupFilter(active ? 'all' : stat.group)}
+                className={cn(
+                  'rounded-md border bg-card p-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                  active && 'border-primary ring-1 ring-primary/30',
+                )}
+              >
+                <div className="truncate text-xs font-medium">{stat.group}</div>
+                <div className="mt-1 text-lg font-semibold leading-none">{stat.total}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as any)}>
           <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
@@ -1257,6 +1347,15 @@ function NewslettersTab() {
             <SelectItem value="all">Todos os cards</SelectItem>
             {(Object.keys(nlChannelLabels) as NewsletterChannel[]).map(k => (
               <SelectItem key={k} value={k}>{nlChannelLabels[k]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={groupFilter} onValueChange={setGroupFilter}>
+          <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os grupos</SelectItem>
+            {newsletterGroups.map((stat) => (
+              <SelectItem key={stat.group} value={stat.group}>{stat.group}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -1281,6 +1380,7 @@ function NewslettersTab() {
                   <div className="flex items-start gap-2 flex-wrap">
                     <h3 className="font-medium truncate flex-1 min-w-0">{nl.title}</h3>
                     <Badge variant="outline" className="text-[10px]">{nlChannelLabels[nl.channel]}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{spreadsheetGroup(nl.custom_fields)}</Badge>
                     <Badge variant="outline" className={cn('text-[10px]', nlStatusColors[nl.status])}>{nlStatusLabels[nl.status]}</Badge>
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
@@ -1435,6 +1535,7 @@ function NewsletterDetail({
               </div>
             </div>
             {item.notes && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{item.notes}</p>}
+            <SpreadsheetFields fields={item.custom_fields} />
             {isOwner && (
               <div className="pt-2 border-t">
                 <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
@@ -1525,6 +1626,7 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
 
   const [showNew, setShowNew] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [groupFilter, setGroupFilter] = useState('all');
 
   // New form
   const [nTitle, setNTitle] = useState('');
@@ -1547,6 +1649,8 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
     enabled: userIds.length > 0,
   });
   const profileMap = useMemo(() => new Map(profiles.map((p: any) => [p.id, p])), [profiles]);
+  const pautaGroups = useMemo(() => buildGroupStats(pautas), [pautas]);
+  const filteredPautas = pautas.filter((pauta) => groupFilter === 'all' || spreadsheetGroup(pauta.custom_fields) === groupFilter);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -1564,7 +1668,38 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
+      {pautaGroups.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
+          {pautaGroups.map((stat) => {
+            const active = groupFilter === stat.group;
+            return (
+              <button
+                key={stat.group}
+                type="button"
+                onClick={() => setGroupFilter(active ? 'all' : stat.group)}
+                className={cn(
+                  'rounded-md border bg-card p-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                  active && 'border-primary ring-1 ring-primary/30',
+                )}
+              >
+                <div className="truncate text-xs font-medium">{stat.group}</div>
+                <div className="mt-1 text-lg font-semibold leading-none">{stat.total}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <Select value={groupFilter} onValueChange={setGroupFilter}>
+          <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os grupos</SelectItem>
+            {pautaGroups.map((stat) => (
+              <SelectItem key={stat.group} value={stat.group}>{stat.group}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button onClick={() => setShowNew(true)} size="sm">
           <Plus className="h-4 w-4 mr-1" />Nova demanda
         </Button>
@@ -1572,11 +1707,11 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : pautas.length === 0 ? (
+      ) : filteredPautas.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma demanda cadastrada.</Card>
       ) : (
         <div className="space-y-2">
-          {pautas.map(pauta => {
+          {filteredPautas.map(pauta => {
             const isExpanded = expandedId === pauta.id;
             const author = profileMap.get(pauta.created_by) as any;
             const assignee = pauta.assigned_to ? (profileMap.get(pauta.assigned_to) as any) : null;
@@ -1591,6 +1726,7 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start gap-2 flex-wrap">
                         <h3 className="font-medium truncate flex-1 min-w-0">{pauta.title}</h3>
+                        <Badge variant="outline" className="text-[10px]">{spreadsheetGroup(pauta.custom_fields)}</Badge>
                         <Badge variant="outline" className={cn('text-[10px]', pautaPriorityColors[pauta.priority])}>{pautaPriorityLabels[pauta.priority]}</Badge>
                         <Badge variant="outline" className={cn('text-[10px]', pautaStatusColors[pauta.status])}>{pautaStatusLabels[pauta.status]}</Badge>
                       </div>
@@ -1744,6 +1880,7 @@ function PautaExpanded({
           </Select>
         </div>
       </div>
+      <SpreadsheetFields fields={pauta.custom_fields} />
 
       {/* Tabs: Items / Comments / Activity */}
       <Tabs value={pautaTab} onValueChange={(v) => setPautaTab(v as any)}>
@@ -1796,6 +1933,7 @@ function PautaExpanded({
                 <button onClick={() => deleteItem.mutate({ id: it.id, pauta_id: pauta.id })} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive">
                   <X className="h-3 w-3" />
                 </button>
+                <SpreadsheetFields fields={it.custom_fields} className="col-span-5" />
               </div>
             )})}
           </div>

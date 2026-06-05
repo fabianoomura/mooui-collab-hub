@@ -16,6 +16,7 @@ export interface Pauta {
   status: PautaStatus;
   scheduled_date: string | null;
   notes: string | null;
+  custom_fields: Record<string, unknown> | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -27,6 +28,7 @@ export interface PautaItem {
   title: string;
   status: string;
   assigned_to: string | null;
+  custom_fields: Record<string, unknown> | null;
   position: number;
   created_at: string;
 }

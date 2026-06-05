@@ -38,6 +38,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { LinkedItems } from '@/components/LinkedItems';
+import { SpreadsheetFields } from '@/components/SpreadsheetFields';
 import { cn } from '@/lib/utils';
 
 const sessaoStatusLabels: Record<SessaoStatus, string> = {
@@ -646,6 +647,7 @@ function SessaoExpanded({
             <Label className="text-xs">Notas</Label>
             <Textarea rows={3} value={sessao.notes || ''} onChange={(e) => onUpdate({ notes: e.target.value || null } as any)} />
           </div>
+          <SpreadsheetFields fields={sessao.custom_fields} />
         </div>
 
         <div className="space-y-3">
@@ -858,6 +860,7 @@ function ShotRow({ shot, onUpdate, onDelete }: {
             <Input className="h-8" placeholder="Funil" value={shot.funil || ''} onChange={(e) => onUpdate({ funil: e.target.value || null } as any)} />
             <Input className="h-8" placeholder="Tipo de conteudo" value={shot.content_type || ''} onChange={(e) => onUpdate({ content_type: e.target.value || null } as any)} />
           </div>
+          <SpreadsheetFields fields={shot.custom_fields} />
         </div>
       </div>
     </div>

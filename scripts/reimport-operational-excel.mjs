@@ -124,10 +124,34 @@ async function readXlsxRows(file) {
 
 function objectFrom(headers, row) {
   const out = {};
+  const custom = {};
   headers.forEach((header, index) => {
-    if (header) out[norm(header)] = row[index] || '';
+    if (!header) return;
+    const cell = row[index] || '';
+    out[norm(header)] = cell;
+    if (String(cell).trim()) custom[header] = cell;
   });
+  out._custom = custom;
   return out;
+}
+
+function customFields(item, omit = []) {
+  const omitted = new Set(omit.map((entry) => norm(entry)));
+  const raw = item._custom || {};
+  return Object.fromEntries(
+    Object.entries(raw).filter(([label, rawValue]) => {
+      const value = String(rawValue ?? '').trim();
+      if (!value) return false;
+      if (omitted.has(norm(label))) return false;
+      return true;
+    }),
+  );
+}
+
+function spreadsheetFields(item, omit = []) {
+  const fields = customFields(item, omit);
+  if (!item._group) return fields;
+  return { 'Grupo Monday': item._group, ...fields };
 }
 
 function parseBoard(rows) {
@@ -399,6 +423,7 @@ async function buildPayloads() {
         assigned_to: null,
         data_abertura: abertura || new Date().toISOString().slice(0, 10),
         data_conclusao: conclusao,
+        custom_fields: spreadsheetFields(item, ['Name', 'Subitems', 'Subelementos']),
         _subitems: (subs.get(item.name) || []).filter((sub) => validName(sub.name)).map((sub, index) => ({
           title: text(sub, 'Name'),
           status: mapMelhoriaStatus(value(sub, 'Status')),
@@ -406,6 +431,7 @@ async function buildPayloads() {
           assigned_to: null,
           due_date: excelDate(value(sub, 'Date', 'Data', 'Due date')),
           position: index,
+          custom_fields: spreadsheetFields(sub, ['Name', 'Subitems', 'Subelementos']),
         })),
       });
     }
@@ -437,6 +463,7 @@ async function buildPayloads() {
           ['Novo/Repost', text(item, 'Novo/Repost')],
         ]),
         assigned_to: null,
+        custom_fields: spreadsheetFields(item, ['Name', 'Subitems', 'Subelementos']),
         _subitems: (subs.get(item.name) || []).filter((sub) => validName(sub.name)).map((sub, index) => ({
           title: text(sub, 'Name'),
           status: mapSubStatus(value(sub, 'Status')),
@@ -444,6 +471,7 @@ async function buildPayloads() {
           assigned_to: null,
           due_date: excelDate(value(sub, 'Date', 'Data')),
           position: index,
+          custom_fields: spreadsheetFields(sub, ['Name', 'Subitems', 'Subelementos']),
         })),
       });
     }
@@ -468,6 +496,7 @@ async function buildPayloads() {
         click_rate: pct(value(item, 'Clique')),
         channel: board.meta,
         notes: note([['Grupo Monday', item._group]]),
+        custom_fields: spreadsheetFields(item, ['Name', 'Subitems', 'Subelementos']),
       });
     }
   }
@@ -491,11 +520,13 @@ async function buildPayloads() {
           ['Grupo Monday', item._group],
           ['Pessoa original', text(item, 'Pessoa')],
         ]),
+        custom_fields: spreadsheetFields(item, ['Name', 'Subitems', 'Subelementos']),
         _subitems: (subs.get(item.name) || []).filter((sub) => validName(sub.name)).map((sub, index) => ({
           title: text(sub, 'Name'),
           status: mapPautaStatus(value(sub, 'Status')),
           assigned_to: null,
           position: index,
+          custom_fields: spreadsheetFields(sub, ['Name', 'Subitems', 'Subelementos']),
         })),
       });
     }
@@ -521,6 +552,7 @@ async function buildPayloads() {
           ['Subir e Renomear', text(item, 'Subir e Renomear')],
           ['Postagens', text(item, 'Postagens')],
         ]),
+        custom_fields: spreadsheetFields(item, ['Name', 'Subitems', 'Subelementos']),
         _subitems: (subs.get(item.name) || []).filter((sub) => validName(sub.name)).map((sub, index) => ({
           title: [text(sub, 'Name'), text(sub, 'Curtidas')].filter(Boolean).join(' | '),
           tipo: mapShotTipo(value(sub, 'Foto/Video')),
@@ -531,6 +563,7 @@ async function buildPayloads() {
           modelo: text(sub, 'Modelo') || null,
           data_entrega: excelDate(value(sub, 'Data de Entrega')),
           position: index,
+          custom_fields: spreadsheetFields(sub, ['Name', 'Subitems', 'Subelementos']),
         })),
       });
     }

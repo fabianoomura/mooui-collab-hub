@@ -21,6 +21,7 @@ export interface Newsletter {
   click_rate: number | null;
   channel: NewsletterChannel;
   notes: string | null;
+  custom_fields: Record<string, unknown> | null;
   created_by: string;
   created_at: string;
   updated_at: string;

@@ -174,12 +174,19 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | Marketing reorganizado em Programacao, Newsletters e Demandas Marketing; Fotos/Videos separado em modulo proprio |
 | 2026-06-05 | Tabelas proprias de Marketing, Fotos/Videos e Melhorias recarregadas dos Excel/Sunday com corte 2026+ |
 | 2026-06-05 | RPC notify_user normalizada e suites de testes ajustadas ao schema atual |
+| 2026-06-05 | Elementos e subelementos de Marketing, Fotos/Videos e Melhorias passaram a preservar campos originais das planilhas em `custom_fields` |
+| 2026-06-05 | Marketing ganhou cards/filtros por grupos do Monday em Programacao, Newsletters e Demandas Marketing |
 
 ### Validacao 2026-06-05
 
-- `npm run build`: OK.
+- `npm run build`: OK apos custom fields operacionais.
+- Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/`, `/conteudo`, `/sessoes`, `/melhorias`, `/configuracoes`.
 - `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
 - `npm run test`: OK, 9 arquivos e 94 testes passando.
+- `node --check scripts/reimport-operational-excel.mjs`: OK.
+- `node scripts/reimport-operational-excel.mjs`: bloqueado localmente por ausencia de `generated/.auth2.json` ou `generated/.auth_response.json`; a carga real precisa desse auth e da migration `20260605113000_operational_custom_fields.sql` aplicada.
+- Browser visual embutido indisponivel na sessao (`iab` nao disponivel); validacao visual substituida por build, testes e smoke HTTP.
 - `npm run lint`: falha por divida preexistente ampla (`no-explicit-any`, fast refresh, etc.).
 - Migration criada para remover a ambiguidade da RPC `notify_user`: `20260605103000_fix_notify_user_rpc_ambiguity.sql`.
+- Migration criada para campos originais das planilhas em modulos operacionais: `20260605113000_operational_custom_fields.sql`.

@@ -21,6 +21,7 @@ export interface Melhoria {
   assigned_to: string | null;
   data_abertura: string;
   data_conclusao: string | null;
+  custom_fields: Record<string, unknown> | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -106,6 +107,7 @@ export interface MelhoriaSubitem {
   priority: MelhoriaPriority;
   assigned_to: string | null;
   due_date: string | null;
+  custom_fields: Record<string, unknown> | null;
   position: number;
   created_at: string;
   updated_at: string;
