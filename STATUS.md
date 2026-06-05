@@ -176,14 +176,18 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | RPC notify_user normalizada e suites de testes ajustadas ao schema atual |
 | 2026-06-05 | Elementos e subelementos de Marketing, Fotos/Videos e Melhorias passaram a preservar campos originais das planilhas em `custom_fields` |
 | 2026-06-05 | Marketing ganhou cards/filtros por grupos do Monday em Programacao, Newsletters e Demandas Marketing |
+| 2026-06-05 | Marketing foi dividido em rotas proprias: `/programacao`, `/newsletters` e `/demandas-marketing`; `/conteudo` ficou como visao agregadora legada |
 
 ### Validacao 2026-06-05
 
 - `npm run build`: OK apos custom fields operacionais.
+- `npm run build`: OK apos rotas separadas de Marketing.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
+- Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/`, `/conteudo`, `/sessoes`, `/melhorias`, `/configuracoes`.
 - `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
 - `npm run test`: OK, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos rotas separadas de Marketing, 9 arquivos e 94 testes passando.
 - `node --check scripts/reimport-operational-excel.mjs`: OK.
 - `node scripts/reimport-operational-excel.mjs`: bloqueado localmente por ausencia de `generated/.auth2.json` ou `generated/.auth_response.json`; a carga real precisa desse auth e da migration `20260605113000_operational_custom_fields.sql` aplicada.
 - Browser visual embutido indisponivel na sessao (`iab` nao disponivel); validacao visual substituida por build, testes e smoke HTTP.
@@ -196,6 +200,6 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - Sunday com todas as planilhas: OK via `scripts/import-excels-to-sunday.mjs --verify`; 23 projetos, 5.401 tarefas, 3.976 elementos, 1.425 subelementos, 361 colunas, 24.458 valores customizados e 667 atribuicoes.
 - Calendario de Acoes Mensais: OK via `scripts/import-sunday-acoes-mensais-calendar.mjs --verify`; 45 eventos, 225 etapas e 0 eventos 2026+ de outras fontes.
 - Marketing/Fotos/Melhorias: OK em contagem via `scripts/reimport-operational-excel.mjs`; Excel 2026+ bate com o sistema atual: 302 melhorias, 227 subitems, 178 conteudos, 26 subitems de conteudo, 101 newsletters, 42 pautas, 33 pauta items, 95 sessoes e 171 shots.
-- Bloqueio de paridade visual completa: a migration `20260605113000_operational_custom_fields.sql` ainda nao esta aplicada no Supabase; consultas a `custom_fields` retornam `column ... custom_fields does not exist`. Sem ela, os campos originais das planilhas nao aparecem/salvam no sistema em producao.
+- Paridade visual completa dos campos extras: OK apos aplicar `20260605113000_operational_custom_fields.sql` e recarregar `scripts/reimport-operational-excel.mjs --yes`; `custom_fields` preenchido em elementos e subelementos operacionais.
 - Produtos: sistema atual tem 120 produtos, 1.800 etapas e 396 itens de design. As 1.800 etapas fecham 15 etapas por produto. Ha divergencia contra o resumo antigo gerado localmente (`produtos: 125`, `produto_design_items: 400`), entao Produtos precisa de revisao/carga especifica antes de declarar paridade total.
 - Pessoas: organizacao MOOUI Brasil possui 18 membros no sistema; Sunday importado possui 667 atribuicoes gravadas em `task_assignees`.

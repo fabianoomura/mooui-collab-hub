@@ -9,7 +9,7 @@ const MODULE_META: Record<string, { icon: typeof Link2; label: string; color: st
   checklist: { icon: ClipboardCheck, label: 'Checklist',   color: 'text-green-500',  route: '/checagens' },
   doc:       { icon: BookOpen,       label: 'Documento',   color: 'text-teal-500',   route: '/docs' },
   melhoria:  { icon: Link2,          label: 'Melhoria',    color: 'text-cyan-500',    route: '/melhorias' },
-  conteudo:  { icon: Link2,          label: 'Conteúdo',    color: 'text-pink-500',    route: '/conteudo' },
+  conteudo:  { icon: Link2,          label: 'Programacao', color: 'text-pink-500',    route: '/programacao' },
   sessao:    { icon: Link2,          label: 'Sessão',      color: 'text-violet-500',  route: '/sessoes' },
   produto:   { icon: Link2,          label: 'Produto',     color: 'text-orange-500',  route: '/produtos' },
 };

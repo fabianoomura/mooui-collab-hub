@@ -144,6 +144,9 @@ function customFields(item, omit = []) {
       if (!value) return false;
       if (omitted.has(norm(label))) return false;
       return true;
+    }).map(([label, rawValue]) => {
+      const date = /\b(data|date|cronograma|lan[çc]amento|entrega)\b/i.test(label) ? excelDate(rawValue) : null;
+      return [label, date || rawValue];
     }),
   );
 }

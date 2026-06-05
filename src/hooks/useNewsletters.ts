@@ -83,7 +83,7 @@ export function useAddNewsletterComment() {
             type: 'newsletter_comment',
             title: `Novo comentário em "${(nl as any).title}"`,
             message: content.slice(0, 80),
-            link: '/conteudo',
+            link: '/newsletters',
           });
         }
       } catch (e) { console.warn('newsletter comment notify failed', e); }

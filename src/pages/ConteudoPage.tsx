@@ -130,10 +130,31 @@ function buildGroupStats<T extends { custom_fields?: Record<string, unknown> | n
 /* Main Page                                                         */
 /* ================================================================ */
 
-export default function ConteudoPage() {
-  const { user } = useAuth();
+type MarketingModule = 'all' | 'programacao' | 'newsletters' | 'demandas';
+
+const marketingModuleMeta: Record<MarketingModule, { title: string; description: string }> = {
+  all: {
+    title: 'Marketing',
+    description: 'Programacao de posts, newsletters e demandas do time.',
+  },
+  programacao: {
+    title: 'Programacao',
+    description: 'Calendario, kanban e lista de conteudos por rede e grupo do Monday.',
+  },
+  newsletters: {
+    title: 'Newsletters',
+    description: 'Newsletters separadas por Mooui Brasil, Barcelona e grupos do Monday.',
+  },
+  demandas: {
+    title: 'Demandas Marketing',
+    description: 'Demandas com subelementos, responsaveis, status e campos da planilha.',
+  },
+};
+
+export default function ConteudoPage({ module = 'all' }: { module?: MarketingModule }) {
   const { currentOrg } = useOrganization();
   const [mainTab, setMainTab] = useState<'programacao' | 'newsletters' | 'demandas'>('programacao');
+  const meta = marketingModuleMeta[module];
 
   // Org members for assignment
   const { data: orgMembers = [] } = useQuery({
@@ -148,6 +169,20 @@ export default function ConteudoPage() {
     },
     enabled: !!currentOrg,
   });
+
+  if (module !== 'all') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold">{meta.title}</h1>
+          <p className="text-sm text-muted-foreground">{meta.description}</p>
+        </div>
+        {module === 'programacao' && <ProgramacaoTab orgMembers={orgMembers as any} />}
+        {module === 'newsletters' && <NewslettersTab />}
+        {module === 'demandas' && <PautasTab orgMembers={orgMembers as any} />}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

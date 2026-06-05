@@ -267,7 +267,7 @@ export function PersonalPanel() {
           .map((i) => ({
             kind: 'conteudo' as const, id: i.id, title: i.title,
             subtitle: i.channel ?? null, when: i.scheduled_date,
-            href: '/conteudo', sortKey: toMs(i.scheduled_date),
+            href: '/programacao', sortKey: toMs(i.scheduled_date),
           })),
         ...mySessoes
           .filter((i) => i.scheduled_date && i.scheduled_date >= today && i.scheduled_date <= windowEnd)

@@ -94,6 +94,9 @@ const App = () => (
               <Route path="/timeline" element={<TimelinePage />} />
               <Route path="/melhorias" element={<MelhoriasPage />} />
               <Route path="/conteudo" element={<ConteudoPage />} />
+              <Route path="/programacao" element={<ConteudoPage module="programacao" />} />
+              <Route path="/newsletters" element={<ConteudoPage module="newsletters" />} />
+              <Route path="/demandas-marketing" element={<ConteudoPage module="demandas" />} />
               <Route path="/sessoes" element={<SessoesPage />} />
               <Route path="/produtos" element={<ProdutoPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />

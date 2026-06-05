@@ -92,7 +92,7 @@ export function useAddPautaComment() {
             type: 'pauta_comment',
             title: `Novo comentário em "${(p as any).title}"`,
             message: content.slice(0, 80),
-            link: '/conteudo',
+            link: '/demandas-marketing',
           })));
         }
       } catch (e) { console.warn('pauta comment notify failed', e); }
@@ -184,7 +184,7 @@ export function useCreatePauta() {
             userId: input.assigned_to,
             type: 'pauta_assigned',
             title: `Nova pauta atribuída: ${input.title}`,
-            link: '/conteudo',
+            link: '/demandas-marketing',
           });
         }
       } catch (e) { console.warn('pauta notify failed', e); }

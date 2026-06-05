@@ -140,7 +140,7 @@ export function useAddConteudoComment() {
             type: 'conteudo_comment',
             title: `Novo comentario em "${(c as any).title}"`,
             message: content.slice(0, 80),
-            link: '/conteudo',
+            link: '/programacao',
           })));
         }
       } catch (e) { console.warn('conteudo comment notify failed', e); }
@@ -343,7 +343,7 @@ export function useCreateConteudo() {
             type: 'conteudo_assigned',
             title: `Novo conteúdo atribuído: ${input.title}`,
             message: `Canal: ${input.channel}`,
-            link: '/conteudo',
+            link: '/programacao',
           });
         }
       } catch (e) { console.warn('conteudo notify failed', e); }
@@ -371,7 +371,7 @@ export function useUpdateConteudo() {
             userId: patch.assigned_to,
             type: 'conteudo_assigned',
             title: `Conteúdo atribuído a você: ${(before as any).title}`,
-            link: '/conteudo',
+            link: '/programacao',
           });
         }
         if (patch.status && before && patch.status !== (before as any).status && (before as any).created_by !== user?.id) {
@@ -380,7 +380,7 @@ export function useUpdateConteudo() {
             type: 'conteudo_status',
             title: `Conteúdo mudou para "${patch.status}"`,
             message: (before as any).title,
-            link: '/conteudo',
+            link: '/programacao',
           });
         }
         if (patch.status === 'publicado' && currentOrg && user) {

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers, Globe,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers, Globe, Mail, FileText,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
@@ -62,7 +62,9 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: 'Marketing',
     items: [
       { title: 'Calendário de Ações Mensais', url: '/calendario', icon: CalendarDays },
-      { title: 'Conteúdo', url: '/conteudo', icon: Camera },
+      { title: 'Programacao', url: '/programacao', icon: Camera },
+      { title: 'Newsletters', url: '/newsletters', icon: Mail },
+      { title: 'Demandas Marketing', url: '/demandas-marketing', icon: FileText },
       { title: 'Sessões', url: '/sessoes', icon: Camera },
     ],
   },

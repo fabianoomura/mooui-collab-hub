@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import {
   Table2, MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
   ArrowRight, Briefcase, ClipboardCheck, ListTodo, CalendarClock,
-  Globe, Camera, Package, FileText,
+  Globe, Camera, Package, FileText, Mail,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -84,7 +84,7 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0];
       const year = new Date().getFullYear();
 
-      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, ticketsRes, checklistsRes, melhoriasRes, conteudoRes, sessoesRes, produtosRes] = await Promise.all([
+      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, ticketsRes, checklistsRes, melhoriasRes, conteudoRes, newslettersRes, pautasRes, sessoesRes, produtosRes] = await Promise.all([
         supabase.from('task_assignees').select('task_id').eq('user_id', user.id),
         supabase.from('messages').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 86400000).toISOString()),
         supabase.from('doc_pages').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
@@ -95,6 +95,8 @@ export default function Dashboard() {
         supabase.from('launch_checklists').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
         supabase.from('melhorias' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['open', 'in_progress']),
         supabase.from('conteudo_items' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('status', 'publicado'),
+        supabase.from('newsletters' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('status', 'enviado'),
+        supabase.from('pautas' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('status', 'concluida'),
         supabase.from('sessoes' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['planejada', 'em_producao', 'em_edicao']),
         supabase.from('produtos' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('collection_group', 'arquivado'),
       ]);
@@ -137,6 +139,8 @@ export default function Dashboard() {
         checklists: checklistsRes.count ?? 0,
         openMelhorias: melhoriasRes.count ?? 0,
         conteudosPendentes: conteudoRes.count ?? 0,
+        newslettersPendentes: newslettersRes.count ?? 0,
+        demandasPendentes: pautasRes.count ?? 0,
         sessoesAtivas: sessoesRes.count ?? 0,
         produtosAtivos: produtosRes.count ?? 0,
         nextStage: nextStage?.[0] ?? null,
@@ -164,8 +168,12 @@ export default function Dashboard() {
       stat: stats ? `${stats.openTickets} aberto${stats.openTickets === 1 ? '' : 's'}` : '—' },
     { title: 'Melhorias', description: 'Site, SEO e sistemas', href: '/melhorias', icon: Globe, accent: 'from-cyan-500/15 to-cyan-500/5 text-cyan-600',
       stat: stats ? `${stats.openMelhorias} aberta${stats.openMelhorias === 1 ? '' : 's'}` : '—' },
-    { title: 'Conteúdo', description: 'Posts, newsletters e pautas', href: '/conteudo', icon: FileText, accent: 'from-pink-500/15 to-pink-500/5 text-pink-600',
+    { title: 'Programacao', description: 'Posts e redes sociais', href: '/programacao', icon: Camera, accent: 'from-pink-500/15 to-pink-500/5 text-pink-600',
       stat: stats ? `${stats.conteudosPendentes} pendente${stats.conteudosPendentes === 1 ? '' : 's'}` : '—' },
+    { title: 'Newsletters', description: 'Brasil e Barcelona', href: '/newsletters', icon: Mail, accent: 'from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-600',
+      stat: stats ? `${stats.newslettersPendentes} pendente${stats.newslettersPendentes === 1 ? '' : 's'}` : '—' },
+    { title: 'Demandas Marketing', description: 'Pautas e subelementos', href: '/demandas-marketing', icon: FileText, accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
+      stat: stats ? `${stats.demandasPendentes} pendente${stats.demandasPendentes === 1 ? '' : 's'}` : '—' },
     { title: 'Sessões', description: 'Foto, video e banco de ideias', href: '/sessoes', icon: Camera, accent: 'from-violet-500/15 to-violet-500/5 text-violet-600',
       stat: stats ? `${stats.sessoesAtivas} ativa${stats.sessoesAtivas === 1 ? '' : 's'}` : '—' },
     { title: 'Produtos', description: 'Pipeline de desenvolvimento', href: '/produtos', icon: Package, accent: 'from-orange-500/15 to-orange-500/5 text-orange-600',

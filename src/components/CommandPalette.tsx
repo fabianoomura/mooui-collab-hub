@@ -25,7 +25,9 @@ const ROUTES = [
   { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },
   { label: 'Pedidos', href: '/pedidos', icon: Package, kw: 'orders sac expedição' },
   { label: 'Melhorias', href: '/melhorias', icon: Wrench, kw: 'site shopify seo melhorias' },
-  { label: 'Conteúdo', href: '/conteudo', icon: FileText, kw: 'conteudo posts redes sociais newsletters pautas' },
+  { label: 'Programacao', href: '/programacao', icon: Camera, kw: 'programacao conteudo posts redes sociais calendario kanban' },
+  { label: 'Newsletters', href: '/newsletters', icon: FileText, kw: 'newsletter email brasil barcelona' },
+  { label: 'Demandas Marketing', href: '/demandas-marketing', icon: FileText, kw: 'demandas marketing pautas subelementos' },
   { label: 'Sessões', href: '/sessoes', icon: Camera, kw: 'sessoes fotos videos shots' },
   { label: 'Produtos', href: '/produtos', icon: ShoppingBag, kw: 'produtos pipeline design novos' },
   { label: 'Timeline', href: '/timeline', icon: Layers, kw: 'timeline visao unificada panorama' },
@@ -259,7 +261,7 @@ export function CommandPalette() {
             {conteudos.length > 0 && (
               <CommandGroup heading="Conteúdo">
                 {conteudos.map((c: any) => (
-                  <CommandItem key={c.id} value={`conteudo ${c.title} ${c.code || ''}`} onSelect={() => go('/conteudo')}>
+                  <CommandItem key={c.id} value={`conteudo ${c.title} ${c.code || ''}`} onSelect={() => go('/programacao')}>
                     <FileText className="h-4 w-4 mr-2 text-pink-500" />
                     {c.code ? `${c.code} — ` : ''}{c.title}
                   </CommandItem>
