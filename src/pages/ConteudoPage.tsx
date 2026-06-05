@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Plus, Search as SearchIcon, X, Calendar as CalendarIcon, List, Clock, Trash2, Send,
   ChevronDown, ChevronRight, Mail, FileText, CheckCircle2, Paperclip, Image as ImageIcon,
@@ -13,8 +13,9 @@ import {
   useConteudoItems, useCreateConteudo, useUpdateConteudo, useDeleteConteudo,
   useConteudoActivity, useConteudoComments, useAddConteudoComment, useConteudoAttachments, useConteudoChecklist,
   useCreateConteudoChecklistItem, useUpdateConteudoChecklistItem, useDeleteConteudoChecklistItem,
+  useProgramacaoWorkspaces, useCreateProgramacaoWorkspace,
   type ConteudoItem, type ConteudoStatus, type ConteudoChannel, type ConteudoType,
-  type ConteudoChecklistItem, type ConteudoChecklistStatus,
+  type ConteudoChecklistItem, type ConteudoChecklistStatus, type ProgramacaoWorkspace,
 } from '@/hooks/useConteudo';
 import {
   useNewsletters, useCreateNewsletter, useUpdateNewsletter, useDeleteNewsletter,
@@ -109,10 +110,39 @@ const pautaItemStatusColors: Record<string, string> = {
   em_andamento: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
   concluido: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 };
+const channelAccentColors: Record<ConteudoChannel, string> = {
+  mooui_kids: '#EC4899',
+  mooui_home: '#F59E0B',
+  amo_mooui: '#F43F5E',
+  barcelona: '#3B82F6',
+  outras_redes: '#64748B',
+  pinterest: '#DC2626',
+};
 
 function spreadsheetGroup(fields?: Record<string, unknown> | null) {
   const group = fields?.['Grupo Monday'];
   return typeof group === 'string' && group.trim() ? group.trim() : 'Sem grupo';
+}
+
+function normalizedKey(value: unknown) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function programacaoWorkspaceName(item: ConteudoItem) {
+  const custom = sheetField(item.custom_fields, 'Workspace Programacao', 'Workspace', 'Marca', 'Rede', 'Canal');
+  return custom || channelLabels[item.channel] || item.channel;
+}
+
+function workspaceMatchesItem(workspace: ProgramacaoWorkspaceView, item: ConteudoItem) {
+  if (workspace.channel && item.channel === workspace.channel) return true;
+  const workspaceKey = normalizedKey(workspace.name);
+  return normalizedKey(programacaoWorkspaceName(item)) === workspaceKey
+    || normalizedKey(channelLabels[item.channel]) === workspaceKey
+    || normalizedKey(item.channel) === workspaceKey;
 }
 
 function buildGroupStats<T extends { custom_fields?: Record<string, unknown> | null }>(items: T[]) {
@@ -130,6 +160,56 @@ function sheetValue(value: unknown) {
   if (value == null) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function sheetField(fields: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  if (!fields) return '';
+  for (const key of keys) {
+    const direct = fields[key];
+    if (direct != null && String(direct).trim()) return sheetValue(direct);
+    const found = Object.entries(fields).find(([fieldKey, value]) => {
+      if (value == null || !String(value).trim()) return false;
+      return fieldKey
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '') === key
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+    });
+    if (found) return sheetValue(found[1]);
+  }
+  return '';
+}
+
+const programacaoFixedColumns = new Set([
+  'grupomonday',
+  'pessoas',
+  'pessoa',
+  'responsavel',
+  'responsaveis',
+  'data',
+  'date',
+  'status',
+  'horario',
+  'foto/video',
+  'fotovideo',
+  'novo/repost',
+  'novorepost',
+  'tipo',
+]);
+
+function dynamicProgramacaoColumns(items: ConteudoItem[]) {
+  return sheetColumns(items).filter((column) => {
+    const normalized = column
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9/]+/g, '');
+    return !programacaoFixedColumns.has(normalized);
+  });
 }
 
 function sheetColumns<T extends { custom_fields?: Record<string, unknown> | null }>(items: T[]) {
@@ -166,6 +246,14 @@ function SheetHeaderCell({ children, className }: { children: ReactNode; classNa
 /* ================================================================ */
 
 type MarketingModule = 'all' | 'programacao' | 'newsletters' | 'demandas';
+type ProgramacaoWorkspaceView = {
+  id: string;
+  name: string;
+  description?: string | null;
+  color: string;
+  source: 'planilha' | 'manual';
+  channel?: ConteudoChannel;
+};
 
 const marketingModuleMeta: Record<MarketingModule, { title: string; description: string }> = {
   all: {
@@ -254,13 +342,19 @@ export default function ConteudoPage({ module = 'all' }: { module?: MarketingMod
 function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: string | null }[] }) {
   const { user } = useAuth();
   const { data: items = [], isLoading } = useConteudoItems();
+  const { data: savedWorkspaces = [] } = useProgramacaoWorkspaces();
+  const createWorkspaceMut = useCreateProgramacaoWorkspace();
   const createMut = useCreateConteudo();
   const updateMut = useUpdateConteudo();
   const deleteMut = useDeleteConteudo();
   const confirm = useConfirm();
 
   const [view, setView] = useState<'list' | 'calendar' | 'kanban'>('list');
-  const [channelFilter, setChannelFilter] = useState<'all' | ConteudoChannel>('all');
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
+  const [showWorkspaceDialog, setShowWorkspaceDialog] = useState(false);
+  const [localWorkspaces, setLocalWorkspaces] = useState<ProgramacaoWorkspaceView[]>([]);
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [workspaceDescription, setWorkspaceDescription] = useState('');
   const [groupFilter, setGroupFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ConteudoStatus>('all');
   const [search, setSearch] = useState('');
@@ -293,44 +387,101 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   });
   const profileMap = useMemo(() => new Map(profiles.map((p: any) => [p.id, p])), [profiles]);
 
+  const workspaces = useMemo<ProgramacaoWorkspaceView[]>(() => {
+    const map = new Map<string, ProgramacaoWorkspaceView>();
+    for (const channel of channelOrder) {
+      if (items.some((item) => item.channel === channel)) {
+        map.set(`channel:${channel}`, {
+          id: `channel:${channel}`,
+          name: channelLabels[channel],
+          description: 'Importado da planilha de programacao',
+          color: channelAccentColors[channel],
+          source: 'planilha',
+          channel,
+        });
+      }
+    }
+    for (const item of items) {
+      const name = programacaoWorkspaceName(item);
+      const id = `sheet:${normalizedKey(name)}`;
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          name,
+          description: 'Detectado nos campos da planilha',
+          color: channelAccentColors[item.channel] || '#D6336C',
+          source: 'planilha',
+        });
+      }
+    }
+    for (const workspace of savedWorkspaces as ProgramacaoWorkspace[]) {
+      map.set(`saved:${workspace.id}`, {
+        id: `saved:${workspace.id}`,
+        name: workspace.name,
+        description: workspace.description,
+        color: workspace.color || '#D6336C',
+        source: 'manual',
+      });
+    }
+    for (const workspace of localWorkspaces) map.set(workspace.id, workspace);
+    return [...map.values()].sort((a, b) => {
+      if (a.source !== b.source) return a.source === 'planilha' ? -1 : 1;
+      return a.name.localeCompare(b.name, 'pt-BR');
+    });
+  }, [items, savedWorkspaces, localWorkspaces]);
+
+  useEffect(() => {
+    if (!activeWorkspaceId && workspaces.length > 0) setActiveWorkspaceId(workspaces[0].id);
+    if (activeWorkspaceId && workspaces.length > 0 && !workspaces.some((workspace) => workspace.id === activeWorkspaceId)) {
+      setActiveWorkspaceId(workspaces[0].id);
+    }
+  }, [activeWorkspaceId, workspaces]);
+
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) || workspaces[0] || null;
+  const workspaceItems = activeWorkspace ? items.filter((item) => workspaceMatchesItem(activeWorkspace, item)) : items;
   const q = search.trim().toLowerCase();
-  const filtered = items.filter(i => {
-    if (channelFilter !== 'all' && i.channel !== channelFilter) return false;
+  const filtered = workspaceItems.filter(i => {
     if (groupFilter !== 'all' && spreadsheetGroup(i.custom_fields) !== groupFilter) return false;
     if (statusFilter !== 'all' && i.status !== statusFilter) return false;
     if (q && !i.title.toLowerCase().includes(q)) return false;
     return true;
   });
-  const visibleForGroups = items.filter(i => channelFilter === 'all' || i.channel === channelFilter);
-  const programacaoGroups = useMemo(() => buildGroupStats(visibleForGroups), [visibleForGroups]);
-  const programacaoSheetColumns = useMemo(() => sheetColumns(filtered), [filtered]);
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-  const channelStats = useMemo(() => {
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    return channelOrder.map(channel => {
-      const channelItems = items.filter(i => i.channel === channel);
-      const scheduled = channelItems.filter(i => !!i.scheduled_date).length;
-      const pending = channelItems.filter(i => i.status !== 'publicado').length;
-      const week = channelItems.filter(i => {
-        if (!i.scheduled_date) return false;
-        const date = new Date(`${i.scheduled_date}T12:00:00`);
-        return date >= today && date <= nextWeek;
-      }).length;
-      return { channel, total: channelItems.length, scheduled, pending, week };
+  const programacaoGroups = useMemo(() => buildGroupStats(workspaceItems), [workspaceItems]);
+  const programacaoSheetColumns = useMemo(() => dynamicProgramacaoColumns(filtered), [filtered]);
+  const handleCreateWorkspace = () => {
+    const name = workspaceName.trim();
+    if (!name) return;
+    const localWorkspace: ProgramacaoWorkspaceView = {
+      id: `local:${Date.now()}`,
+      name,
+      description: workspaceDescription.trim() || null,
+      color: '#D6336C',
+      source: 'manual',
+    };
+    setLocalWorkspaces((current) => [...current, localWorkspace]);
+    setActiveWorkspaceId(localWorkspace.id);
+    setShowWorkspaceDialog(false);
+    setWorkspaceName('');
+    setWorkspaceDescription('');
+    createWorkspaceMut.mutate({
+      name,
+      description: localWorkspace.description,
+      color: localWorkspace.color,
+      metadata: { created_from: 'programacao_page' },
+    }, {
+      onSuccess: () => toast.success('Workspace criado'),
+      onError: () => toast.warning('Workspace criado nesta sessao. Rode a migration de workspaces para salvar no banco.'),
     });
-  }, [items, today]);
+  };
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
+    const workspacePatch = activeWorkspace ? { 'Workspace Programacao': activeWorkspace.name } : {};
     createMut.mutate({
-      title: nTitle.trim(), channel: nChannel, content_type: nType,
+      title: nTitle.trim(), channel: activeWorkspace?.channel || nChannel, content_type: nType,
       scheduled_date: nDate || undefined, time_slot: nTimeSlot || undefined,
       is_repost: nRepost, notes: nNotes || undefined,
+      custom_fields: workspacePatch,
     }, {
       onSuccess: () => {
         toast.success('Conteúdo criado!');
@@ -361,33 +512,42 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
-        {channelStats.map(stat => {
-          const active = channelFilter === stat.channel;
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Workspaces de Programacao</span>
+          {activeWorkspace && <span className="text-xs text-muted-foreground">{workspaceItems.length} elementos neste workspace</span>}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+        {workspaces.map(workspace => {
+          const active = activeWorkspaceId === workspace.id;
+          const count = items.filter((item) => workspaceMatchesItem(workspace, item)).length;
+          const pending = items.filter((item) => workspaceMatchesItem(workspace, item) && item.status !== 'publicado').length;
           return (
             <button
-              key={stat.channel}
+              key={workspace.id}
               type="button"
-              onClick={() => setChannelFilter(active ? 'all' : stat.channel)}
+              onClick={() => { setActiveWorkspaceId(workspace.id); setGroupFilter('all'); }}
               className={cn(
                 'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
                 active && 'border-primary ring-1 ring-primary/30'
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium truncate">{channelLabels[stat.channel]}</span>
-                <Badge variant="outline" className={cn('text-[10px] shrink-0', channelColors[stat.channel])}>
-                  {stat.pending}
-                </Badge>
+                <span className="flex items-center gap-2 text-xs font-medium truncate">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: workspace.color }} />
+                  {workspace.name}
+                </span>
+                <Badge variant="outline" className="text-[10px] shrink-0">{workspace.source === 'planilha' ? 'Planilha' : 'Manual'}</Badge>
               </div>
-              <div className="mt-2 text-2xl font-semibold leading-none">{stat.total}</div>
+              <div className="mt-2 text-2xl font-semibold leading-none">{count}</div>
               <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                <span>{stat.week} na semana</span>
-                <span>{stat.scheduled} datados</span>
+                <span>{pending} pendentes</span>
+                <span className="truncate">{workspace.description || 'Sunday normal'}</span>
               </div>
             </button>
           );
         })}
+        </div>
       </div>
 
       {programacaoGroups.length > 0 && (
@@ -428,15 +588,6 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
           <SearchIcon className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar…" className="pl-8 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as any)}>
-          <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os canais</SelectItem>
-            {channelOrder.map(k => (
-              <SelectItem key={k} value={k}>{channelLabels[k]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select value={groupFilter} onValueChange={setGroupFilter}>
           <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -506,6 +657,36 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
           </div>
         </>
       )}
+
+      <Dialog open={showWorkspaceDialog} onOpenChange={setShowWorkspaceDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Novo workspace de Programacao</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome do workspace</Label>
+              <Input
+                autoFocus
+                value={workspaceName}
+                onChange={(e) => setWorkspaceName(e.target.value)}
+                placeholder="Ex.: MOOUI Kids, MOOUI Home, Barcelona"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Dados extras</Label>
+              <Textarea
+                value={workspaceDescription}
+                onChange={(e) => setWorkspaceDescription(e.target.value)}
+                rows={3}
+                placeholder="Observacoes, marca, responsaveis ou criterio de uso"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWorkspaceDialog(false)}>Cancelar</Button>
+            <Button onClick={handleCreateWorkspace} disabled={!workspaceName.trim() || createWorkspaceMut.isPending}>Criar workspace</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* New dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -601,39 +782,62 @@ function ProgramacaoSheetTable({
   columns: string[];
   onOpen: (item: ConteudoItem) => void;
 }) {
+  const groups = useMemo(() => {
+    const map = new Map<string, ConteudoItem[]>();
+    items.forEach((item) => {
+      const group = spreadsheetGroup(item.custom_fields);
+      if (!map.has(group)) map.set(group, []);
+      map.get(group)!.push(item);
+    });
+    return [...map.entries()];
+  }, [items]);
+
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <div className="min-w-max">
           <div className="grid grid-flow-col auto-cols-max border-b">
-            <SheetHeaderCell className="sticky left-0 z-10 min-w-[280px] bg-muted">Elemento</SheetHeaderCell>
-            <SheetHeaderCell>Canal</SheetHeaderCell>
-            <SheetHeaderCell>Status</SheetHeaderCell>
-            <SheetHeaderCell>Tipo</SheetHeaderCell>
+            <SheetHeaderCell className="sticky left-0 z-10 min-w-[300px] bg-muted">Name</SheetHeaderCell>
+            <SheetHeaderCell>Subelementos</SheetHeaderCell>
+            <SheetHeaderCell>Pessoas</SheetHeaderCell>
             <SheetHeaderCell>Data</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Horario</SheetHeaderCell>
+            <SheetHeaderCell>Foto/Video</SheetHeaderCell>
+            <SheetHeaderCell>Novo/Repost</SheetHeaderCell>
             {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
           </div>
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onOpen(item)}
-              className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
-            >
-              <SheetCell className="sticky left-0 z-10 min-w-[280px] bg-background font-medium">
-                <div className="truncate">{item.title}</div>
-                {item.code && <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">{item.code}</div>}
-              </SheetCell>
-              <SheetCell><Badge className={cn('text-[10px]', channelColors[item.channel])} variant="outline">{channelLabels[item.channel]}</Badge></SheetCell>
-              <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
-              <SheetCell>{typeLabels[item.content_type]}</SheetCell>
-              <SheetCell>{item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : ''}</SheetCell>
-              {columns.map((column) => (
-                <SheetCell key={column} className="max-w-[260px] break-words">
-                  {sheetValue(item.custom_fields?.[column])}
-                </SheetCell>
+          {groups.map(([group, groupItems]) => (
+            <div key={group}>
+              <div className="border-b bg-muted/30 px-2 py-2 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+                {group}
+              </div>
+              {groupItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onOpen(item)}
+                  className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-muted/40"
+                >
+                  <SheetCell className="sticky left-0 z-10 min-w-[300px] bg-background font-medium">
+                    <div className="truncate">{item.title}</div>
+                    {item.code && <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">{item.code}</div>}
+                  </SheetCell>
+                  <SheetCell>{item.custom_fields?.Subelementos ? sheetValue(item.custom_fields.Subelementos) : ''}</SheetCell>
+                  <SheetCell>{sheetField(item.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis')}</SheetCell>
+                  <SheetCell>{sheetField(item.custom_fields, 'Data') || (item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'yyyy-MM-dd') : '')}</SheetCell>
+                  <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
+                  <SheetCell>{sheetField(item.custom_fields, 'Horario') || item.time_slot || ''}</SheetCell>
+                  <SheetCell>{sheetField(item.custom_fields, 'Foto/Video', 'Foto Video') || typeLabels[item.content_type]}</SheetCell>
+                  <SheetCell>{sheetField(item.custom_fields, 'Novo/Repost') || (item.is_repost ? 'Repost' : 'Novo')}</SheetCell>
+                  {columns.map((column) => (
+                    <SheetCell key={column} className="max-w-[260px] break-words">
+                      {sheetValue(item.custom_fields?.[column])}
+                    </SheetCell>
+                  ))}
+                </button>
               ))}
-            </button>
+            </div>
           ))}
         </div>
       </div>
@@ -1483,6 +1687,9 @@ function NewslettersTab() {
             ))}
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={() => setShowWorkspaceDialog(true)} size="sm">
+          <Plus className="h-4 w-4 mr-1" />Novo workspace
+        </Button>
         <Button onClick={() => setShowNew(true)} size="sm">
           <Plus className="h-4 w-4 mr-1" />Nova newsletter
         </Button>

@@ -71,6 +71,18 @@ export interface ConteudoAttachment {
   profile?: { full_name: string | null } | null;
 }
 
+export interface ProgramacaoWorkspace {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  metadata: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const CONTEUDO_ATTACHMENTS_BUCKET = 'conteudo-attachments';
 
 export function useConteudoItems() {
@@ -88,6 +100,53 @@ export function useConteudoItems() {
       return (data || []) as unknown as ConteudoItem[];
     },
     enabled: !!currentOrg,
+  });
+}
+
+export function useProgramacaoWorkspaces() {
+  const { currentOrg } = useOrganization();
+  return useQuery({
+    queryKey: ['programacao-workspaces', currentOrg?.id],
+    enabled: !!currentOrg,
+    queryFn: async () => {
+      if (!currentOrg) return [] as ProgramacaoWorkspace[];
+      const { data, error } = await supabase
+        .from('programacao_workspaces' as any)
+        .select('*')
+        .eq('organization_id', currentOrg.id)
+        .order('created_at', { ascending: true });
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('programacao_workspaces')) return [] as ProgramacaoWorkspace[];
+        throw error;
+      }
+      return (data || []) as unknown as ProgramacaoWorkspace[];
+    },
+  });
+}
+
+export function useCreateProgramacaoWorkspace() {
+  const { currentOrg } = useOrganization();
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; description?: string | null; color?: string; metadata?: Record<string, unknown> }) => {
+      if (!currentOrg || !user) throw new Error('Sem organizacao');
+      const { data, error } = await supabase
+        .from('programacao_workspaces' as any)
+        .insert({
+          organization_id: currentOrg.id,
+          name: input.name.trim(),
+          description: input.description || null,
+          color: input.color || '#D6336C',
+          metadata: input.metadata || {},
+          created_by: user.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as unknown as ProgramacaoWorkspace;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['programacao-workspaces'] }),
   });
 }
 
@@ -318,6 +377,7 @@ export function useCreateConteudo() {
       content_category?: string;
       notes?: string;
       assigned_to?: string;
+      custom_fields?: Record<string, unknown>;
     }) => {
       if (!currentOrg || !user) throw new Error('Sem organização');
       const { data, error } = await supabase.from('conteudo_items' as any).insert({
@@ -333,6 +393,7 @@ export function useCreateConteudo() {
         content_category: input.content_category || null,
         notes: input.notes || null,
         assigned_to: input.assigned_to || null,
+        custom_fields: input.custom_fields || {},
       }).select().single();
       if (error) throw error;
 
