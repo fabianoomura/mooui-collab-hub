@@ -830,13 +830,16 @@ function TaskRow({
 }
 
 function SundayTaskMiniCard({
-  task, profilesMap, onOpen, onDelete, onStatusChange,
+  task, profilesMap, projectMembers, onOpen, onDelete, onStatusChange, onAddAssignee, onRemoveAssignee,
 }: {
   task: TaskWithAssignees;
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
   onOpen: (task: TaskWithAssignees) => void;
   onDelete: (task: TaskWithAssignees) => void;
   onStatusChange?: (taskId: string, status: TaskStatus) => void;
+  onAddAssignee: (taskId: string, userId: string) => void;
+  onRemoveAssignee: (taskId: string, userId: string) => void;
 }) {
   return (
     <div className="group rounded-md border bg-card p-3 shadow-sm hover:border-primary/40 transition-colors cursor-pointer" onClick={() => onOpen(task)}>
@@ -859,7 +862,15 @@ function SundayTaskMiniCard({
         </button>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">
-        <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} />
+        <div className="w-[112px]" onClick={(e) => e.stopPropagation()}>
+          <AssigneePickerCell
+            task={task}
+            profilesMap={profilesMap}
+            projectMembers={projectMembers}
+            onAdd={onAddAssignee}
+            onRemove={onRemoveAssignee}
+          />
+        </div>
         {onStatusChange && (
           <Select value={task.status} onValueChange={(value) => onStatusChange(task.id, value as TaskStatus)}>
             <SelectTrigger className="h-7 w-[118px] text-xs" onClick={(e) => e.stopPropagation()}>
@@ -878,14 +889,17 @@ function SundayTaskMiniCard({
 }
 
 function SundayKanbanView({
-  tasks, profilesMap, onOpen, onDelete, onStatusChange, onQuickAdd,
+  tasks, profilesMap, projectMembers, onOpen, onDelete, onStatusChange, onQuickAdd, onAddAssignee, onRemoveAssignee,
 }: {
   tasks: TaskWithAssignees[];
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
   onOpen: (task: TaskWithAssignees) => void;
   onDelete: (task: TaskWithAssignees) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onQuickAdd: (status: TaskStatus) => void;
+  onAddAssignee: (taskId: string, userId: string) => void;
+  onRemoveAssignee: (taskId: string, userId: string) => void;
 }) {
   const columns = (['backlog', 'todo', 'in_progress', 'in_review', 'done'] as TaskStatus[]).map(status => ({
     status,
@@ -912,9 +926,12 @@ function SundayKanbanView({
                 key={task.id}
                 task={task}
                 profilesMap={profilesMap}
+                projectMembers={projectMembers}
                 onOpen={onOpen}
                 onDelete={onDelete}
                 onStatusChange={onStatusChange}
+                onAddAssignee={onAddAssignee}
+                onRemoveAssignee={onRemoveAssignee}
               />
             ))}
             {columnTasks.length === 0 && (
@@ -930,12 +947,15 @@ function SundayKanbanView({
 }
 
 function SundayTimelineView({
-  tasks, profilesMap, onOpen, onDelete,
+  tasks, profilesMap, projectMembers, onOpen, onDelete, onAddAssignee, onRemoveAssignee,
 }: {
   tasks: TaskWithAssignees[];
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
   onOpen: (task: TaskWithAssignees) => void;
   onDelete: (task: TaskWithAssignees) => void;
+  onAddAssignee: (taskId: string, userId: string) => void;
+  onRemoveAssignee: (taskId: string, userId: string) => void;
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, TaskWithAssignees[]>();
@@ -969,7 +989,15 @@ function SundayTimelineView({
                   <p className="truncate text-sm font-medium">{task.title}</p>
                   <p className="text-xs text-muted-foreground">{statusLabels[task.status]} · {priorityLabels[task.priority]}</p>
                 </div>
-                <AssigneeAvatars assignees={task.task_assignees} profilesMap={profilesMap} />
+                <div className="w-[112px]" onClick={(e) => e.stopPropagation()}>
+                  <AssigneePickerCell
+                    task={task}
+                    profilesMap={profilesMap}
+                    projectMembers={projectMembers}
+                    onAdd={onAddAssignee}
+                    onRemove={onRemoveAssignee}
+                  />
+                </div>
                 <button className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1" onClick={(e) => { e.stopPropagation(); onDelete(task); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -1412,17 +1440,23 @@ export default function TableViewPage() {
         <SundayKanbanView
           tasks={sortedTasks}
           profilesMap={profilesMap || new Map()}
+          projectMembers={projectMembers}
           onOpen={handleClickTask}
           onDelete={handleDeleteTask}
           onStatusChange={(taskId, status) => updateTask.mutate({ taskId, updates: { status } })}
           onQuickAdd={(status) => handleQuickAdd(status)}
+          onAddAssignee={(taskId, userId) => addAssignee.mutate({ taskId, userId })}
+          onRemoveAssignee={(taskId, userId) => removeAssignee.mutate({ taskId, userId })}
         />
       ) : viewMode === 'timeline' ? (
         <SundayTimelineView
           tasks={sortedTasks}
           profilesMap={profilesMap || new Map()}
+          projectMembers={projectMembers}
           onOpen={handleClickTask}
           onDelete={handleDeleteTask}
+          onAddAssignee={(taskId, userId) => addAssignee.mutate({ taskId, userId })}
+          onRemoveAssignee={(taskId, userId) => removeAssignee.mutate({ taskId, userId })}
         />
       ) : viewMode === 'calendar' ? (
         <SundayCalendarView

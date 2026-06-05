@@ -49,7 +49,7 @@ export function useProjectMembers(projectId: string | undefined) {
     mutationFn: async ({ taskId, userId }: { taskId: string; userId: string }) => {
       const { error } = await supabase
         .from('task_assignees')
-        .insert({ task_id: taskId, user_id: userId });
+        .upsert({ task_id: taskId, user_id: userId }, { onConflict: 'task_id,user_id', ignoreDuplicates: true });
       if (error) throw error;
     },
     onSuccess: () => {
