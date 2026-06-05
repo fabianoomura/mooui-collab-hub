@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, ChevronRight, Columns3,
   ClipboardSignature, Clock, Film, FileText, Image as ImageIcon, LayoutList, Lightbulb,
-  Paperclip, Plus, Search as SearchIcon, Send, Trash2, UserRound, X,
+  Paperclip, Plus, Search as SearchIcon, Send, Trash2, X,
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -90,6 +90,98 @@ const ideaStatusColors: Record<SessaoIdeaStatus, string> = {
 type OrgMember = { id: string; full_name: string | null };
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
+function spreadsheetGroup(fields?: Record<string, unknown> | null) {
+  const group = fields?.['Grupo Monday'];
+  return typeof group === 'string' && group.trim() ? group.trim() : 'Sem grupo';
+}
+
+function normalizedSheetKey(value: unknown) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9/]+/g, '');
+}
+
+function sheetValue(value: unknown) {
+  if (value == null) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function sheetField(fields: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  if (!fields) return '';
+  for (const key of keys) {
+    const direct = fields[key];
+    if (direct != null && String(direct).trim()) return sheetValue(direct);
+    const normalized = normalizedSheetKey(key);
+    const found = Object.entries(fields).find(([fieldKey, value]) => value != null && String(value).trim() && normalizedSheetKey(fieldKey) === normalized);
+    if (found) return sheetValue(found[1]);
+  }
+  return '';
+}
+
+function buildGroupStats<T extends { custom_fields?: Record<string, unknown> | null }>(items: T[]) {
+  const map = new Map<string, number>();
+  items.forEach((item) => {
+    const group = spreadsheetGroup(item.custom_fields);
+    map.set(group, (map.get(group) || 0) + 1);
+  });
+  return [...map.entries()]
+    .map(([group, total]) => ({ group, total }))
+    .sort((a, b) => a.group.localeCompare(b.group, 'pt-BR'));
+}
+
+function sheetColumns<T extends { custom_fields?: Record<string, unknown> | null }>(items: T[]) {
+  const columns: string[] = [];
+  const seen = new Set<string>();
+  items.forEach((item) => {
+    Object.keys(item.custom_fields || {}).forEach((key) => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      columns.push(key);
+    });
+  });
+  return columns;
+}
+
+const sessaoFixedColumns = new Set([
+  'grupomonday',
+  'pessoas',
+  'pessoa',
+  'responsavel',
+  'responsaveis',
+  'data',
+  'date',
+  'status',
+  'profissional',
+  'professional',
+  'subelementos',
+  'subitems',
+  'codigo',
+  'code',
+]);
+
+function dynamicSessaoColumns(items: Sessao[]) {
+  return sheetColumns(items).filter((column) => !sessaoFixedColumns.has(normalizedSheetKey(column)));
+}
+
+function SheetCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r px-2 py-2 text-xs last:border-r-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+function SheetHeaderCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r bg-muted/60 px-2 py-2 text-xs font-semibold text-muted-foreground last:border-r-0', className)}>
+      {children}
+    </div>
+  );
+}
+
 export default function SessoesPage() {
   const { currentOrg } = useOrganization();
   const [tab, setTab] = useState<'sessoes' | 'contratos' | 'ideias'>('sessoes');
@@ -145,6 +237,7 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | SessaoStatus>('all');
+  const [groupFilter, setGroupFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'kanban'>('list');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -174,8 +267,10 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
   });
 
   const profileMap = useMemo(() => new Map((profiles as OrgMember[]).map((p) => [p.id, p])), [profiles]);
+  const sessaoGroups = useMemo(() => buildGroupStats(sessoes), [sessoes]);
+  const groupFiltered = sessoes.filter((sessao) => groupFilter === 'all' || spreadsheetGroup(sessao.custom_fields) === groupFilter);
   const q = search.trim().toLowerCase();
-  const filtered = sessoes.filter((sessao) => {
+  const filtered = groupFiltered.filter((sessao) => {
     if (statusFilter !== 'all' && sessao.status !== statusFilter) return false;
     if (!q) return true;
     return (
@@ -184,8 +279,9 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
       (sessao.code || '').toLowerCase().includes(q)
     );
   });
+  const sessaoSheetColumns = useMemo(() => dynamicSessaoColumns(filtered), [filtered]);
   const statusStats = (Object.keys(sessaoStatusLabels) as SessaoStatus[]).map((status) => {
-    const statusItems = sessoes.filter((sessao) => sessao.status === status);
+    const statusItems = groupFiltered.filter((sessao) => sessao.status === status);
     return {
       status,
       total: statusItems.length,
@@ -222,6 +318,28 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
 
   return (
     <div className="space-y-4">
+      {sessaoGroups.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
+          {sessaoGroups.map((stat) => {
+            const active = groupFilter === stat.group;
+            return (
+              <button
+                key={stat.group}
+                type="button"
+                onClick={() => setGroupFilter(active ? 'all' : stat.group)}
+                className={cn(
+                  'rounded-md border bg-card p-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                  active && 'border-primary ring-1 ring-primary/30',
+                )}
+              >
+                <div className="truncate text-xs font-medium">{stat.group}</div>
+                <div className="mt-1 text-lg font-semibold leading-none">{stat.total}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
         {statusStats.map((stat) => {
           const active = statusFilter === stat.status;
@@ -264,6 +382,15 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
               ))}
             </SelectContent>
           </Select>
+          <Select value={groupFilter} onValueChange={setGroupFilter}>
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os grupos</SelectItem>
+              {sessaoGroups.map((stat) => (
+                <SelectItem key={stat.group} value={stat.group}>{stat.group}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-1 rounded-md border p-1">
           <Button size="sm" variant={viewMode === 'list' ? 'secondary' : 'ghost'} className="h-7 px-2" onClick={() => setViewMode('list')}>
@@ -288,50 +415,27 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
       ) : viewMode === 'kanban' ? (
         <SessoesKanban sessoes={filtered} profileMap={profileMap} onOpen={(sessao) => { setExpandedId(sessao.id); setViewMode('list'); }} onStatusChange={(id, status) => updateMut.mutate({ id, status } as any)} />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((sessao) => {
-            const isExpanded = expandedId === sessao.id;
-            const responsaveis = (sessao.responsaveis || []).map((id) => profileMap.get(id)?.full_name || 'Usuario').join(', ');
-            return (
-              <Card key={sessao.id} className="overflow-hidden">
-                <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setExpandedId(isExpanded ? null : sessao.id)}>
-                  <div className="flex items-start gap-2">
-                    {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2 flex-wrap">
-                        {sessao.code && <span className="text-[10px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{sessao.code}</span>}
-                        <h3 className="font-medium truncate flex-1 min-w-0">{sessao.title}</h3>
-                        <Badge variant="outline" className={cn('text-[10px]', sessaoStatusColors[sessao.status])}>{sessaoStatusLabels[sessao.status]}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap mt-1 text-[11px] text-muted-foreground">
-                        {sessao.scheduled_date && (
-                          <span className="inline-flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{format(new Date(sessao.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                        )}
-                        {sessao.professional && <span className="inline-flex items-center gap-1"><Camera className="h-3 w-3" />{sessao.professional}</span>}
-                        {responsaveis && <span className="inline-flex items-center gap-1"><UserRound className="h-3 w-3" />{responsaveis}</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <SessaoExpanded
-                    sessao={sessao}
-                    orgMembers={orgMembers}
-                    profileMap={profileMap}
-                    isOwner={sessao.created_by === user?.id}
-                    onUpdate={(patch) => updateMut.mutate({ id: sessao.id, ...patch }, { onSuccess: () => toast.success('Sessao atualizada') })}
-                    onDelete={async () => {
-                      const ok = await confirm({ title: 'Excluir esta sessao?', destructive: true, confirmText: 'Excluir' });
-                      if (!ok) return;
-                      deleteMut.mutate(sessao.id, { onSuccess: () => { toast.success('Sessao excluida'); setExpandedId(null); } });
-                    }}
-                  />
-                )}
-              </Card>
-            );
-          })}
-        </div>
+        <SessoesSheetTable
+          sessoes={filtered}
+          columns={sessaoSheetColumns}
+          expandedId={expandedId}
+          onToggle={(id) => setExpandedId(expandedId === id ? null : id)}
+          profileMap={profileMap}
+          renderExpanded={(sessao) => (
+            <SessaoExpanded
+              sessao={sessao}
+              orgMembers={orgMembers}
+              profileMap={profileMap}
+              isOwner={sessao.created_by === user?.id}
+              onUpdate={(patch) => updateMut.mutate({ id: sessao.id, ...patch }, { onSuccess: () => toast.success('Sessao atualizada') })}
+              onDelete={async () => {
+                const ok = await confirm({ title: 'Excluir esta sessao?', destructive: true, confirmText: 'Excluir' });
+                if (!ok) return;
+                deleteMut.mutate(sessao.id, { onSuccess: () => { toast.success('Sessao excluida'); setExpandedId(null); } });
+              }}
+            />
+          )}
+        />
       )}
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -375,6 +479,90 @@ function SessoesTab({ orgMembers }: { orgMembers: OrgMember[] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function SessoesSheetTable({
+  sessoes,
+  columns,
+  expandedId,
+  onToggle,
+  profileMap,
+  renderExpanded,
+}: {
+  sessoes: Sessao[];
+  columns: string[];
+  expandedId: string | null;
+  onToggle: (id: string) => void;
+  profileMap: Map<string, OrgMember>;
+  renderExpanded: (sessao: Sessao) => ReactNode;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, Sessao[]>();
+    sessoes.forEach((sessao) => {
+      const group = spreadsheetGroup(sessao.custom_fields);
+      map.set(group, [...(map.get(group) || []), sessao]);
+    });
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+  }, [sessoes]);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          <div className="grid grid-flow-col auto-cols-max border-b">
+            <SheetHeaderCell className="sticky left-0 z-10 min-w-[320px] bg-muted">Elemento</SheetHeaderCell>
+            <SheetHeaderCell>Subelementos</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Pessoas</SheetHeaderCell>
+            <SheetHeaderCell>Data</SheetHeaderCell>
+            <SheetHeaderCell>Profissional</SheetHeaderCell>
+            {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
+          </div>
+          {grouped.map(([group, groupItems]) => (
+            <div key={group}>
+              <div className="border-b bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                {group} <span className="ml-2 font-normal">{groupItems.length} elementos</span>
+              </div>
+              {groupItems.map((sessao) => {
+                const isExpanded = expandedId === sessao.id;
+                const responsaveis = (sessao.responsaveis || []).map((id) => profileMap.get(id)?.full_name || 'Usuario').join(', ');
+                const people = sheetField(sessao.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis') || responsaveis;
+                const date = sheetField(sessao.custom_fields, 'Data', 'Date') || (sessao.scheduled_date ? format(new Date(sessao.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '');
+                const professional = sheetField(sessao.custom_fields, 'Profissional', 'Professional') || sessao.professional || '';
+                const subelements = sheetField(sessao.custom_fields, 'Subelementos', 'Subitems');
+                return (
+                  <div key={sessao.id} className="border-b last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => onToggle(sessao.id)}
+                      className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-muted/40"
+                    >
+                      <SheetCell className="sticky left-0 z-10 flex min-w-[320px] items-center gap-2 bg-background font-medium">
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        <span className="truncate">{sessao.title}</span>
+                        {sessao.code && <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{sessao.code}</span>}
+                      </SheetCell>
+                      <SheetCell className="max-w-[180px] break-words">{subelements}</SheetCell>
+                      <SheetCell><Badge variant="outline" className={cn('text-[10px]', sessaoStatusColors[sessao.status])}>{sessaoStatusLabels[sessao.status]}</Badge></SheetCell>
+                      <SheetCell className="max-w-[220px] break-words">{people}</SheetCell>
+                      <SheetCell>{date}</SheetCell>
+                      <SheetCell className="max-w-[220px] break-words">{professional}</SheetCell>
+                      {columns.map((column) => (
+                        <SheetCell key={column} className="max-w-[260px] break-words">
+                          {sheetValue(sessao.custom_fields?.[column])}
+                        </SheetCell>
+                      ))}
+                    </button>
+                    {isExpanded && <div className="min-w-[760px] bg-background">{renderExpanded(sessao)}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 

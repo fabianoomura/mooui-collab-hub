@@ -45,8 +45,8 @@ Atualizado em: 2026-06-05
 | # | Modulo | Rota | Status |
 |---|--------|------|--------|
 | 14 | Melhorias | `/melhorias` | OK — site/shopify/SEO, subitems com CRUD completo, progresso, kanban DnD |
-| 15 | Marketing | `/conteudo` | OK — Programacao, Newsletters por card Brasil/Barcelona e Demandas Marketing com subelementos estilo Sunday |
-| 16 | Calendario de Fotos e Videos | `/sessoes` | OK — foto/video, shots, contratos, banco de ideias, cards de status, comentarios, anexos, kanban DnD |
+| 15 | Marketing | `/conteudo` | OK — Programacao, Newsletters por card Brasil/Barcelona e Demandas Marketing em tabela Sunday pura por Grupo Monday |
+| 16 | Calendario de Fotos e Videos | `/sessoes` | OK — foto/video em tabela Sunday pura por Grupo Monday, shots, contratos, banco de ideias, comentarios, anexos, kanban DnD |
 | 17 | Produto | `/produtos` | OK — pipeline 15 etapas, design items, auto-progress, comentarios, anexos, kanban DnD |
 
 ---
@@ -182,6 +182,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | Programacao foi reestruturada por workspaces: planilhas viram workspaces automaticos e novos workspaces podem ser criados pela tela |
 | 2026-06-05 | Melhorias passou a exibir elementos em tabela estilo Sunday/Excel com grupos e colunas dinamicas das planilhas |
 | 2026-06-05 | Programacao ajustada para seguir a ordem do Excel/Sunday: Name, Subelementos, Pessoas, Data, Status, Horario, Foto/Video e Novo/Repost |
+| 2026-06-05 | Demandas Marketing e Sessoes passaram para visualizacao Sunday pura com grupos e colunas da planilha |
 
 ### Validacao 2026-06-05
 
@@ -192,6 +193,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run build`: OK apos Programacao por workspaces.
 - `npm run build`: OK apos tabela estilo Sunday/Excel em Melhorias.
 - `npm run build`: OK apos ajuste de colunas Excel/Sunday em Programacao.
+- `npm run build`: OK apos Demandas Marketing e Sessoes em visualizacao Sunday pura.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters` e `/demandas-marketing` apos tabelas estilo Excel.
@@ -199,6 +201,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - Smoke HTTP local `8082`: OK em `/`, `/conteudo`, `/sessoes`, `/melhorias`, `/configuracoes`.
 - Smoke HTTP local `8082`: OK em `/melhorias` e `/configuracoes` apos tabela de Melhorias e exclusao de usuario.
 - Smoke HTTP local `8082`: OK em `/programacao` apos ajuste de colunas Excel/Sunday.
+- Smoke HTTP local `8082`: OK em `/demandas-marketing` e `/sessoes` apos visualizacao Sunday pura.
 - `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
 - `npm run test`: OK, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos rotas separadas de Marketing, 9 arquivos e 94 testes passando.
@@ -207,6 +210,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run test`: OK apos Programacao por workspaces, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos tabela estilo Sunday/Excel em Melhorias, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos ajuste de colunas Excel/Sunday em Programacao, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos Demandas Marketing e Sessoes em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
 - `node --check scripts/reimport-operational-excel.mjs`: OK.
 - `node scripts/reimport-operational-excel.mjs`: bloqueado localmente por ausencia de `generated/.auth2.json` ou `generated/.auth_response.json`; a carga real precisa desse auth e da migration `20260605113000_operational_custom_fields.sql` aplicada.
 - Browser visual embutido indisponivel na sessao (`iab` nao disponivel); validacao visual substituida por build, testes e smoke HTTP.

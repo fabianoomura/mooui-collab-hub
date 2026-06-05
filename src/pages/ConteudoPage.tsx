@@ -212,6 +212,32 @@ function dynamicProgramacaoColumns(items: ConteudoItem[]) {
   });
 }
 
+const pautaFixedColumns = new Set([
+  'grupomonday',
+  'pessoas',
+  'pessoa',
+  'responsavel',
+  'responsaveis',
+  'data',
+  'date',
+  'status',
+  'prioridade',
+  'priority',
+  'subelementos',
+  'subitems',
+]);
+
+function dynamicPautaColumns(items: Pauta[]) {
+  return sheetColumns(items).filter((column) => {
+    const normalized = column
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9/]+/g, '');
+    return !pautaFixedColumns.has(normalized);
+  });
+}
+
 function sheetColumns<T extends { custom_fields?: Record<string, unknown> | null }>(items: T[]) {
   const columns: string[] = [];
   const seen = new Set<string>();
@@ -2031,7 +2057,7 @@ function PautasTab({ orgMembers }: { orgMembers: { id: string; full_name: string
   const profileMap = useMemo(() => new Map(profiles.map((p: any) => [p.id, p])), [profiles]);
   const pautaGroups = useMemo(() => buildGroupStats(pautas), [pautas]);
   const filteredPautas = pautas.filter((pauta) => groupFilter === 'all' || spreadsheetGroup(pauta.custom_fields) === groupFilter);
-  const pautaSheetColumns = useMemo(() => sheetColumns(filteredPautas), [filteredPautas]);
+  const pautaSheetColumns = useMemo(() => dynamicPautaColumns(filteredPautas), [filteredPautas]);
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -2214,6 +2240,15 @@ function PautaSheetTable({
   profileMap: Map<string, { id: string; full_name: string | null }>;
   renderExpanded: (item: Pauta) => ReactNode;
 }) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, Pauta[]>();
+    items.forEach((item) => {
+      const group = spreadsheetGroup(item.custom_fields);
+      map.set(group, [...(map.get(group) || []), item]);
+    });
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+  }, [items]);
+
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -2226,34 +2261,43 @@ function PautaSheetTable({
             <SheetHeaderCell>Data</SheetHeaderCell>
             {columns.map((column) => <SheetHeaderCell key={column}>{column}</SheetHeaderCell>)}
           </div>
-          {items.map((item) => {
-            const assignee = item.assigned_to ? (profileMap.get(item.assigned_to) as any) : null;
-            const isExpanded = expandedId === item.id;
-            return (
-              <div key={item.id} className="border-b last:border-b-0">
-                <button
-                  type="button"
-                  onClick={() => onToggle(item.id)}
-                  className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-muted/40"
-                >
-                  <SheetCell className="sticky left-0 z-10 flex min-w-[300px] items-center gap-2 bg-background font-medium">
-                    {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                    <span className="truncate">{item.title}</span>
-                  </SheetCell>
-                  <SheetCell><Badge variant="outline" className={cn('text-[10px]', pautaStatusColors[item.status])}>{pautaStatusLabels[item.status]}</Badge></SheetCell>
-                  <SheetCell><Badge variant="outline" className={cn('text-[10px]', pautaPriorityColors[item.priority])}>{pautaPriorityLabels[item.priority]}</Badge></SheetCell>
-                  <SheetCell>{assignee?.full_name || ''}</SheetCell>
-                  <SheetCell>{item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : ''}</SheetCell>
-                  {columns.map((column) => (
-                    <SheetCell key={column} className="max-w-[260px] break-words">
-                      {sheetValue(item.custom_fields?.[column])}
-                    </SheetCell>
-                  ))}
-                </button>
-                {isExpanded && <div className="min-w-[720px] bg-background">{renderExpanded(item)}</div>}
+          {grouped.map(([group, groupItems]) => (
+            <div key={group}>
+              <div className="border-b bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                {group} <span className="ml-2 font-normal">{groupItems.length} elementos</span>
               </div>
-            );
-          })}
+              {groupItems.map((item) => {
+                const assignee = item.assigned_to ? (profileMap.get(item.assigned_to) as any) : null;
+                const isExpanded = expandedId === item.id;
+                const people = sheetField(item.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis') || assignee?.full_name || '';
+                const date = sheetField(item.custom_fields, 'Data', 'Date') || (item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '');
+                return (
+                  <div key={item.id} className="border-b last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => onToggle(item.id)}
+                      className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-muted/40"
+                    >
+                      <SheetCell className="sticky left-0 z-10 flex min-w-[300px] items-center gap-2 bg-background font-medium">
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        <span className="truncate">{item.title}</span>
+                      </SheetCell>
+                      <SheetCell><Badge variant="outline" className={cn('text-[10px]', pautaStatusColors[item.status])}>{pautaStatusLabels[item.status]}</Badge></SheetCell>
+                      <SheetCell><Badge variant="outline" className={cn('text-[10px]', pautaPriorityColors[item.priority])}>{pautaPriorityLabels[item.priority]}</Badge></SheetCell>
+                      <SheetCell className="max-w-[220px] break-words">{people}</SheetCell>
+                      <SheetCell>{date}</SheetCell>
+                      {columns.map((column) => (
+                        <SheetCell key={column} className="max-w-[260px] break-words">
+                          {sheetValue(item.custom_fields?.[column])}
+                        </SheetCell>
+                      ))}
+                    </button>
+                    {isExpanded && <div className="min-w-[720px] bg-background">{renderExpanded(item)}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </Card>
