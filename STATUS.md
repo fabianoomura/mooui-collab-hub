@@ -190,3 +190,12 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run lint`: falha por divida preexistente ampla (`no-explicit-any`, fast refresh, etc.).
 - Migration criada para remover a ambiguidade da RPC `notify_user`: `20260605103000_fix_notify_user_rpc_ambiguity.sql`.
 - Migration criada para campos originais das planilhas em modulos operacionais: `20260605113000_operational_custom_fields.sql`.
+
+### Auditoria Excel x Sistema 2026-06-05
+
+- Sunday com todas as planilhas: OK via `scripts/import-excels-to-sunday.mjs --verify`; 23 projetos, 5.401 tarefas, 3.976 elementos, 1.425 subelementos, 361 colunas, 24.458 valores customizados e 667 atribuicoes.
+- Calendario de Acoes Mensais: OK via `scripts/import-sunday-acoes-mensais-calendar.mjs --verify`; 45 eventos, 225 etapas e 0 eventos 2026+ de outras fontes.
+- Marketing/Fotos/Melhorias: OK em contagem via `scripts/reimport-operational-excel.mjs`; Excel 2026+ bate com o sistema atual: 302 melhorias, 227 subitems, 178 conteudos, 26 subitems de conteudo, 101 newsletters, 42 pautas, 33 pauta items, 95 sessoes e 171 shots.
+- Bloqueio de paridade visual completa: a migration `20260605113000_operational_custom_fields.sql` ainda nao esta aplicada no Supabase; consultas a `custom_fields` retornam `column ... custom_fields does not exist`. Sem ela, os campos originais das planilhas nao aparecem/salvam no sistema em producao.
+- Produtos: sistema atual tem 120 produtos, 1.800 etapas e 396 itens de design. As 1.800 etapas fecham 15 etapas por produto. Ha divergencia contra o resumo antigo gerado localmente (`produtos: 125`, `produto_design_items: 400`), entao Produtos precisa de revisao/carga especifica antes de declarar paridade total.
+- Pessoas: organizacao MOOUI Brasil possui 18 membros no sistema; Sunday importado possui 667 atribuicoes gravadas em `task_assignees`.
