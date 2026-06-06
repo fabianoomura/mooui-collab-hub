@@ -47,7 +47,7 @@ Atualizado em: 2026-06-05
 | 14 | Melhorias | `/melhorias` | OK — site/shopify/SEO, subitems com CRUD completo, progresso, kanban DnD |
 | 15 | Marketing | `/conteudo` | OK — Programacao, Newsletters por card Brasil/Barcelona e Demandas Marketing em tabela Sunday pura por Grupo Monday |
 | 16 | Calendario de Fotos e Videos | `/sessoes` | OK — foto/video em tabela Sunday pura por Grupo Monday, shots, contratos, banco de ideias, comentarios, anexos, kanban DnD |
-| 17 | Produto | `/produtos` | OK — pipeline 15 etapas, design items, auto-progress, comentarios, anexos, kanban DnD |
+| 17 | Produto | `/produtos` | OK — tabela Sunday pura por grupo, pipeline 15 etapas, design items, auto-progress, comentarios, anexos, kanban DnD |
 
 ---
 
@@ -185,6 +185,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | Demandas Marketing e Sessoes passaram para visualizacao Sunday pura com grupos e colunas da planilha |
 | 2026-06-05 | Melhorias passou para visualizacao Sunday pura com grupos, subelementos e colunas da planilha |
 | 2026-06-05 | Newsletters passaram para visualizacao Sunday pura dentro dos workspaces Brasil/Barcelona |
+| 2026-06-05 | Produtos passou para visualizacao Sunday pura por grupo com linha expansivel e pipeline preservado |
 
 ### Validacao 2026-06-05
 
@@ -198,6 +199,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run build`: OK apos Demandas Marketing e Sessoes em visualizacao Sunday pura.
 - `npm run build`: OK apos Melhorias em visualizacao Sunday pura.
 - `npm run build`: OK apos Newsletters em visualizacao Sunday pura.
+- `npm run build`: OK apos Produtos em visualizacao Sunday pura.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters` e `/demandas-marketing` apos tabelas estilo Excel.
@@ -208,6 +210,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - Smoke HTTP local `8082`: OK em `/demandas-marketing` e `/sessoes` apos visualizacao Sunday pura.
 - Smoke HTTP local `8082`: OK em `/melhorias` apos visualizacao Sunday pura.
 - Smoke HTTP local `8082`: OK em `/newsletters` apos visualizacao Sunday pura.
+- Smoke HTTP local `8082`: OK em `/produtos` apos visualizacao Sunday pura.
 - `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
 - `npm run test`: OK, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos rotas separadas de Marketing, 9 arquivos e 94 testes passando.
@@ -219,6 +222,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run test`: OK apos Demandas Marketing e Sessoes em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos Melhorias em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos Newsletters em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos Produtos em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
 - `node --check scripts/reimport-operational-excel.mjs`: OK.
 - `node scripts/reimport-operational-excel.mjs`: bloqueado localmente por ausencia de `generated/.auth2.json` ou `generated/.auth_response.json`; a carga real precisa desse auth e da migration `20260605113000_operational_custom_fields.sql` aplicada.
 - Browser visual embutido indisponivel na sessao (`iab` nao disponivel); validacao visual substituida por build, testes e smoke HTTP.

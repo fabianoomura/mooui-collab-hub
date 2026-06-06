@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Calendar as CalendarIcon, CheckCircle2, ChevronDown, ChevronRight, Clock, Columns3, FileText,
   LayoutList, Package, Paperclip, Plus, Search as SearchIcon, Send, Trash2, UserRound, X,
@@ -88,6 +88,22 @@ const designStatusColors: Record<ProdutoDesignStatus, string> = {
 };
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function SheetCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r px-2 py-2 text-xs last:border-r-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+function SheetHeaderCell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-[140px] border-r bg-muted/60 px-2 py-2 text-xs font-semibold text-muted-foreground last:border-r-0', className)}>
+      {children}
+    </div>
+  );
+}
 
 export default function ProdutoPage() {
   const { currentOrg } = useOrganization();
@@ -266,53 +282,25 @@ function ProdutosList({ orgMembers }: { orgMembers: OrgMember[] }) {
       ) : viewMode === 'kanban' ? (
         <ProdutosKanban produtos={filtered} profileMap={profileMap} onOpen={(produto) => { setExpandedId(produto.id); setViewMode('list'); }} onGroupChange={(id, group) => updateMut.mutate({ id, collection_group: group } as any)} />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((produto) => {
-            const isExpanded = expandedId === produto.id;
-            const responsible = produto.responsible ? profileMap.get(produto.responsible) : null;
-            return (
-              <Card key={produto.id} className="overflow-hidden">
-                <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setExpandedId(isExpanded ? null : produto.id)}>
-                  <div className="flex items-start gap-2">
-                    {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2 flex-wrap">
-                        {produto.code && <span className="text-[10px] font-mono font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{produto.code}</span>}
-                        <h3 className="font-medium truncate flex-1 min-w-0">{produto.name}</h3>
-                        <Badge variant="outline" className={cn('text-[10px]', groupColors[produto.collection_group])}>{groupLabels[produto.collection_group]}</Badge>
-                        <Badge variant="outline" className="text-[10px]">{produto.progress}%</Badge>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted mt-2 overflow-hidden">
-                        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${produto.progress}%` }} />
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap mt-2 text-[11px] text-muted-foreground">
-                        {responsible && <span className="inline-flex items-center gap-1"><UserRound className="h-3 w-3" />{responsible.full_name || 'Usuario'}</span>}
-                        {produto.launch_target && <span className="inline-flex items-center gap-1"><CalendarIcon className="h-3 w-3" />Lancamento {format(new Date(produto.launch_target + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>}
-                        {produto.cronograma_start && produto.cronograma_end && (
-                          <span>{format(new Date(produto.cronograma_start + 'T12:00:00'), 'dd/MM', { locale: ptBR })} - {format(new Date(produto.cronograma_end + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <ProdutoExpanded
-                    produto={produto}
-                    orgMembers={orgMembers}
-                    isOwner={produto.created_by === user?.id}
-                    onUpdate={(patch) => updateMut.mutate({ id: produto.id, ...patch }, { onSuccess: () => toast.success('Produto atualizado') })}
-                    onDelete={async () => {
-                      const ok = await confirm({ title: 'Excluir este produto?', destructive: true, confirmText: 'Excluir' });
-                      if (!ok) return;
-                      deleteMut.mutate(produto.id, { onSuccess: () => { toast.success('Produto excluido'); setExpandedId(null); } });
-                    }}
-                  />
-                )}
-              </Card>
-            );
-          })}
-        </div>
+        <ProdutosSheetTable
+          produtos={filtered}
+          expandedId={expandedId}
+          onToggle={(id) => setExpandedId(expandedId === id ? null : id)}
+          profileMap={profileMap}
+          renderExpanded={(produto) => (
+            <ProdutoExpanded
+              produto={produto}
+              orgMembers={orgMembers}
+              isOwner={produto.created_by === user?.id}
+              onUpdate={(patch) => updateMut.mutate({ id: produto.id, ...patch }, { onSuccess: () => toast.success('Produto atualizado') })}
+              onDelete={async () => {
+                const ok = await confirm({ title: 'Excluir este produto?', destructive: true, confirmText: 'Excluir' });
+                if (!ok) return;
+                deleteMut.mutate(produto.id, { onSuccess: () => { toast.success('Produto excluido'); setExpandedId(null); } });
+              }}
+            />
+          )}
+        />
       )}
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -359,6 +347,91 @@ function ProdutosList({ orgMembers }: { orgMembers: OrgMember[] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ProdutosSheetTable({
+  produtos,
+  expandedId,
+  onToggle,
+  profileMap,
+  renderExpanded,
+}: {
+  produtos: Produto[];
+  expandedId: string | null;
+  onToggle: (id: string) => void;
+  profileMap: Map<string, OrgMember>;
+  renderExpanded: (produto: Produto) => ReactNode;
+}) {
+  const grouped = useMemo(() => {
+    return produtoKanbanGroups
+      .map((group) => ({ group, items: produtos.filter((produto) => produto.collection_group === group) }))
+      .filter((entry) => entry.items.length > 0);
+  }, [produtos]);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          <div className="grid grid-flow-col auto-cols-max border-b">
+            <SheetHeaderCell className="sticky left-0 z-10 min-w-[320px] bg-muted">Elemento</SheetHeaderCell>
+            <SheetHeaderCell>Subelementos</SheetHeaderCell>
+            <SheetHeaderCell>Pessoas</SheetHeaderCell>
+            <SheetHeaderCell>Cronograma</SheetHeaderCell>
+            <SheetHeaderCell>Lancamento</SheetHeaderCell>
+            <SheetHeaderCell>Status</SheetHeaderCell>
+            <SheetHeaderCell>Progresso</SheetHeaderCell>
+            <SheetHeaderCell>Atualizado</SheetHeaderCell>
+          </div>
+          {grouped.map(({ group, items }) => (
+            <div key={group}>
+              <div className="border-b bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                {groupLabels[group]} <span className="ml-2 font-normal">{items.length} elementos</span>
+              </div>
+              {items.map((produto) => {
+                const isExpanded = expandedId === produto.id;
+                const responsible = produto.responsible ? profileMap.get(produto.responsible) : null;
+                const cronograma = produto.cronograma_start && produto.cronograma_end
+                  ? `${format(new Date(produto.cronograma_start + 'T12:00:00'), 'dd/MM', { locale: ptBR })} - ${format(new Date(produto.cronograma_end + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}`
+                  : produto.cronograma_start
+                    ? format(new Date(produto.cronograma_start + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
+                    : '';
+                return (
+                  <div key={produto.id} className="border-b last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => onToggle(produto.id)}
+                      className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-muted/40"
+                    >
+                      <SheetCell className="sticky left-0 z-10 flex min-w-[320px] items-center gap-2 bg-background font-medium">
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        <span className="truncate">{produto.name}</span>
+                        {produto.code && <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{produto.code}</span>}
+                      </SheetCell>
+                      <SheetCell>15 etapas</SheetCell>
+                      <SheetCell className="max-w-[220px] break-words">{responsible?.full_name || ''}</SheetCell>
+                      <SheetCell className="max-w-[220px] break-words">{cronograma}</SheetCell>
+                      <SheetCell>{produto.launch_target ? format(new Date(produto.launch_target + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : ''}</SheetCell>
+                      <SheetCell><Badge variant="outline" className={cn('text-[10px]', groupColors[produto.collection_group])}>{groupLabels[produto.collection_group]}</Badge></SheetCell>
+                      <SheetCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                            <div className="h-full bg-emerald-500" style={{ width: `${produto.progress}%` }} />
+                          </div>
+                          <span>{produto.progress}%</span>
+                        </div>
+                      </SheetCell>
+                      <SheetCell>{formatDistanceToNow(new Date(produto.updated_at), { addSuffix: true, locale: ptBR })}</SheetCell>
+                    </button>
+                    {isExpanded && <div className="min-w-[760px] bg-background">{renderExpanded(produto)}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 
