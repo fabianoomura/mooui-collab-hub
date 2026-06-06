@@ -186,6 +186,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | Melhorias passou para visualizacao Sunday pura com grupos, subelementos e colunas da planilha |
 | 2026-06-05 | Newsletters passaram para visualizacao Sunday pura dentro dos workspaces Brasil/Barcelona |
 | 2026-06-05 | Produtos passou para visualizacao Sunday pura por grupo com linha expansivel e pipeline preservado |
+| 2026-06-05 | Visual Sunday reforcado em Marketing, Melhorias, Sessoes e Produtos com toolbar de board, grupos destacados e linhas densas |
 
 ### Validacao 2026-06-05
 
@@ -200,6 +201,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run build`: OK apos Melhorias em visualizacao Sunday pura.
 - `npm run build`: OK apos Newsletters em visualizacao Sunday pura.
 - `npm run build`: OK apos Produtos em visualizacao Sunday pura.
+- `npm run build`: OK apos reforco visual Sunday nos modulos operacionais.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters` e `/demandas-marketing` apos tabelas estilo Excel.
@@ -211,6 +213,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - Smoke HTTP local `8082`: OK em `/melhorias` apos visualizacao Sunday pura.
 - Smoke HTTP local `8082`: OK em `/newsletters` apos visualizacao Sunday pura.
 - Smoke HTTP local `8082`: OK em `/produtos` apos visualizacao Sunday pura.
+- Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing`, `/melhorias`, `/sessoes` e `/produtos` apos reforco visual Sunday.
 - `scripts/verify-admin-profile-update.mjs`: OK, update de nome de membro aceito pela policy.
 - `npm run test`: OK, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos rotas separadas de Marketing, 9 arquivos e 94 testes passando.
@@ -223,6 +226,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run test`: OK apos Melhorias em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos Newsletters em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos Produtos em visualizacao Sunday pura, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos reforco visual Sunday nos modulos operacionais, 9 arquivos e 94 testes passando.
 - `node --check scripts/reimport-operational-excel.mjs`: OK.
 - `node scripts/reimport-operational-excel.mjs`: bloqueado localmente por ausencia de `generated/.auth2.json` ou `generated/.auth_response.json`; a carga real precisa desse auth e da migration `20260605113000_operational_custom_fields.sql` aplicada.
 - Browser visual embutido indisponivel na sessao (`iab` nao disponivel); validacao visual substituida por build, testes e smoke HTTP.

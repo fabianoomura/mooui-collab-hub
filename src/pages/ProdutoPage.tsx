@@ -91,7 +91,7 @@ const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', '
 
 function SheetCell({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('min-w-[140px] border-r px-2 py-2 text-xs last:border-r-0', className)}>
+    <div className={cn('min-h-10 min-w-[150px] border-r border-border/80 bg-background px-3 py-2 text-xs last:border-r-0', className)}>
       {children}
     </div>
   );
@@ -99,8 +99,24 @@ function SheetCell({ children, className }: { children: ReactNode; className?: s
 
 function SheetHeaderCell({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('min-w-[140px] border-r bg-muted/60 px-2 py-2 text-xs font-semibold text-muted-foreground last:border-r-0', className)}>
+    <div className={cn('min-w-[150px] border-r border-border/80 bg-muted/70 px-3 py-2.5 text-xs font-semibold text-muted-foreground last:border-r-0', className)}>
       {children}
+    </div>
+  );
+}
+
+function SundayTableToolbar({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="flex items-center gap-3 border-b bg-background px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-sm bg-primary" />
+        <span className="text-sm font-semibold">{title}</span>
+        <Badge variant="outline" className="text-[10px]">Sunday puro</Badge>
+      </div>
+      <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span>{count} elementos</span>
+        <span className="rounded border px-2 py-1">Agrupado por Grupo</span>
+      </div>
     </div>
   );
 }
@@ -370,7 +386,8 @@ function ProdutosSheetTable({
   }, [produtos]);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border shadow-sm">
+      <SundayTableToolbar title="Board de Produtos" count={produtos.length} />
       <div className="overflow-x-auto">
         <div className="min-w-max">
           <div className="grid grid-flow-col auto-cols-max border-b">
@@ -385,7 +402,7 @@ function ProdutosSheetTable({
           </div>
           {grouped.map(({ group, items }) => (
             <div key={group}>
-              <div className="border-b bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+              <div className="border-b border-l-4 border-l-primary bg-primary/5 px-3 py-2 text-sm font-semibold text-foreground">
                 {groupLabels[group]} <span className="ml-2 font-normal">{items.length} elementos</span>
               </div>
               {items.map((produto) => {
@@ -401,7 +418,7 @@ function ProdutosSheetTable({
                     <button
                       type="button"
                       onClick={() => onToggle(produto.id)}
-                      className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-muted/40"
+                      className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-primary/5"
                     >
                       <SheetCell className="sticky left-0 z-10 flex min-w-[320px] items-center gap-2 bg-background font-medium">
                         {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
