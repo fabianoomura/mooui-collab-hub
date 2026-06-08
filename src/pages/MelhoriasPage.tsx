@@ -262,17 +262,18 @@ export default function MelhoriasPage() {
   };
   const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (areaFilter !== 'all' ? 1 : 0) + (groupFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0);
   const sundayBoards = [
-    { label: 'Site Melhorias', area: 'site_melhorias', color: '#3B82F6', aliases: ['1780430139', '6 Site', 'Site Melhorias'] },
-    { label: 'Shopify Novo', area: 'shopify', color: '#22C55E', aliases: ['1780430149', 'Site Shopify Novo', 'Shopify'] },
-    { label: 'SEO On-Page', area: 'seo_onpage', color: '#F59E0B', aliases: ['1780430199', 'SEO On Page', 'SEO On-Page'] },
-    { label: 'SEO Tecnico', area: 'seo_tecnico', color: '#8B5CF6', aliases: ['1780430208', 'SEO Tecnico', 'SEO Técnico'] },
+    { label: 'Site Melhorias', area: 'site_melhorias', color: '#3B82F6', aliases: ['Modulo | Melhorias | Site', '1780430139', '6 Site', 'Site Melhorias'] },
+    { label: 'Shopify Novo', area: 'shopify', color: '#22C55E', aliases: ['Modulo | Melhorias | Shopify Novo', '1780430149', 'Site Shopify Novo', 'Shopify'] },
+    { label: 'SEO On-Page', area: 'seo_onpage', color: '#F59E0B', aliases: ['Modulo | Melhorias | SEO On-Page', '1780430199', 'SEO On Page', 'SEO On-Page'] },
+    { label: 'SEO Tecnico', area: 'seo_tecnico', color: '#8B5CF6', aliases: ['Modulo | Melhorias | SEO Tecnico', '1780430208', 'SEO Tecnico', 'SEO Técnico'] },
   ].map((board) => ({
     ...board,
     total: melhorias.filter((item) => item.area === board.area).length,
-    project: (projects || []).find((project: any) => {
-      const key = normalizedSheetKey(project.name);
-      return board.aliases.some((alias) => key.includes(normalizedSheetKey(alias)));
-    }),
+    project: board.aliases.reduce((found: any, alias) => {
+      if (found) return found;
+      const aliasKey = normalizedSheetKey(alias);
+      return (projects || []).find((project: any) => normalizedSheetKey(project.name).includes(aliasKey)) || null;
+    }, null),
   }));
   const activeSundayBoard = sundayBoards.find((board) => board.area === activeBoardArea) || sundayBoards[0];
 

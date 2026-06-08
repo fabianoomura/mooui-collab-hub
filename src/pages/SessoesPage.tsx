@@ -204,7 +204,9 @@ export default function SessoesPage() {
   const { currentOrg } = useOrganization();
   const [tab, setTab] = useState<'sessoes' | 'contratos' | 'ideias'>('sessoes');
   const { data: projects = [], isLoading: loadingProjects } = useProjectsByOrg(currentOrg?.id);
-  const sundayProject = (projects || []).find((project: any) => {
+  const sundayProject = (projects || []).find((project: any) =>
+    normalizedSheetKey(project.name).includes('modulosessoescalendariodefotosevideos'),
+  ) || (projects || []).find((project: any) => {
     const key = normalizedSheetKey(project.name);
     return key.includes('1780430231') || (key.includes('calendariodefotosevideos') && key.includes('excel'));
   });

@@ -151,10 +151,14 @@ function normalizedKey(value: unknown) {
 
 function findSundayProject(projects: any[] | undefined, aliases: Array<string | undefined | null>) {
   const keys = aliases.filter(Boolean).map((alias) => normalizedKey(alias));
-  return (projects || []).find((project) => {
-    const projectKey = normalizedKey(project.name);
-    return keys.some((key) => key && (projectKey.includes(key) || key.includes(projectKey)));
-  });
+  for (const key of keys) {
+    const project = (projects || []).find((candidate) => {
+      const projectKey = normalizedKey(candidate.name);
+      return key && (projectKey.includes(key) || key.includes(projectKey));
+    });
+    if (project) return project;
+  }
+  return undefined;
 }
 
 function programacaoWorkspaceName(item: ConteudoItem) {
@@ -294,17 +298,17 @@ function programacaoOpenedAt(item: ConteudoItem) {
 }
 
 const programacaoSundayBoardTitles: Record<ConteudoChannel, string> = {
-  mooui_kids: 'Excel | programacao mooui kids (1780430295)',
-  mooui_home: 'Excel | programacao mooui home (1780430305)',
-  amo_mooui: 'Excel | programacao amo mooui (1780430275)',
-  barcelona: 'Excel | programacao mooui barcelona (1780430285)',
-  outras_redes: 'Excel | programacao outras redes (1780430314)',
-  pinterest: 'Excel | programacao pinterest',
+  mooui_kids: 'Modulo | Programacao | MOOUI Kids',
+  mooui_home: 'Modulo | Programacao | MOOUI Home',
+  amo_mooui: 'Modulo | Programacao | Amo MOOUI',
+  barcelona: 'Modulo | Programacao | Barcelona',
+  outras_redes: 'Modulo | Programacao | Outras Redes',
+  pinterest: 'Modulo | Programacao | Pinterest',
 };
 
 const newsletterSundayBoardTitles: Record<string, string> = {
-  brasil: 'Excel | newsletter mooui brasil (1780430246)',
-  barcelona: 'Excel | newsletter barcelona (1780430265)',
+  brasil: 'Modulo | Newsletters | Brasil',
+  barcelona: 'Modulo | Newsletters | Barcelona',
 };
 
 const pautaFixedColumns = new Set([
@@ -491,7 +495,7 @@ export default function ConteudoPage({ module = 'all' }: { module?: MarketingMod
         {module === 'demandas' && (
           <SundayProjectRedirect
             label="Demandas Marketing"
-            aliases={['Excel | marketing demandas (1780430344)', 'Marketing Demandas 1780430344', 'Demandas Marketing 1780430344']}
+            aliases={['Modulo | Demandas Marketing', 'Excel | marketing demandas (1780430344)', 'Marketing Demandas 1780430344', 'Demandas Marketing 1780430344']}
           />
         )}
       </div>
@@ -521,7 +525,7 @@ export default function ConteudoPage({ module = 'all' }: { module?: MarketingMod
         <TabsContent value="demandas" className="mt-4">
           <SundayProjectRedirect
             label="Demandas Marketing"
-            aliases={['Excel | marketing demandas (1780430344)', 'Marketing Demandas 1780430344', 'Demandas Marketing 1780430344']}
+            aliases={['Modulo | Demandas Marketing', 'Excel | marketing demandas (1780430344)', 'Marketing Demandas 1780430344', 'Demandas Marketing 1780430344']}
           />
         </TabsContent>
       </Tabs>
@@ -624,6 +628,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) || workspaces[0] || null;
   const projectForWorkspace = (workspace: ProgramacaoWorkspaceView) => findSundayProject(projects, [
     workspace.channel ? programacaoSundayBoardTitles[workspace.channel] : null,
+    `Modulo | Programacao | ${workspace.name}`,
     workspace.name,
     `programacao ${workspace.name}`,
   ]);
@@ -1900,6 +1905,7 @@ function NewslettersTab() {
 
   const projectForChannel = (channel: NewsletterChannel) => findSundayProject(projects, [
     newsletterSundayBoardTitles[channel],
+    `Modulo | Newsletters | ${newsletterChannelLabel(channel)}`,
     `newsletter ${newsletterChannelLabel(channel)}`,
     channel,
   ]);

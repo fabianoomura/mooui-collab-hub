@@ -192,6 +192,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-07 | Programacao ajustada para paridade visual com a tela Sunday `/tabela`: grupos por mes, coluna unica `Elemento` com `Categoria | Conteudo`, Data Acao, Prioridade, Status, Responsavel e Abertura |
 | 2026-06-08 | Programacao e Newsletters deixaram de renderizar tabela customizada: os cards de rede/workspace agora abrem diretamente o board Sunday real em `/tabela?projeto=...`; Demandas Marketing, Sessoes e Melhorias tambem passam a usar os projetos Sunday importados |
 | 2026-06-08 | Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias foram corrigidos para manter header/cards do modulo e renderizar o board Sunday embutido abaixo, sem redirecionar para `/tabela` |
+| 2026-06-08 | Boards Sunday/Excel foram clonados para boards internos `Modulo | ...`; Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias agora priorizam esses clones, deixando os imports antigos apenas como fallback |
 
 ### Validacao 2026-06-05
 
@@ -212,6 +213,9 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run build`: OK apos paridade visual da Programacao com Sunday `/tabela`.
 - `npm run build`: OK apos redirecionar Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias para os boards Sunday reais.
 - `npm run build`: OK apos embutir os boards Sunday nos modulos, mantendo cards/workspaces no header.
+- `node scripts/internalize-sunday-module-boards.mjs --yes`: OK; 13 boards internos criados/confirmados com 4.127 tarefas no total.
+- `npm run build`: OK apos apontar os modulos para os clones internos `Modulo | ...`.
+- `npm run test -- src/test/integration.test.ts`: OK, 8 testes passando; `npm run test` completo teve timeout flutuante em docs no Supabase, depois passou isolado.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters` e `/demandas-marketing` apos tabelas estilo Excel.
