@@ -1612,7 +1612,8 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                 </div>
 
                 {!isCollapsed && (
-                  <div className="min-w-full w-max rounded-lg overflow-hidden border border-border">
+                  <div className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
+                    <div className="min-w-full w-max">
                     {/* Column headers */}
                     <div className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
