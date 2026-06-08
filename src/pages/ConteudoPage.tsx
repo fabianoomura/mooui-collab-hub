@@ -7,6 +7,7 @@ import {
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
@@ -31,6 +32,7 @@ import {
 } from '@/hooks/usePautas';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useCreateProject, useProjectsByOrg } from '@/hooks/useProjectData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -145,6 +147,14 @@ function normalizedKey(value: unknown) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '');
+}
+
+function findSundayProject(projects: any[] | undefined, aliases: Array<string | undefined | null>) {
+  const keys = aliases.filter(Boolean).map((alias) => normalizedKey(alias));
+  return (projects || []).find((project) => {
+    const projectKey = normalizedKey(project.name);
+    return keys.some((key) => key && (projectKey.includes(key) || key.includes(projectKey)));
+  });
 }
 
 function programacaoWorkspaceName(item: ConteudoItem) {
@@ -292,6 +302,11 @@ const programacaoSundayBoardTitles: Record<ConteudoChannel, string> = {
   pinterest: 'Excel | programacao pinterest',
 };
 
+const newsletterSundayBoardTitles: Record<string, string> = {
+  brasil: 'Excel | newsletter mooui brasil (1780430246)',
+  barcelona: 'Excel | newsletter barcelona (1780430265)',
+};
+
 const pautaFixedColumns = new Set([
   'grupomonday',
   'pessoas',
@@ -396,6 +411,23 @@ function SundayTableToolbar({ title, count }: { title: string; count: number }) 
   );
 }
 
+function SundayProjectRedirect({ aliases, label }: { aliases: string[]; label: string }) {
+  const { currentOrg } = useOrganization();
+  const navigate = useNavigate();
+  const { data: projects = [], isLoading } = useProjectsByOrg(currentOrg?.id);
+  const project = findSundayProject(projects, aliases);
+
+  useEffect(() => {
+    if (project) navigate(`/tabela?projeto=${project.id}`, { replace: true });
+  }, [navigate, project]);
+
+  return (
+    <Card className="p-10 text-center text-sm text-muted-foreground">
+      {isLoading ? 'Abrindo board Sunday...' : project ? 'Abrindo board Sunday...' : `Board Sunday de ${label} nao encontrado em Projetos.`}
+    </Card>
+  );
+}
+
 /* ================================================================ */
 /* Main Page                                                         */
 /* ================================================================ */
@@ -457,7 +489,12 @@ export default function ConteudoPage({ module = 'all' }: { module?: MarketingMod
         </div>
         {module === 'programacao' && <ProgramacaoTab orgMembers={orgMembers as any} />}
         {module === 'newsletters' && <NewslettersTab />}
-        {module === 'demandas' && <PautasTab orgMembers={orgMembers as any} />}
+        {module === 'demandas' && (
+          <SundayProjectRedirect
+            label="Demandas Marketing"
+            aliases={['Excel | marketing demandas (1780430344)', 'Marketing Demandas 1780430344', 'Demandas Marketing 1780430344']}
+          />
+        )}
       </div>
     );
   }
@@ -483,7 +520,10 @@ export default function ConteudoPage({ module = 'all' }: { module?: MarketingMod
           <NewslettersTab />
         </TabsContent>
         <TabsContent value="demandas" className="mt-4">
-          <PautasTab orgMembers={orgMembers as any} />
+          <SundayProjectRedirect
+            label="Demandas Marketing"
+            aliases={['Excel | marketing demandas (1780430344)', 'Marketing Demandas 1780430344', 'Demandas Marketing 1780430344']}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -496,9 +536,13 @@ export default function ConteudoPage({ module = 'all' }: { module?: MarketingMod
 
 function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: string | null }[] }) {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
+  const navigate = useNavigate();
   const { data: items = [], isLoading } = useConteudoItems();
   const { data: savedWorkspaces = [] } = useProgramacaoWorkspaces();
+  const { data: projects = [] } = useProjectsByOrg(currentOrg?.id);
   const createWorkspaceMut = useCreateProgramacaoWorkspace();
+  const createProjectMut = useCreateProject();
   const createMut = useCreateConteudo();
   const updateMut = useUpdateConteudo();
   const deleteMut = useDeleteConteudo();
@@ -580,6 +624,19 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   }, [activeWorkspaceId, workspaces]);
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) || workspaces[0] || null;
+  const projectForWorkspace = (workspace: ProgramacaoWorkspaceView) => findSundayProject(projects, [
+    workspace.channel ? programacaoSundayBoardTitles[workspace.channel] : null,
+    workspace.name,
+    `programacao ${workspace.name}`,
+  ]);
+  const openSundayWorkspace = (workspace: ProgramacaoWorkspaceView) => {
+    const project = projectForWorkspace(workspace);
+    if (!project) {
+      toast.warning('Board Sunday desta rede ainda nao foi encontrado em Projetos.');
+      return;
+    }
+    navigate(`/tabela?projeto=${project.id}`);
+  };
   const workspaceItems = activeWorkspace ? items.filter((item) => workspaceMatchesItem(activeWorkspace, item)) : items;
   const q = search.trim().toLowerCase();
   const filtered = workspaceItems.filter(i => {
@@ -628,6 +685,19 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
       onSuccess: () => toast.success('Workspace criado'),
       onError: () => toast.warning('Workspace criado nesta sessao. Rode a migration de workspaces para salvar no banco.'),
     });
+    if (currentOrg) {
+      createProjectMut.mutate({
+        name: `Excel | programacao ${name}`,
+        description: workspaceDescription.trim() || undefined,
+        color: localWorkspace.color,
+        organizationId: currentOrg.id,
+      }, {
+        onSuccess: (project) => {
+          toast.success('Board Sunday criado para a rede');
+          navigate(`/tabela?projeto=${project.id}`);
+        },
+      });
+    }
   };
 
   const handleCreate = () => {
@@ -651,7 +721,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="hidden">
         <div className="flex items-center gap-2">
           <Button variant={view === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setView('list')}>
             <List className="h-3.5 w-3.5 mr-1" />Lista
@@ -687,7 +757,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
             <button
               key={workspace.id}
               type="button"
-              onClick={() => { setActiveWorkspaceId(workspace.id); setGroupFilter('all'); }}
+              onClick={() => openSundayWorkspace(workspace)}
               className={cn(
                 'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
                 active && 'border-primary ring-1 ring-primary/30'
@@ -711,7 +781,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         </div>
       </div>
 
-      {programacaoGroups.length > 0 && (
+      {false && programacaoGroups.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-muted-foreground">Grupos do Monday</span>
@@ -744,7 +814,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+      <div className="hidden">
         <div className="relative flex-1 min-w-0">
           <SearchIcon className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar…" className="pl-8 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -769,6 +839,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         </Select>
       </div>
 
+      <div className="hidden">
       {/* View */}
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
@@ -818,6 +889,8 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
           </div>
         </>
       )}
+
+      </div>
 
       <Dialog open={showWorkspaceDialog} onOpenChange={setShowWorkspaceDialog}>
         <DialogContent>
@@ -1768,7 +1841,11 @@ function ConteudoFilesPanel({ conteudoItemId }: { conteudoItemId: string }) {
 
 function NewslettersTab() {
   const { user } = useAuth();
+  const { currentOrg } = useOrganization();
+  const navigate = useNavigate();
   const { data: newsletters = [], isLoading } = useNewsletters();
+  const { data: projects = [] } = useProjectsByOrg(currentOrg?.id);
+  const createProjectMut = useCreateProject();
   const createMut = useCreateNewsletter();
   const updateMut = useUpdateNewsletter();
   const deleteMut = useDeleteNewsletter();
@@ -1820,6 +1897,20 @@ function NewslettersTab() {
     };
   });
 
+  const projectForChannel = (channel: NewsletterChannel) => findSundayProject(projects, [
+    newsletterSundayBoardTitles[channel],
+    `newsletter ${newsletterChannelLabel(channel)}`,
+    channel,
+  ]);
+  const openSundayNewsletter = (channel: NewsletterChannel) => {
+    const project = projectForChannel(channel);
+    if (!project) {
+      toast.warning('Board Sunday deste workspace ainda nao foi encontrado em Projetos.');
+      return;
+    }
+    navigate(`/tabela?projeto=${project.id}`);
+  };
+
   const handleCreateChannel = () => {
     const name = newChannelName.trim();
     if (!name) return;
@@ -1829,6 +1920,18 @@ function NewslettersTab() {
     setGroupFilter('all');
     setNewChannelName('');
     setShowChannelDialog(false);
+    if (currentOrg) {
+      createProjectMut.mutate({
+        name: `Excel | newsletter ${name}`,
+        color: '#D6336C',
+        organizationId: currentOrg.id,
+      }, {
+        onSuccess: (project) => {
+          toast.success('Board Sunday criado para o workspace');
+          navigate(`/tabela?projeto=${project.id}`);
+        },
+      });
+    }
   };
 
   const handleCreate = () => {
@@ -1864,7 +1967,7 @@ function NewslettersTab() {
             <button
               key={stat.channel}
               type="button"
-              onClick={() => { setActiveChannel(stat.channel); setNChannel(stat.channel); setGroupFilter('all'); }}
+              onClick={() => openSundayNewsletter(stat.channel)}
               className={cn(
                 'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
                 active && 'border-primary ring-1 ring-primary/30',
@@ -1885,7 +1988,7 @@ function NewslettersTab() {
       </div>
       </div>
 
-      {newsletterGroups.length > 0 && (
+      {false && newsletterGroups.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
           {newsletterGroups.map((stat) => {
             const active = groupFilter === stat.group;
@@ -1907,7 +2010,7 @@ function NewslettersTab() {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="hidden">
         <Select value={groupFilter} onValueChange={setGroupFilter}>
           <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -1922,6 +2025,7 @@ function NewslettersTab() {
         </Button>
       </div>
 
+      <div className="hidden">
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : filtered.length === 0 ? (
@@ -1956,6 +2060,7 @@ function NewslettersTab() {
         </div>
         </>
       )}
+      </div>
 
       <Dialog open={showChannelDialog} onOpenChange={setShowChannelDialog}>
         <DialogContent>

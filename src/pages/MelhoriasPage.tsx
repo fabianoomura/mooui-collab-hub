@@ -14,6 +14,8 @@ import {
 import { useMelhoriaAttachments } from '@/hooks/useMelhoriaAttachments';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useProjectsByOrg } from '@/hooks/useProjectData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -178,6 +180,8 @@ function SundayTableToolbar({ title, count }: { title: string; count: number }) 
 export default function MelhoriasPage() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
+  const navigate = useNavigate();
+  const { data: projects = [] } = useProjectsByOrg(currentOrg?.id);
   const { data: melhorias = [], isLoading } = useMelhorias();
   const createMut = useCreateMelhoria();
   const updateMut = useUpdateMelhoria();
@@ -257,6 +261,19 @@ export default function MelhoriasPage() {
     rejected: baseFiltered.filter(m => m.status === 'rejected').length,
   };
   const activeChips = (priorityFilter !== 'all' ? 1 : 0) + (areaFilter !== 'all' ? 1 : 0) + (groupFilter !== 'all' ? 1 : 0) + (scope !== 'all' ? 1 : 0) + (q ? 1 : 0);
+  const sundayBoards = [
+    { label: 'Site Melhorias', area: 'site_melhorias', color: '#3B82F6', aliases: ['1780430139', '6 Site', 'Site Melhorias'] },
+    { label: 'Shopify Novo', area: 'shopify', color: '#22C55E', aliases: ['1780430149', 'Site Shopify Novo', 'Shopify'] },
+    { label: 'SEO On-Page', area: 'seo_onpage', color: '#F59E0B', aliases: ['1780430199', 'SEO On Page', 'SEO On-Page'] },
+    { label: 'SEO Tecnico', area: 'seo_tecnico', color: '#8B5CF6', aliases: ['1780430208', 'SEO Tecnico', 'SEO Técnico'] },
+  ].map((board) => ({
+    ...board,
+    total: melhorias.filter((item) => item.area === board.area).length,
+    project: (projects || []).find((project: any) => {
+      const key = normalizedSheetKey(project.name);
+      return board.aliases.some((alias) => key.includes(normalizedSheetKey(alias)));
+    }),
+  }));
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -291,6 +308,33 @@ export default function MelhoriasPage() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">Melhorias</h1>
+        <p className="text-sm text-muted-foreground">Boards Sunday importados das planilhas de melhorias.</p>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {sundayBoards.map((board) => (
+          <button
+            key={board.area}
+            type="button"
+            onClick={() => board.project ? navigate(`/tabela?projeto=${board.project.id}`) : toast.warning(`Board Sunday de ${board.label} nao encontrado em Projetos.`)}
+            className="rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: board.color }} />
+                {board.label}
+              </span>
+              <Badge variant="outline" className="text-[10px]">Sunday</Badge>
+            </div>
+            <div className="mt-2 text-2xl font-semibold leading-none">{board.total}</div>
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              {board.project ? 'Abrir board completo' : 'Projeto nao encontrado'}
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="hidden">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Melhorias de Site & Sistemas</h1>
@@ -547,6 +591,7 @@ export default function MelhoriasPage() {
           profileMap={profileMap as any}
         />
       )}
+      </div>
     </div>
   );
 }

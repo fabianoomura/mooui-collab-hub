@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, ChevronRight, Columns3,
   ClipboardSignature, Clock, Film, FileText, Image as ImageIcon, LayoutList, Lightbulb,
@@ -8,6 +8,8 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useProjectsByOrg } from '@/hooks/useProjectData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -200,7 +202,17 @@ function SundayTableToolbar({ title, count }: { title: string; count: number }) 
 
 export default function SessoesPage() {
   const { currentOrg } = useOrganization();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'sessoes' | 'contratos' | 'ideias'>('sessoes');
+  const { data: projects = [], isLoading: loadingProjects } = useProjectsByOrg(currentOrg?.id);
+  const sundayProject = (projects || []).find((project: any) => {
+    const key = normalizedSheetKey(project.name);
+    return key.includes('1780430231') || (key.includes('calendariodefotosevideos') && key.includes('excel'));
+  });
+
+  useEffect(() => {
+    if (sundayProject) navigate(`/tabela?projeto=${sundayProject.id}`, { replace: true });
+  }, [navigate, sundayProject]);
 
   const { data: orgMembers = [] } = useQuery({
     queryKey: ['org-members-sessoes', currentOrg?.id],
@@ -217,6 +229,12 @@ export default function SessoesPage() {
 
   return (
     <div className="space-y-4">
+      {tab === 'sessoes' && (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          {loadingProjects || sundayProject ? 'Abrindo board Sunday...' : 'Board Sunday de Calendario de Fotos e Videos nao encontrado em Projetos.'}
+        </Card>
+      )}
+      <div className="hidden">
       <div>
         <h1 className="text-2xl font-bold">Calendario de Fotos e Videos</h1>
         <p className="text-sm text-muted-foreground">Planejamento de producao, shots, contratos e banco de ideias.</p>
@@ -239,6 +257,7 @@ export default function SessoesPage() {
           <IdeiasTab />
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }
