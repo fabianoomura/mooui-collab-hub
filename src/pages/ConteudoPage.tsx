@@ -7,7 +7,6 @@ import {
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
@@ -48,6 +47,7 @@ import { cn } from '@/lib/utils';
 import { LinkedItems } from '@/components/LinkedItems';
 import { ContentCalendar } from '@/components/conteudo/ContentCalendar';
 import { SpreadsheetFields } from '@/components/SpreadsheetFields';
+import TableViewPage from './TableViewPage';
 
 /* ================================================================ */
 /* Labels & Colors                                                   */
@@ -413,18 +413,17 @@ function SundayTableToolbar({ title, count }: { title: string; count: number }) 
 
 function SundayProjectRedirect({ aliases, label }: { aliases: string[]; label: string }) {
   const { currentOrg } = useOrganization();
-  const navigate = useNavigate();
   const { data: projects = [], isLoading } = useProjectsByOrg(currentOrg?.id);
   const project = findSundayProject(projects, aliases);
 
-  useEffect(() => {
-    if (project) navigate(`/tabela?projeto=${project.id}`, { replace: true });
-  }, [navigate, project]);
-
   return (
-    <Card className="p-10 text-center text-sm text-muted-foreground">
-      {isLoading ? 'Abrindo board Sunday...' : project ? 'Abrindo board Sunday...' : `Board Sunday de ${label} nao encontrado em Projetos.`}
-    </Card>
+    project ? (
+      <TableViewPage projectId={project.id} embedded />
+    ) : (
+      <Card className="p-10 text-center text-sm text-muted-foreground">
+        {isLoading ? 'Carregando board...' : `Board Sunday de ${label} nao encontrado em Projetos.`}
+      </Card>
+    )
   );
 }
 
@@ -537,7 +536,6 @@ export default function ConteudoPage({ module = 'all' }: { module?: MarketingMod
 function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: string | null }[] }) {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
-  const navigate = useNavigate();
   const { data: items = [], isLoading } = useConteudoItems();
   const { data: savedWorkspaces = [] } = useProgramacaoWorkspaces();
   const { data: projects = [] } = useProjectsByOrg(currentOrg?.id);
@@ -630,13 +628,10 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
     `programacao ${workspace.name}`,
   ]);
   const openSundayWorkspace = (workspace: ProgramacaoWorkspaceView) => {
-    const project = projectForWorkspace(workspace);
-    if (!project) {
-      toast.warning('Board Sunday desta rede ainda nao foi encontrado em Projetos.');
-      return;
-    }
-    navigate(`/tabela?projeto=${project.id}`);
+    setActiveWorkspaceId(workspace.id);
+    setGroupFilter('all');
   };
+  const activeProject = activeWorkspace ? projectForWorkspace(activeWorkspace) : null;
   const workspaceItems = activeWorkspace ? items.filter((item) => workspaceMatchesItem(activeWorkspace, item)) : items;
   const q = search.trim().toLowerCase();
   const filtered = workspaceItems.filter(i => {
@@ -694,7 +689,6 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
       }, {
         onSuccess: (project) => {
           toast.success('Board Sunday criado para a rede');
-          navigate(`/tabela?projeto=${project.id}`);
         },
       });
     }
@@ -780,6 +774,14 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         })}
         </div>
       </div>
+
+      {activeProject ? (
+        <TableViewPage projectId={activeProject.id} embedded />
+      ) : (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          {activeWorkspace ? 'Board Sunday desta rede nao encontrado em Projetos.' : 'Escolha uma rede para abrir o board.'}
+        </Card>
+      )}
 
       {false && programacaoGroups.length > 0 && (
         <div className="space-y-2">
@@ -1842,7 +1844,6 @@ function ConteudoFilesPanel({ conteudoItemId }: { conteudoItemId: string }) {
 function NewslettersTab() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
-  const navigate = useNavigate();
   const { data: newsletters = [], isLoading } = useNewsletters();
   const { data: projects = [] } = useProjectsByOrg(currentOrg?.id);
   const createProjectMut = useCreateProject();
@@ -1903,13 +1904,11 @@ function NewslettersTab() {
     channel,
   ]);
   const openSundayNewsletter = (channel: NewsletterChannel) => {
-    const project = projectForChannel(channel);
-    if (!project) {
-      toast.warning('Board Sunday deste workspace ainda nao foi encontrado em Projetos.');
-      return;
-    }
-    navigate(`/tabela?projeto=${project.id}`);
+    setActiveChannel(channel);
+    setNChannel(channel);
+    setGroupFilter('all');
   };
+  const activeProject = projectForChannel(activeChannel);
 
   const handleCreateChannel = () => {
     const name = newChannelName.trim();
@@ -1928,7 +1927,6 @@ function NewslettersTab() {
       }, {
         onSuccess: (project) => {
           toast.success('Board Sunday criado para o workspace');
-          navigate(`/tabela?projeto=${project.id}`);
         },
       });
     }
@@ -1987,6 +1985,14 @@ function NewslettersTab() {
         })}
       </div>
       </div>
+
+      {activeProject ? (
+        <TableViewPage projectId={activeProject.id} embedded />
+      ) : (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          Board Sunday deste workspace nao encontrado em Projetos.
+        </Card>
+      )}
 
       {false && newsletterGroups.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">

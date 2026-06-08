@@ -1088,7 +1088,12 @@ function SundayCalendarView({
   );
 }
 
-export default function TableViewPage() {
+type TableViewPageProps = {
+  projectId?: string;
+  embedded?: boolean;
+};
+
+export default function TableViewPage({ projectId, embedded = false }: TableViewPageProps = {}) {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
   const confirm = useConfirm();
@@ -1148,7 +1153,7 @@ export default function TableViewPage() {
     toast.success('Etiquetas de prioridade atualizadas!');
   };
 
-  const activeProjectId = projectFromUrl || projects?.[0]?.id;
+  const activeProjectId = projectId || projectFromUrl || projects?.[0]?.id;
   const { tasks, isLoading: loadingTasks, addTask, updateTask, deleteTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
   const { members: projectMembers, addAssignee, removeAssignee } = useProjectMembers(activeProjectId);
@@ -1228,7 +1233,9 @@ export default function TableViewPage() {
   const toggleGroup = (key: string) => { setCollapsedGroups(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; }); };
   const toggleExpand = useCallback((taskId: string) => { setExpandedTasks(prev => { const next = new Set(prev); if (next.has(taskId)) next.delete(taskId); else next.add(taskId); return next; }); }, []);
   const toggleColumn = useCallback((col: FixedColumnKey) => { setVisibleColumns(prev => { const next = new Set(prev); if (next.has(col)) next.delete(col); else next.add(col); return next; }); }, []);
-  const setSelectedProject = (id: string) => setSearchParams({ projeto: id });
+  const setSelectedProject = (id: string) => {
+    if (!embedded) setSearchParams({ projeto: id });
+  };
 
   type PromptState = { title: string; label?: string; defaultValue?: string; placeholder?: string; confirmLabel?: string; onSubmit: (v: string) => void } | null;
   const [promptState, setPromptState] = useState<PromptState>(null);
@@ -1318,6 +1325,15 @@ export default function TableViewPage() {
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         {projects && projects.length > 0 ? (
+          embedded ? (
+            <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: projects.find((p) => p.id === activeProjectId)?.color || 'hsl(var(--primary))' }}
+              />
+              {projects.find((p) => p.id === activeProjectId)?.name || 'Quadro Principal'}
+            </h2>
+          ) : (
           <Select value={activeProjectId} onValueChange={setSelectedProject}>
             <SelectTrigger className="w-auto border-0 bg-transparent text-xl font-bold text-foreground h-auto py-0 gap-2">
               <SelectValue placeholder="Selecione um projeto" />
@@ -1333,6 +1349,7 @@ export default function TableViewPage() {
               ))}
             </SelectContent>
           </Select>
+          )
         ) : (
           <h1 className="text-xl font-bold text-foreground">Quadro Principal</h1>
         )}

@@ -191,6 +191,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-07 | Programacao passou a abrir por cards de redes; Newsletters passaram a abrir por cards Brasil/Barcelona e novos workspaces, cada card exibindo sua tabela Sunday isolada |
 | 2026-06-07 | Programacao ajustada para paridade visual com a tela Sunday `/tabela`: grupos por mes, coluna unica `Elemento` com `Categoria | Conteudo`, Data Acao, Prioridade, Status, Responsavel e Abertura |
 | 2026-06-08 | Programacao e Newsletters deixaram de renderizar tabela customizada: os cards de rede/workspace agora abrem diretamente o board Sunday real em `/tabela?projeto=...`; Demandas Marketing, Sessoes e Melhorias tambem passam a usar os projetos Sunday importados |
+| 2026-06-08 | Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias foram corrigidos para manter header/cards do modulo e renderizar o board Sunday embutido abaixo, sem redirecionar para `/tabela` |
 
 ### Validacao 2026-06-05
 
@@ -210,6 +211,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run build`: OK apos cards de redes em Programacao e cards/workspaces em Newsletters.
 - `npm run build`: OK apos paridade visual da Programacao com Sunday `/tabela`.
 - `npm run build`: OK apos redirecionar Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias para os boards Sunday reais.
+- `npm run build`: OK apos embutir os boards Sunday nos modulos, mantendo cards/workspaces no header.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters` e `/demandas-marketing` apos tabelas estilo Excel.
@@ -230,6 +232,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run test`: OK apos cards de redes em Programacao e cards/workspaces em Newsletters, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos paridade visual da Programacao com Sunday `/tabela`, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos redirecionar Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias para os boards Sunday reais, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos embutir os boards Sunday nos modulos, mantendo cards/workspaces no header, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos opcao de excluir usuario em Configuracoes, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos Programacao por workspaces, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos tabela estilo Sunday/Excel em Melhorias, 9 arquivos e 94 testes passando.

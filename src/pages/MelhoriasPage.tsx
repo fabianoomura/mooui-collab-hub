@@ -14,8 +14,8 @@ import {
 import { useMelhoriaAttachments } from '@/hooks/useMelhoriaAttachments';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { useProjectsByOrg } from '@/hooks/useProjectData';
+import TableViewPage from './TableViewPage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -180,7 +180,6 @@ function SundayTableToolbar({ title, count }: { title: string; count: number }) 
 export default function MelhoriasPage() {
   const { user } = useAuth();
   const { currentOrg } = useOrganization();
-  const navigate = useNavigate();
   const { data: projects = [] } = useProjectsByOrg(currentOrg?.id);
   const { data: melhorias = [], isLoading } = useMelhorias();
   const createMut = useCreateMelhoria();
@@ -197,6 +196,7 @@ export default function MelhoriasPage() {
   const [groupFilter, setGroupFilter] = useState('all');
   const [scope, setScope] = useState<'all' | 'mine' | 'assigned'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [activeBoardArea, setActiveBoardArea] = useState<string>('site_melhorias');
 
   // New form state
   const [nTitle, setNTitle] = useState('');
@@ -274,6 +274,7 @@ export default function MelhoriasPage() {
       return board.aliases.some((alias) => key.includes(normalizedSheetKey(alias)));
     }),
   }));
+  const activeSundayBoard = sundayBoards.find((board) => board.area === activeBoardArea) || sundayBoards[0];
 
   const handleCreate = () => {
     if (!nTitle.trim()) return;
@@ -317,8 +318,11 @@ export default function MelhoriasPage() {
           <button
             key={board.area}
             type="button"
-            onClick={() => board.project ? navigate(`/tabela?projeto=${board.project.id}`) : toast.warning(`Board Sunday de ${board.label} nao encontrado em Projetos.`)}
-            className="rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40"
+            onClick={() => setActiveBoardArea(board.area)}
+            className={cn(
+              'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+              activeBoardArea === board.area && 'border-primary ring-1 ring-primary/30',
+            )}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-2 text-sm font-medium">
@@ -334,6 +338,13 @@ export default function MelhoriasPage() {
           </button>
         ))}
       </div>
+      {activeSundayBoard?.project ? (
+        <TableViewPage projectId={activeSundayBoard.project.id} embedded />
+      ) : (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          Board Sunday de {activeSundayBoard?.label || 'Melhorias'} nao encontrado em Projetos.
+        </Card>
+      )}
       <div className="hidden">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
