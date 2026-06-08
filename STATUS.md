@@ -193,6 +193,8 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-08 | Programacao e Newsletters deixaram de renderizar tabela customizada: os cards de rede/workspace agora abrem diretamente o board Sunday real em `/tabela?projeto=...`; Demandas Marketing, Sessoes e Melhorias tambem passam a usar os projetos Sunday importados |
 | 2026-06-08 | Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias foram corrigidos para manter header/cards do modulo e renderizar o board Sunday embutido abaixo, sem redirecionar para `/tabela` |
 | 2026-06-08 | Boards Sunday/Excel foram clonados para boards internos `Modulo | ...`; Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias agora priorizam esses clones, deixando os imports antigos apenas como fallback |
+| 2026-06-08 | Sunday e boards embutidos ganharam renomeacao de board/projeto; grupos da tabela ganharam acao de exclusao em massa para apagar meses/grupos inteiros com confirmacao |
+| 2026-06-08 | Validacao: npm run build OK; npm run test -- src/test/edits.test.ts src/test/consolidated.test.ts OK (29 testes) |
 
 ### Validacao 2026-06-05
 

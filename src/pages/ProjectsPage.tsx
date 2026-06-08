@@ -1,4 +1,4 @@
-import { useProjectsByOrg, useCreateProject, useDeleteProject, useDestroyProject } from '@/hooks/useProjectData';
+import { useProjectsByOrg, useCreateProject, useUpdateProject, useDeleteProject, useDestroyProject } from '@/hooks/useProjectData';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Plus, FolderKanban, Users, Loader2, MoreVertical, Archive, Trash2 } from 'lucide-react';
+import { Plus, FolderKanban, Users, Loader2, MoreVertical, Archive, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -24,6 +24,7 @@ export default function ProjectsPage() {
   const { currentOrg } = useOrganization();
   const { data: projects, isLoading } = useProjectsByOrg(currentOrg?.id);
   const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
   const archiveProject = useDeleteProject();
   const destroyProject = useDestroyProject();
   const confirm = useConfirm();
@@ -57,6 +58,7 @@ export default function ProjectsPage() {
   };
 
   const [showNew, setShowNew] = useState(false);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
 
@@ -76,6 +78,27 @@ export default function ProjectsPage() {
         onError: () => toast.error('Erro ao criar projeto'),
       }
     );
+  };
+
+  const openEditProject = (project: any) => {
+    setEditingProject(project);
+    setName(project.name || '');
+    setDescription(project.description || '');
+  };
+
+  const handleUpdateProject = () => {
+    if (!editingProject || !name.trim()) return;
+    updateProject.mutate({
+      projectId: editingProject.id,
+      updates: { name: name.trim(), description: description.trim() || null },
+    }, {
+      onSuccess: () => {
+        toast.success('Projeto atualizado');
+        setEditingProject(null);
+        reset();
+      },
+      onError: (e: any) => toast.error(e.message || 'Erro ao atualizar projeto'),
+    });
   };
 
   if (isLoading) {
@@ -131,6 +154,10 @@ export default function ProjectsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => openEditProject(project)}>
+                          <Pencil className="h-4 w-4 mr-2" /> Renomear
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleArchive(project.id, project.name)}>
                           <Archive className="h-4 w-4 mr-2" /> Arquivar
                         </DropdownMenuItem>
@@ -193,6 +220,39 @@ export default function ProjectsPage() {
             <Button variant="outline" onClick={() => setShowNew(false)}>Cancelar</Button>
             <Button onClick={handleCreateProject} disabled={!name.trim() || createProject.isPending}>
               Criar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingProject} onOpenChange={(o) => { if (!o) { setEditingProject(null); reset(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar projeto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nome</Label>
+              <Input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) { e.preventDefault(); handleUpdateProject(); } }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Descrição</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditingProject(null); reset(); }}>Cancelar</Button>
+            <Button onClick={handleUpdateProject} disabled={!name.trim() || updateProject.isPending}>
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

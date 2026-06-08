@@ -1,4 +1,4 @@
-import { useProjects, useCreateProject, useProjectTasks, type TaskWithAssignees, type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
+import { useProjects, useCreateProject, useUpdateProject, useProjectTasks, type TaskWithAssignees, type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
 import { useAssigneeProfiles } from '@/hooks/useAssigneeProfiles';
 import { useProjectMembers } from '@/hooks/useProjectMembers';
 import { useProjectTemplates, useSaveProjectAsTemplate, useCreateProjectFromTemplate, useDeleteProjectTemplate } from '@/hooks/useProjectTemplates';
@@ -1096,6 +1096,7 @@ type TableViewPageProps = {
 export default function TableViewPage({ projectId, embedded = false }: TableViewPageProps = {}) {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
+  const updateProjectMeta = useUpdateProject();
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectFromUrl = searchParams.get('projeto');
@@ -1289,6 +1290,28 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     setCustomValue.mutate({ taskId, columnId, value });
   };
 
+  const activeProject = projects?.find((project) => project.id === activeProjectId);
+
+  const handleRenameProject = () => {
+    if (!activeProjectId || !activeProject) return;
+    setPromptState({
+      title: 'Renomear board',
+      label: 'Nome',
+      defaultValue: activeProject.name,
+      confirmLabel: 'Salvar',
+      onSubmit: (name) => {
+        const nextName = name.trim();
+        if (nextName && nextName !== activeProject.name) {
+          updateProjectMeta.mutate({
+            projectId: activeProjectId,
+            updates: { name: nextName },
+          }, { onSuccess: () => toast.success('Nome atualizado') });
+        }
+        setPromptState(null);
+      },
+    });
+  };
+
   const handleDeleteTask = async (task: TaskWithAssignees) => {
     const hasSubtasks = (task.subtasks?.length || 0) > 0;
     const ok = await confirm({
@@ -1305,6 +1328,24 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
       },
       onError: (e: any) => toast.error(e.message || 'Erro ao excluir elemento'),
     });
+  };
+
+  const handleDeleteGroup = async (group: { label: string; tasks: TaskWithAssignees[] }) => {
+    if (group.tasks.length === 0) return;
+    const subtaskCount = group.tasks.reduce((sum, task) => sum + (task.subtasks?.length || 0), 0);
+    const ok = await confirm({
+      title: `Excluir grupo "${group.label}"?`,
+      description: `Isto remove ${group.tasks.length} elemento${group.tasks.length === 1 ? '' : 's'}${subtaskCount ? ` e ${subtaskCount} subelemento${subtaskCount === 1 ? '' : 's'}` : ''}. Esta acao nao pode ser desfeita.`,
+      destructive: true,
+      confirmText: 'Excluir grupo',
+    });
+    if (!ok) return;
+    try {
+      await Promise.all(group.tasks.map((task) => deleteTask.mutateAsync(task.id)));
+      toast.success(`Grupo "${group.label}" excluido`);
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao excluir grupo');
+    }
   };
 
   // Grid template: color bar + title + fixed columns + dynamic columns + add-column spacer
@@ -1331,7 +1372,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                 className="h-2.5 w-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: projects.find((p) => p.id === activeProjectId)?.color || 'hsl(var(--primary))' }}
               />
-              {projects.find((p) => p.id === activeProjectId)?.name || 'Quadro Principal'}
+              {activeProject?.name || 'Quadro Principal'}
             </h2>
           ) : (
           <Select value={activeProjectId} onValueChange={setSelectedProject}>
@@ -1383,6 +1424,9 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
           <HideColumnsPopover visible={visibleColumns} onToggle={toggleColumn} />
           <GroupByPopover groupBy={groupBy} onGroupBy={setGroupBy} />
           <div className="h-5 w-px bg-border mx-1" />
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs h-8" onClick={handleRenameProject}>
+            <Pencil className="h-3.5 w-3.5" /> Renomear
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs h-8">
@@ -1486,11 +1530,25 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
             const isCollapsed = collapsedGroups.has(group.key);
             return (
               <div key={group.key}>
-                <button onClick={() => toggleGroup(group.key)} className="flex items-center gap-2 mb-1">
-                  {isCollapsed ? <ChevronRight className="h-4 w-4" style={{ color: group.color }} /> : <ChevronDown className="h-4 w-4" style={{ color: group.color }} />}
-                  <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>{group.label}</span>
-                  <span className="text-xs text-muted-foreground ml-1">{group.tasks.length} elementos</span>
-                </button>
+                <div className="mb-1 flex items-center gap-2">
+                  <button onClick={() => toggleGroup(group.key)} className="flex items-center gap-2">
+                    {isCollapsed ? <ChevronRight className="h-4 w-4" style={{ color: group.color }} /> : <ChevronDown className="h-4 w-4" style={{ color: group.color }} />}
+                    <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>{group.label}</span>
+                    <span className="text-xs text-muted-foreground ml-1">{group.tasks.length} elementos</span>
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => handleDeleteGroup(group)} className="text-destructive focus:text-destructive">
+                        <Trash2 className="h-4 w-4 mr-2" /> Excluir grupo inteiro
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
                 {!isCollapsed && (
                   <div className="rounded-lg overflow-hidden border border-border min-w-fit">
