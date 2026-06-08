@@ -1418,7 +1418,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   }, [visibleColumns, dynamicColumns]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 min-w-0 max-w-full">
       <div className="flex items-center gap-3">
         {projects && projects.length > 0 ? (
           embedded ? (
