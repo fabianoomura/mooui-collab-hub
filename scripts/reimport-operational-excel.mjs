@@ -74,6 +74,12 @@ function text(row, ...keys) {
   return hit === null || hit === undefined ? '' : String(hit).trim();
 }
 
+function splitPipeTitle(raw) {
+  const parts = String(raw || '').split(/\s+\|\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  return { category: parts[0], title: parts.slice(1).join(' | ') };
+}
+
 function validName(name) {
   const s = String(name ?? '').trim();
   if (!s) return false;
@@ -448,25 +454,32 @@ async function buildPayloads() {
       if (!isRecent(date)) continue;
       const fotoVideo = value(item, 'Foto/Video', 'Foto/Video');
       const tipo = value(item, 'Tipo');
+      const rawName = text(item, 'Name');
+      const splitName = splitPipeTitle(rawName);
+      const category = splitName?.category || rawName;
+      const visibleTitle = text(item, 'Subitems', 'Subelementos') || splitName?.title || category;
+      const customFields = spreadsheetFields(item, ['Subitems', 'Subelementos']);
+      if (category && category !== rawName) customFields.Name = category;
       conteudo.push({
         organization_id: ORG_ID,
         created_by: globalThis.USER_ID,
-        title: text(item, 'Name'),
+        title: visibleTitle,
         channel: board.meta,
         scheduled_date: date,
         time_slot: text(item, 'Horario') || null,
         status: mapConteudoStatus(value(item, 'Status')),
         content_type: tipo ? mapContentType(tipo) : mapContentType(fotoVideo),
         is_repost: /repost/i.test(text(item, 'Novo/Repost')),
-        content_category: text(item, 'Tipo') || null,
+        content_category: text(item, 'Tipo') || category || null,
         photo_url: text(item, 'Foto Principal') || null,
         notes: note([
           ['Grupo Monday', item._group],
+          ['Name original', category],
           ['Responsavel original', text(item, 'Pessoas', 'Responsavel', 'Pessoa')],
           ['Novo/Repost', text(item, 'Novo/Repost')],
         ]),
         assigned_to: null,
-        custom_fields: spreadsheetFields(item, ['Name', 'Subitems', 'Subelementos']),
+        custom_fields: customFields,
         _subitems: (subs.get(item.name) || []).filter((sub) => validName(sub.name)).map((sub, index) => ({
           title: text(sub, 'Name'),
           status: mapSubStatus(value(sub, 'Status')),

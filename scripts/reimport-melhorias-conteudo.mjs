@@ -390,6 +390,12 @@ console.log(`Total subitens: ${allMelhorias.reduce((s, m) => s + m._subitems.len
 // ===================================================================
 console.log('\n=== CONTEÚDO ===\n');
 
+function splitPipeTitle(raw) {
+  const parts = String(raw || '').split(/\s+\|\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  return { category: parts[0], title: parts.slice(1).join(' | ') };
+}
+
 const conteudoFiles = [
   'Programacao_MOOUI_Kids_1780430295.xlsx',
   'Programacao_MOOUI_Home_1780430305.xlsx',
@@ -411,18 +417,22 @@ for (const file of conteudoFiles) {
     const isRepost = (item['Novo/Repost'] || '').toString().toLowerCase().includes('repost');
     const fotoVideo = item['Foto/Vídeo'] || item['Foto/Video'] || '';
     const tipo = item['Tipo'] || '';
+    const rawName = (item['Name'] || '').toString().trim();
+    const splitName = splitPipeTitle(rawName);
+    const category = splitName?.category || rawName;
+    const visibleTitle = (item['Subitems'] || item['Subelementos'] || '').toString().trim() || splitName?.title || category;
 
     const conteudoItem = {
       organization_id: ORG_ID,
       created_by: USER_ID,
-      title: (item['Name'] || '').toString().trim(),
+      title: visibleTitle,
       channel,
       scheduled_date: scheduledDate,
       time_slot: (item['Horário'] || '').toString().trim() || null,
       status: mapConteudoStatus(item['Status']),
       content_type: tipo ? mapConteudoType(tipo) : mapFotoVideo(fotoVideo),
       is_repost: isRepost,
-      content_category: tipo ? tipo.toString().trim() : null,
+      content_category: tipo ? tipo.toString().trim() : category || null,
       photo_url: (item['Foto Principal'] || '').toString().trim() || null,
       notes: null,
       assigned_to: resolveUser(responsavel, userMap),

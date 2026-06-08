@@ -12,6 +12,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useConteudoItems, useCreateConteudo, useUpdateConteudo, useDeleteConteudo,
   useConteudoActivity, useConteudoComments, useAddConteudoComment, useConteudoAttachments, useConteudoChecklist,
+  useConteudoChecklistForItems,
   useCreateConteudoChecklistItem, useUpdateConteudoChecklistItem, useDeleteConteudoChecklistItem,
   useProgramacaoWorkspaces, useCreateProgramacaoWorkspace,
   type ConteudoItem, type ConteudoStatus, type ConteudoChannel, type ConteudoType,
@@ -110,6 +111,16 @@ const pautaItemStatusColors: Record<string, string> = {
   em_andamento: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
   concluido: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 };
+const conteudoChecklistStatusLabels: Record<ConteudoChecklistStatus, string> = {
+  pendente: 'Pendente',
+  em_andamento: 'Em andamento',
+  concluido: 'Concluido',
+};
+const conteudoChecklistStatusColors: Record<ConteudoChecklistStatus, string> = {
+  pendente: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
+  em_andamento: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  concluido: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+};
 const channelAccentColors: Record<ConteudoChannel, string> = {
   mooui_kids: '#EC4899',
   mooui_home: '#F59E0B',
@@ -185,6 +196,7 @@ function sheetField(fields: Record<string, unknown> | null | undefined, ...keys:
 }
 
 const programacaoFixedColumns = new Set([
+  'name',
   'grupomonday',
   'pessoas',
   'pessoa',
@@ -201,7 +213,7 @@ const programacaoFixedColumns = new Set([
   'tipo',
 ]);
 
-function dynamicProgramacaoColumns(items: ConteudoItem[]) {
+function dynamicProgramacaoColumns(items: Array<{ custom_fields?: Record<string, unknown> | null }>) {
   return sheetColumns(items).filter((column) => {
     const normalized = column
       .normalize('NFD')
@@ -210,6 +222,24 @@ function dynamicProgramacaoColumns(items: ConteudoItem[]) {
       .replace(/[^a-z0-9/]+/g, '');
     return !programacaoFixedColumns.has(normalized);
   });
+}
+
+function splitProgramacaoTitle(value: string) {
+  const parts = value.split(/\s+\|\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  return { name: parts[0], subelement: parts.slice(1).join(' | ') };
+}
+
+function programacaoNameCell(item: ConteudoItem) {
+  const explicit = sheetField(item.custom_fields, 'Name');
+  const split = splitProgramacaoTitle(explicit || item.title);
+  return split?.name || explicit || item.content_category || item.title;
+}
+
+function programacaoSubelementCell(item: ConteudoItem) {
+  const explicit = sheetField(item.custom_fields, 'Subelementos', 'Subitems');
+  const split = splitProgramacaoTitle(explicit || item.title);
+  return explicit || split?.subelement || item.title;
 }
 
 const pautaFixedColumns = new Set([
@@ -518,11 +548,26 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
   const filtered = workspaceItems.filter(i => {
     if (groupFilter !== 'all' && spreadsheetGroup(i.custom_fields) !== groupFilter) return false;
     if (statusFilter !== 'all' && i.status !== statusFilter) return false;
-    if (q && !i.title.toLowerCase().includes(q)) return false;
+    if (q && ![
+      i.title,
+      programacaoNameCell(i),
+      programacaoSubelementCell(i),
+      sheetField(i.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis'),
+    ].some((value) => value.toLowerCase().includes(q))) return false;
     return true;
   });
+  const visibleItemIds = useMemo(() => filtered.map((item) => item.id), [filtered]);
+  const { data: visibleSubitems = [] } = useConteudoChecklistForItems(visibleItemIds);
+  const subitemsByItemId = useMemo(() => {
+    const map = new Map<string, ConteudoChecklistItem[]>();
+    visibleSubitems.forEach((subitem) => {
+      if (!map.has(subitem.conteudo_item_id)) map.set(subitem.conteudo_item_id, []);
+      map.get(subitem.conteudo_item_id)!.push(subitem);
+    });
+    return map;
+  }, [visibleSubitems]);
   const programacaoGroups = useMemo(() => buildGroupStats(workspaceItems), [workspaceItems]);
-  const programacaoSheetColumns = useMemo(() => dynamicProgramacaoColumns(filtered), [filtered]);
+  const programacaoSheetColumns = useMemo(() => dynamicProgramacaoColumns([...filtered, ...visibleSubitems]), [filtered, visibleSubitems]);
   const handleCreateWorkspace = () => {
     const name = workspaceName.trim();
     if (!name) return;
@@ -694,7 +739,7 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhum conteúdo encontrado.</Card>
       ) : (
         <>
-          <ProgramacaoSheetTable items={filtered} columns={programacaoSheetColumns} onOpen={setOpenItem} />
+          <ProgramacaoSheetTable items={filtered} subitemsByItemId={subitemsByItemId} columns={programacaoSheetColumns} onOpen={setOpenItem} />
           <div className="hidden">
           {filtered.map(item => {
             const author = profileMap.get(item.created_by) as any;
@@ -850,10 +895,12 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
 
 function ProgramacaoSheetTable({
   items,
+  subitemsByItemId,
   columns,
   onOpen,
 }: {
   items: ConteudoItem[];
+  subitemsByItemId: Map<string, ConteudoChecklistItem[]>;
   columns: string[];
   onOpen: (item: ConteudoItem) => void;
 }) {
@@ -888,31 +935,73 @@ function ProgramacaoSheetTable({
               <div className="border-b border-l-4 border-l-primary bg-primary/5 px-3 py-2 text-sm font-semibold text-foreground">
                 {group} <span className="ml-2 text-xs font-normal text-muted-foreground">{groupItems.length} elementos</span>
               </div>
-              {groupItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onOpen(item)}
-                  className="grid grid-flow-col auto-cols-max border-b text-left transition-colors last:border-b-0 hover:bg-primary/5"
-                >
-                  <SheetCell className="sticky left-0 z-10 min-w-[300px] bg-background font-medium">
-                    <div className="truncate">{item.title}</div>
-                    {item.code && <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">{item.code}</div>}
-                  </SheetCell>
-                  <SheetCell>{item.custom_fields?.Subelementos ? sheetValue(item.custom_fields.Subelementos) : ''}</SheetCell>
-                  <SheetCell>{sheetField(item.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis')}</SheetCell>
-                  <SheetCell>{sheetField(item.custom_fields, 'Data') || (item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'yyyy-MM-dd') : '')}</SheetCell>
-                  <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
-                  <SheetCell>{sheetField(item.custom_fields, 'Horario') || item.time_slot || ''}</SheetCell>
-                  <SheetCell>{sheetField(item.custom_fields, 'Foto/Video', 'Foto Video') || typeLabels[item.content_type]}</SheetCell>
-                  <SheetCell>{sheetField(item.custom_fields, 'Novo/Repost') || (item.is_repost ? 'Repost' : 'Novo')}</SheetCell>
-                  {columns.map((column) => (
-                    <SheetCell key={column} className="max-w-[260px] break-words">
-                      {sheetValue(item.custom_fields?.[column])}
-                    </SheetCell>
-                  ))}
-                </button>
-              ))}
+              {groupItems.map((item) => {
+                const subitems = subitemsByItemId.get(item.id) || [];
+                return (
+                  <div key={item.id} className="border-b last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => onOpen(item)}
+                      className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-primary/5"
+                    >
+                      <SheetCell className="sticky left-0 z-10 min-w-[300px] bg-background font-medium">
+                        <div className="truncate">{programacaoNameCell(item)}</div>
+                        {item.code && <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">{item.code}</div>}
+                      </SheetCell>
+                      <SheetCell className="min-w-[320px]">
+                        <div className="truncate font-medium">{programacaoSubelementCell(item)}</div>
+                        {subitems.length > 0 && (
+                          <div className="mt-1 text-[10px] text-muted-foreground">{subitems.length} subelementos internos</div>
+                        )}
+                      </SheetCell>
+                      <SheetCell>{sheetField(item.custom_fields, 'Pessoas', 'Pessoa', 'Responsavel', 'Responsaveis')}</SheetCell>
+                      <SheetCell>{sheetField(item.custom_fields, 'Data') || (item.scheduled_date ? format(new Date(item.scheduled_date + 'T12:00:00'), 'yyyy-MM-dd') : '')}</SheetCell>
+                      <SheetCell><Badge className={cn('text-[10px]', statusColors[item.status])} variant="outline">{statusLabels[item.status]}</Badge></SheetCell>
+                      <SheetCell>{sheetField(item.custom_fields, 'Horario') || item.time_slot || ''}</SheetCell>
+                      <SheetCell>{sheetField(item.custom_fields, 'Foto/Video', 'Foto Video') || typeLabels[item.content_type]}</SheetCell>
+                      <SheetCell>{sheetField(item.custom_fields, 'Novo/Repost') || (item.is_repost ? 'Repost' : 'Novo')}</SheetCell>
+                      {columns.map((column) => (
+                        <SheetCell key={column} className="max-w-[260px] break-words">
+                          {sheetValue(item.custom_fields?.[column])}
+                        </SheetCell>
+                      ))}
+                    </button>
+                    {subitems.map((subitem) => (
+                      <button
+                        key={subitem.id}
+                        type="button"
+                        onClick={() => onOpen(item)}
+                        className="grid grid-flow-col auto-cols-max text-left transition-colors hover:bg-primary/5"
+                      >
+                        <SheetCell className="sticky left-0 z-10 min-w-[300px] bg-muted/30 pl-9 text-muted-foreground">
+                          Subelemento
+                        </SheetCell>
+                        <SheetCell className="min-w-[320px] bg-muted/30">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="truncate font-medium">{subitem.title}</span>
+                          </div>
+                        </SheetCell>
+                        <SheetCell className="bg-muted/30">{sheetField(subitem.custom_fields, 'Pessoas', 'Pessoa', 'Owner', 'Responsavel', 'Responsaveis')}</SheetCell>
+                        <SheetCell className="bg-muted/30">{sheetField(subitem.custom_fields, 'Data', 'Date') || subitem.due_date || ''}</SheetCell>
+                        <SheetCell className="bg-muted/30">
+                          <Badge className={cn('text-[10px]', conteudoChecklistStatusColors[subitem.status])} variant="outline">
+                            {conteudoChecklistStatusLabels[subitem.status]}
+                          </Badge>
+                        </SheetCell>
+                        <SheetCell className="bg-muted/30">{sheetField(subitem.custom_fields, 'Horario')}</SheetCell>
+                        <SheetCell className="bg-muted/30">{sheetField(subitem.custom_fields, 'Foto/Video', 'Foto Video')}</SheetCell>
+                        <SheetCell className="bg-muted/30">{sheetField(subitem.custom_fields, 'Novo/Repost')}</SheetCell>
+                        {columns.map((column) => (
+                          <SheetCell key={column} className="max-w-[260px] break-words bg-muted/30">
+                            {sheetValue(subitem.custom_fields?.[column])}
+                          </SheetCell>
+                        ))}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

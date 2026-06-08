@@ -187,6 +187,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-05 | Newsletters passaram para visualizacao Sunday pura dentro dos workspaces Brasil/Barcelona |
 | 2026-06-05 | Produtos passou para visualizacao Sunday pura por grupo com linha expansivel e pipeline preservado |
 | 2026-06-05 | Visual Sunday reforcado em Marketing, Melhorias, Sessoes e Produtos com toolbar de board, grupos destacados e linhas densas |
+| 2026-06-07 | Programacao comparada com os Excel do Sunday; tela passou a separar `Name` de `Subelementos/Subitems` quando o export vem como `Name | Conteudo`, e a grade principal carrega subelementos reais de `conteudo_checklist_items` |
 
 ### Validacao 2026-06-05
 
@@ -202,6 +203,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run build`: OK apos Newsletters em visualizacao Sunday pura.
 - `npm run build`: OK apos Produtos em visualizacao Sunday pura.
 - `npm run build`: OK apos reforco visual Sunday nos modulos operacionais.
+- `npm run build`: OK apos ajuste real de Programacao contra planilhas Sunday/Excel.
 - Smoke HTTP local `8082`: OK em `/conteudo`, `/sessoes`, `/melhorias` apos custom fields.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters`, `/demandas-marketing` e `/conteudo`.
 - Smoke HTTP local `8082`: OK em `/programacao`, `/newsletters` e `/demandas-marketing` apos tabelas estilo Excel.
@@ -218,6 +220,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 - `npm run test`: OK, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos rotas separadas de Marketing, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos tabelas estilo Excel em Marketing, 9 arquivos e 94 testes passando.
+- `npm run test`: OK apos ajuste real de Programacao contra planilhas Sunday/Excel, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos opcao de excluir usuario em Configuracoes, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos Programacao por workspaces, 9 arquivos e 94 testes passando.
 - `npm run test`: OK apos tabela estilo Sunday/Excel em Melhorias, 9 arquivos e 94 testes passando.

@@ -243,6 +243,25 @@ export function useConteudoChecklist(itemId: string | null) {
   });
 }
 
+export function useConteudoChecklistForItems(itemIds: string[]) {
+  const stableKey = [...itemIds].sort().join(',');
+  return useQuery({
+    queryKey: ['conteudo-checklist-items', stableKey],
+    queryFn: async () => {
+      if (itemIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('conteudo_checklist_items' as any)
+        .select('*')
+        .in('conteudo_item_id', itemIds)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as ConteudoChecklistItem[];
+    },
+    enabled: itemIds.length > 0,
+  });
+}
+
 export function useCreateConteudoChecklistItem() {
   const qc = useQueryClient();
   return useMutation({
@@ -262,7 +281,10 @@ export function useCreateConteudoChecklistItem() {
       });
       if (error) throw error;
     },
-    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['conteudo-checklist', vars.conteudo_item_id] }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['conteudo-checklist', vars.conteudo_item_id] });
+      qc.invalidateQueries({ queryKey: ['conteudo-checklist-items'] });
+    },
   });
 }
 
@@ -274,7 +296,10 @@ export function useUpdateConteudoChecklistItem() {
       if (error) throw error;
       return { conteudo_item_id };
     },
-    onSuccess: (result) => qc.invalidateQueries({ queryKey: ['conteudo-checklist', result.conteudo_item_id] }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['conteudo-checklist', result.conteudo_item_id] });
+      qc.invalidateQueries({ queryKey: ['conteudo-checklist-items'] });
+    },
   });
 }
 
@@ -286,7 +311,10 @@ export function useDeleteConteudoChecklistItem() {
       if (error) throw error;
       return { conteudo_item_id };
     },
-    onSuccess: (result) => qc.invalidateQueries({ queryKey: ['conteudo-checklist', result.conteudo_item_id] }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['conteudo-checklist', result.conteudo_item_id] });
+      qc.invalidateQueries({ queryKey: ['conteudo-checklist-items'] });
+    },
   });
 }
 
