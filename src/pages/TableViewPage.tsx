@@ -1582,7 +1582,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
           onOpen={handleClickTask}
         />
       ) : (
-        <div className="sunday-table-scroll space-y-5 overflow-x-auto overscroll-x-contain pb-4">
+        <div className="sunday-table-scroll space-y-5 pb-4 min-w-0 max-w-full">
           {groups.map((group) => {
             const isCollapsed = collapsedGroups.has(group.key);
             return (
