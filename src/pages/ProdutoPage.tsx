@@ -727,7 +727,7 @@ function ProdutoExpanded({
           <Label className="text-xs">Pipeline de desenvolvimento</Label>
           <Badge variant="outline" className="text-[10px]">{stages.filter((stage) => stage.status === 'finalizado').length}/15 etapas</Badge>
         </div>
-        <PipelineTracker stages={stages} selectedStageId={selectedStage?.id} onSelectStage={setSelectedStageId} />
+        <PipelineTracker stages={stages} selectedStageId={selectedStage?.id} onSelectStage={(stage) => setSelectedStageId(stage.id)} />
         {selectedStage && <StageEditor stage={selectedStage} orgMembers={orgMembers} />}
       </div>
 

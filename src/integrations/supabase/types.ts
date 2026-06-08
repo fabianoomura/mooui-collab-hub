@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      annual_event_etapas: {
+        Row: {
+          created_at: string
+          etapa_key: string
+          event_id: string
+          id: string
+          position: number
+          responsavel: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          etapa_key: string
+          event_id: string
+          id?: string
+          position?: number
+          responsavel?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          etapa_key?: string
+          event_id?: string
+          id?: string
+          position?: number
+          responsavel?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "annual_event_etapas_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "annual_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       annual_events: {
         Row: {
           category: string
@@ -202,6 +246,253 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      conteudo_activity: {
+        Row: {
+          action: string
+          conteudo_item_id: string
+          created_at: string
+          from_value: string | null
+          id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          conteudo_item_id: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          conteudo_item_id?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conteudo_activity_conteudo_item_id_fkey"
+            columns: ["conteudo_item_id"]
+            isOneToOne: false
+            referencedRelation: "conteudo_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conteudo_attachments: {
+        Row: {
+          conteudo_item_id: string
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          conteudo_item_id: string
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          conteudo_item_id?: string
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conteudo_attachments_conteudo_item_id_fkey"
+            columns: ["conteudo_item_id"]
+            isOneToOne: false
+            referencedRelation: "conteudo_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conteudo_checklist_items: {
+        Row: {
+          assigned_to: string | null
+          conteudo_item_id: string
+          created_at: string
+          custom_fields: Json
+          due_date: string | null
+          id: string
+          position: number
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          conteudo_item_id: string
+          created_at?: string
+          custom_fields?: Json
+          due_date?: string | null
+          id?: string
+          position?: number
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          conteudo_item_id?: string
+          created_at?: string
+          custom_fields?: Json
+          due_date?: string | null
+          id?: string
+          position?: number
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conteudo_checklist_items_conteudo_item_id_fkey"
+            columns: ["conteudo_item_id"]
+            isOneToOne: false
+            referencedRelation: "conteudo_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conteudo_code_seq: {
+        Row: {
+          last_value: number
+          organization_id: string
+        }
+        Insert: {
+          last_value?: number
+          organization_id: string
+        }
+        Update: {
+          last_value?: number
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      conteudo_comments: {
+        Row: {
+          content: string
+          conteudo_item_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conteudo_item_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conteudo_item_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conteudo_comments_conteudo_item_id_fkey"
+            columns: ["conteudo_item_id"]
+            isOneToOne: false
+            referencedRelation: "conteudo_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conteudo_items: {
+        Row: {
+          assigned_to: string | null
+          channel: string
+          code: string | null
+          content_category: string | null
+          content_type: string
+          created_at: string
+          created_by: string
+          custom_fields: Json
+          id: string
+          is_repost: boolean
+          notes: string | null
+          organization_id: string
+          photo_url: string | null
+          scheduled_date: string | null
+          status: string
+          time_slot: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel?: string
+          code?: string | null
+          content_category?: string | null
+          content_type?: string
+          created_at?: string
+          created_by: string
+          custom_fields?: Json
+          id?: string
+          is_repost?: boolean
+          notes?: string | null
+          organization_id: string
+          photo_url?: string | null
+          scheduled_date?: string | null
+          status?: string
+          time_slot?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          channel?: string
+          code?: string | null
+          content_category?: string | null
+          content_type?: string
+          created_at?: string
+          created_by?: string
+          custom_fields?: Json
+          id?: string
+          is_repost?: boolean
+          notes?: string | null
+          organization_id?: string
+          photo_url?: string | null
+          scheduled_date?: string | null
+          status?: string
+          time_slot?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conteudo_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       department_members: {
         Row: {
@@ -747,6 +1038,244 @@ export type Database = {
         }
         Relationships: []
       }
+      melhoria_activity: {
+        Row: {
+          action: string
+          created_at: string
+          from_value: string | null
+          id: string
+          melhoria_id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          melhoria_id: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          melhoria_id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhoria_activity_melhoria_id_fkey"
+            columns: ["melhoria_id"]
+            isOneToOne: false
+            referencedRelation: "melhorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      melhoria_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          melhoria_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          melhoria_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          melhoria_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhoria_attachments_melhoria_id_fkey"
+            columns: ["melhoria_id"]
+            isOneToOne: false
+            referencedRelation: "melhorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      melhoria_code_seq: {
+        Row: {
+          last_value: number
+          organization_id: string
+        }
+        Insert: {
+          last_value?: number
+          organization_id: string
+        }
+        Update: {
+          last_value?: number
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      melhoria_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          melhoria_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          melhoria_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          melhoria_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhoria_comments_melhoria_id_fkey"
+            columns: ["melhoria_id"]
+            isOneToOne: false
+            referencedRelation: "melhorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      melhoria_subitems: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          custom_fields: Json
+          due_date: string | null
+          id: string
+          melhoria_id: string
+          position: number
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          custom_fields?: Json
+          due_date?: string | null
+          id?: string
+          melhoria_id: string
+          position?: number
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          custom_fields?: Json
+          due_date?: string | null
+          id?: string
+          melhoria_id?: string
+          position?: number
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhoria_subitems_melhoria_id_fkey"
+            columns: ["melhoria_id"]
+            isOneToOne: false
+            referencedRelation: "melhorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      melhorias: {
+        Row: {
+          area: string
+          assigned_to: string | null
+          code: string | null
+          created_at: string
+          created_by: string
+          custom_fields: Json
+          data_abertura: string
+          data_conclusao: string | null
+          description: string | null
+          id: string
+          organization_id: string
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          area?: string
+          assigned_to?: string | null
+          code?: string | null
+          created_at?: string
+          created_by: string
+          custom_fields?: Json
+          data_abertura?: string
+          data_conclusao?: string | null
+          description?: string | null
+          id?: string
+          organization_id: string
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          assigned_to?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string
+          custom_fields?: Json
+          data_abertura?: string
+          data_conclusao?: string | null
+          description?: string | null
+          id?: string
+          organization_id?: string
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhorias_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_attachments: {
         Row: {
           created_at: string
@@ -946,6 +1475,144 @@ export type Database = {
           target_type?: string
         }
         Relationships: []
+      }
+      newsletter_activity: {
+        Row: {
+          action: string
+          created_at: string
+          from_value: string | null
+          id: string
+          newsletter_id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          newsletter_id: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          newsletter_id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "newsletter_activity_newsletter_id_fkey"
+            columns: ["newsletter_id"]
+            isOneToOne: false
+            referencedRelation: "newsletters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      newsletter_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          newsletter_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          newsletter_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          newsletter_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "newsletter_comments_newsletter_id_fkey"
+            columns: ["newsletter_id"]
+            isOneToOne: false
+            referencedRelation: "newsletters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      newsletters: {
+        Row: {
+          base: string | null
+          channel: string
+          click_rate: number | null
+          created_at: string
+          created_by: string
+          custom_fields: Json
+          hora: string | null
+          id: string
+          notes: string | null
+          open_rate: number | null
+          organization_id: string
+          scheduled_date: string | null
+          status: string
+          tema: string | null
+          title: string
+          titulo_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          base?: string | null
+          channel?: string
+          click_rate?: number | null
+          created_at?: string
+          created_by: string
+          custom_fields?: Json
+          hora?: string | null
+          id?: string
+          notes?: string | null
+          open_rate?: number | null
+          organization_id: string
+          scheduled_date?: string | null
+          status?: string
+          tema?: string | null
+          title: string
+          titulo_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base?: string | null
+          channel?: string
+          click_rate?: number | null
+          created_at?: string
+          created_by?: string
+          custom_fields?: Json
+          hora?: string | null
+          id?: string
+          notes?: string | null
+          open_rate?: number | null
+          organization_id?: string
+          scheduled_date?: string | null
+          status?: string
+          tema?: string | null
+          title?: string
+          titulo_email?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "newsletters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -1288,6 +1955,446 @@ export type Database = {
         }
         Relationships: []
       }
+      pauta_activity: {
+        Row: {
+          action: string
+          created_at: string
+          from_value: string | null
+          id: string
+          pauta_id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          pauta_id: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          pauta_id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pauta_activity_pauta_id_fkey"
+            columns: ["pauta_id"]
+            isOneToOne: false
+            referencedRelation: "pautas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pauta_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          pauta_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          pauta_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          pauta_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pauta_comments_pauta_id_fkey"
+            columns: ["pauta_id"]
+            isOneToOne: false
+            referencedRelation: "pautas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pauta_items: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          custom_fields: Json
+          id: string
+          pauta_id: string
+          position: number
+          status: string
+          title: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          custom_fields?: Json
+          id?: string
+          pauta_id: string
+          position?: number
+          status?: string
+          title: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          custom_fields?: Json
+          id?: string
+          pauta_id?: string
+          position?: number
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pauta_items_pauta_id_fkey"
+            columns: ["pauta_id"]
+            isOneToOne: false
+            referencedRelation: "pautas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pautas: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string
+          custom_fields: Json
+          id: string
+          notes: string | null
+          organization_id: string
+          priority: string
+          scheduled_date: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by: string
+          custom_fields?: Json
+          id?: string
+          notes?: string | null
+          organization_id: string
+          priority?: string
+          scheduled_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string
+          custom_fields?: Json
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          priority?: string
+          scheduled_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pautas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produto_activity: {
+        Row: {
+          action: string
+          created_at: string
+          from_value: string | null
+          id: string
+          produto_id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          produto_id: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          produto_id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produto_activity_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produto_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          produto_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          produto_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          produto_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produto_attachments_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produto_code_seq: {
+        Row: {
+          last_value: number
+          organization_id: string
+        }
+        Insert: {
+          last_value?: number
+          organization_id: string
+        }
+        Update: {
+          last_value?: number
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      produto_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          produto_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          produto_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          produto_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produto_comments_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produto_design_items: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+          produto_id: string
+          qt_variacoes: number | null
+          status: string
+          target_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          produto_id: string
+          qt_variacoes?: number | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          produto_id?: string
+          qt_variacoes?: number | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produto_design_items_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produto_stages: {
+        Row: {
+          assignee_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          position: number
+          produto_id: string
+          stage_key: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          position?: number
+          produto_id: string
+          stage_key: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          position?: number
+          produto_id?: string
+          stage_key?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produto_stages_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produtos: {
+        Row: {
+          code: string | null
+          collection_group: string
+          created_at: string
+          created_by: string
+          cronograma_end: string | null
+          cronograma_start: string | null
+          id: string
+          launch_target: string | null
+          name: string
+          observations: string | null
+          organization_id: string
+          progress: number
+          responsible: string | null
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          collection_group?: string
+          created_at?: string
+          created_by: string
+          cronograma_end?: string | null
+          cronograma_start?: string | null
+          id?: string
+          launch_target?: string | null
+          name: string
+          observations?: string | null
+          organization_id: string
+          progress?: number
+          responsible?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          collection_group?: string
+          created_at?: string
+          created_by?: string
+          cronograma_end?: string | null
+          cronograma_start?: string | null
+          id?: string
+          launch_target?: string | null
+          name?: string
+          observations?: string | null
+          organization_id?: string
+          progress?: number
+          responsible?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produtos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1320,6 +2427,57 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      programacao_workspaces: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          metadata: Json
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programacao_workspaces_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programacao_workspaces_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_columns: {
         Row: {
@@ -1438,6 +2596,338 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessao_activity: {
+        Row: {
+          action: string
+          created_at: string
+          from_value: string | null
+          id: string
+          sessao_id: string
+          to_value: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          sessao_id: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          sessao_id?: string
+          to_value?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessao_activity_sessao_id_fkey"
+            columns: ["sessao_id"]
+            isOneToOne: false
+            referencedRelation: "sessoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessao_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          sessao_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          sessao_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          sessao_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessao_attachments_sessao_id_fkey"
+            columns: ["sessao_id"]
+            isOneToOne: false
+            referencedRelation: "sessoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessao_code_seq: {
+        Row: {
+          last_value: number
+          organization_id: string
+        }
+        Insert: {
+          last_value?: number
+          organization_id: string
+        }
+        Update: {
+          last_value?: number
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      sessao_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          sessao_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          sessao_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          sessao_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessao_comments_sessao_id_fkey"
+            columns: ["sessao_id"]
+            isOneToOne: false
+            referencedRelation: "sessoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessao_contracts: {
+        Row: {
+          contract_end: string | null
+          contract_start: string | null
+          created_at: string
+          created_by: string
+          id: string
+          monthly_quota_photos: number | null
+          monthly_quota_videos: number | null
+          notes: string | null
+          organization_id: string
+          photographer_name: string
+          updated_at: string
+        }
+        Insert: {
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          monthly_quota_photos?: number | null
+          monthly_quota_videos?: number | null
+          notes?: string | null
+          organization_id: string
+          photographer_name: string
+          updated_at?: string
+        }
+        Update: {
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          monthly_quota_photos?: number | null
+          monthly_quota_videos?: number | null
+          notes?: string | null
+          organization_id?: string
+          photographer_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessao_contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessao_ideas: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          organization_id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          status?: string
+          title: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessao_ideas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessao_shots: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          custom_fields: Json
+          data_entrega: string | null
+          funil: string | null
+          id: string
+          local: string | null
+          modelo: string | null
+          position: number
+          sessao_id: string
+          status: string
+          tipo: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          custom_fields?: Json
+          data_entrega?: string | null
+          funil?: string | null
+          id?: string
+          local?: string | null
+          modelo?: string | null
+          position?: number
+          sessao_id: string
+          status?: string
+          tipo?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          custom_fields?: Json
+          data_entrega?: string | null
+          funil?: string | null
+          id?: string
+          local?: string | null
+          modelo?: string | null
+          position?: number
+          sessao_id?: string
+          status?: string
+          tipo?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessao_shots_sessao_id_fkey"
+            columns: ["sessao_id"]
+            isOneToOne: false
+            referencedRelation: "sessoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessoes: {
+        Row: {
+          code: string | null
+          created_at: string
+          created_by: string
+          custom_fields: Json
+          id: string
+          notes: string | null
+          organization_id: string
+          professional: string | null
+          responsaveis: string[] | null
+          scheduled_date: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          created_by: string
+          custom_fields?: Json
+          id?: string
+          notes?: string | null
+          organization_id: string
+          professional?: string | null
+          responsaveis?: string[] | null
+          scheduled_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          created_by?: string
+          custom_fields?: Json
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          professional?: string | null
+          responsaveis?: string[] | null
+          scheduled_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessoes_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2195,28 +3685,17 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
-      notify_user:
-        | {
-            Args: {
-              _link?: string
-              _message?: string
-              _title: string
-              _type: string
-              _user_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _link?: string
-              _message?: string
-              _metadata?: Json
-              _title: string
-              _type: string
-              _user_id: string
-            }
-            Returns: string
-          }
+      notify_user: {
+        Args: {
+          _link?: string
+          _message?: string
+          _metadata?: Json
+          _title: string
+          _type: string
+          _user_id: string
+        }
+        Returns: string
+      }
       unread_count: {
         Args: { _channel_id: string; _user_id: string }
         Returns: number
