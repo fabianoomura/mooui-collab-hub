@@ -1691,6 +1691,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                       <span />
                     </div>
                   </div>
+                  </div>
                 )}
               </div>
             );
