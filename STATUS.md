@@ -195,6 +195,8 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-08 | Boards Sunday/Excel foram clonados para boards internos `Modulo | ...`; Programacao, Newsletters, Demandas Marketing, Sessoes e Melhorias agora priorizam esses clones, deixando os imports antigos apenas como fallback |
 | 2026-06-08 | Sunday e boards embutidos ganharam renomeacao de board/projeto; grupos da tabela ganharam acao de exclusao em massa para apagar meses/grupos inteiros com confirmacao |
 | 2026-06-08 | Validacao: npm run build OK; npm run test -- src/test/edits.test.ts src/test/consolidated.test.ts OK (29 testes) |
+| 2026-06-08 | Sunday e boards embutidos ganharam arquivamento de elementos e grupos inteiros via `tasks.archived_at`; arquivados saem das visualizacoes ativas sem apagar dados |
+| 2026-06-08 | Validacao arquivamento: npm run build OK; npm run test -- src/test/edits.test.ts src/test/consolidated.test.ts OK (29 testes) |
 
 ### Validacao 2026-06-05
 

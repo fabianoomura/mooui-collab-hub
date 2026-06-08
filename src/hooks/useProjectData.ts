@@ -44,6 +44,7 @@ export function useProjectTasks(projectId: string | undefined) {
           task_label_assignments(label_id, task_labels:label_id(name, color))
         `)
         .eq('project_id', projectId)
+        .is('archived_at', null)
         .order('position');
       if (error) throw error;
       
@@ -75,7 +76,8 @@ export function useProjectTasks(projectId: string | undefined) {
       const { data, error } = await supabase
         .from('tasks')
         .select('id, status, priority, parent_task_id')
-        .eq('project_id', projectId);
+        .eq('project_id', projectId)
+        .is('archived_at', null);
       if (error) throw error;
       return data || [];
     },
@@ -147,7 +149,21 @@ export function useProjectTasks(projectId: string | undefined) {
     },
   });
 
-  return { columns, tasks: tasksQuery.data || [], isLoading: tasksQuery.isLoading, moveTask, addTask, updateTask, deleteTask };
+  const archiveTask = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-flat', projectId] });
+    },
+  });
+
+  return { columns, tasks: tasksQuery.data || [], isLoading: tasksQuery.isLoading, moveTask, addTask, updateTask, deleteTask, archiveTask };
 }
 
 export function useProjects() {

@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check, CornerDownRight, ArrowUp, FileStack, Columns3, GanttChart, CalendarDays } from 'lucide-react';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, SlidersHorizontal, ArrowUpDown, Eye, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, Type, Hash, Calendar, Tag, Users, BarChart3, UserPlus, Check, CornerDownRight, ArrowUp, FileStack, Columns3, GanttChart, CalendarDays, Archive } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -639,7 +639,7 @@ function TaskRow({
   dynamicColumns, customValues, onSetCustomValue,
   statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
   projectMembers, onAddAssignee, onRemoveAssignee,
-  allTopLevelTasks, onMoveToParent, onPromoteToTopLevel, onDeleteTask,
+  allTopLevelTasks, onMoveToParent, onPromoteToTopLevel, onArchiveTask, onDeleteTask,
   draggedTaskId, onDragStartTask, onDragEndTask,
 }: {
   task: TaskWithAssignees;
@@ -667,6 +667,7 @@ function TaskRow({
   allTopLevelTasks: TaskWithAssignees[];
   onMoveToParent: (taskId: string, parentId: string) => void;
   onPromoteToTopLevel: (taskId: string) => void;
+  onArchiveTask: (task: TaskWithAssignees) => void;
   onDeleteTask: (task: TaskWithAssignees) => void;
   draggedTaskId: string | null;
   onDragStartTask: (id: string) => void;
@@ -755,6 +756,9 @@ function TaskRow({
                 </DropdownMenuSub>
               )}
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onArchiveTask(task)}>
+                <Archive className="h-3.5 w-3.5 mr-2" /> Arquivar {isSubtask ? 'subelemento' : 'elemento'}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onDeleteTask(task)} className="text-destructive">
                 <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir {isSubtask ? 'subelemento' : 'elemento'}
               </DropdownMenuItem>
@@ -816,7 +820,7 @@ function TaskRow({
               onEditStatusLabels={onEditStatusLabels} onEditPriorityLabels={onEditPriorityLabels}
               projectMembers={projectMembers} onAddAssignee={onAddAssignee} onRemoveAssignee={onRemoveAssignee}
               allTopLevelTasks={allTopLevelTasks} onMoveToParent={onMoveToParent} onPromoteToTopLevel={onPromoteToTopLevel}
-              onDeleteTask={onDeleteTask}
+              onArchiveTask={onArchiveTask} onDeleteTask={onDeleteTask}
               draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
             />
           ))}
@@ -830,12 +834,13 @@ function TaskRow({
 }
 
 function SundayTaskMiniCard({
-  task, profilesMap, projectMembers, onOpen, onDelete, onStatusChange, onAddAssignee, onRemoveAssignee,
+  task, profilesMap, projectMembers, onOpen, onArchive, onDelete, onStatusChange, onAddAssignee, onRemoveAssignee,
 }: {
   task: TaskWithAssignees;
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
   projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
   onOpen: (task: TaskWithAssignees) => void;
+  onArchive: (task: TaskWithAssignees) => void;
   onDelete: (task: TaskWithAssignees) => void;
   onStatusChange?: (taskId: string, status: TaskStatus) => void;
   onAddAssignee: (taskId: string, userId: string) => void;
@@ -853,13 +858,22 @@ function SundayTaskMiniCard({
             {(task.subtasks?.length || 0) > 0 && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{task.subtasks?.length} sub</span>}
           </div>
         </div>
-        <button
-          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1"
-          onClick={(e) => { e.stopPropagation(); onDelete(task); }}
-          title="Excluir elemento"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+          <button
+            className="text-muted-foreground hover:text-foreground p-1"
+            onClick={(e) => { e.stopPropagation(); onArchive(task); }}
+            title="Arquivar elemento"
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </button>
+          <button
+            className="text-muted-foreground hover:text-destructive p-1"
+            onClick={(e) => { e.stopPropagation(); onDelete(task); }}
+            title="Excluir elemento"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">
         <div className="w-[112px]" onClick={(e) => e.stopPropagation()}>
@@ -889,12 +903,13 @@ function SundayTaskMiniCard({
 }
 
 function SundayKanbanView({
-  tasks, profilesMap, projectMembers, onOpen, onDelete, onStatusChange, onQuickAdd, onAddAssignee, onRemoveAssignee,
+  tasks, profilesMap, projectMembers, onOpen, onArchive, onDelete, onStatusChange, onQuickAdd, onAddAssignee, onRemoveAssignee,
 }: {
   tasks: TaskWithAssignees[];
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
   projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
   onOpen: (task: TaskWithAssignees) => void;
+  onArchive: (task: TaskWithAssignees) => void;
   onDelete: (task: TaskWithAssignees) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onQuickAdd: (status: TaskStatus) => void;
@@ -928,6 +943,7 @@ function SundayKanbanView({
                 profilesMap={profilesMap}
                 projectMembers={projectMembers}
                 onOpen={onOpen}
+                onArchive={onArchive}
                 onDelete={onDelete}
                 onStatusChange={onStatusChange}
                 onAddAssignee={onAddAssignee}
@@ -947,12 +963,13 @@ function SundayKanbanView({
 }
 
 function SundayTimelineView({
-  tasks, profilesMap, projectMembers, onOpen, onDelete, onAddAssignee, onRemoveAssignee,
+  tasks, profilesMap, projectMembers, onOpen, onArchive, onDelete, onAddAssignee, onRemoveAssignee,
 }: {
   tasks: TaskWithAssignees[];
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
   projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
   onOpen: (task: TaskWithAssignees) => void;
+  onArchive: (task: TaskWithAssignees) => void;
   onDelete: (task: TaskWithAssignees) => void;
   onAddAssignee: (taskId: string, userId: string) => void;
   onRemoveAssignee: (taskId: string, userId: string) => void;
@@ -998,9 +1015,14 @@ function SundayTimelineView({
                     onRemove={onRemoveAssignee}
                   />
                 </div>
-                <button className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1" onClick={(e) => { e.stopPropagation(); onDelete(task); }}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                  <button className="text-muted-foreground hover:text-foreground p-1" onClick={(e) => { e.stopPropagation(); onArchive(task); }} title="Arquivar elemento">
+                    <Archive className="h-3.5 w-3.5" />
+                  </button>
+                  <button className="text-muted-foreground hover:text-destructive p-1" onClick={(e) => { e.stopPropagation(); onDelete(task); }} title="Excluir elemento">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1155,7 +1177,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   };
 
   const activeProjectId = projectId || projectFromUrl || projects?.[0]?.id;
-  const { tasks, isLoading: loadingTasks, addTask, updateTask, deleteTask } = useProjectTasks(activeProjectId);
+  const { tasks, isLoading: loadingTasks, addTask, updateTask, archiveTask, deleteTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
   const { members: projectMembers, addAssignee, removeAssignee } = useProjectMembers(activeProjectId);
   const { data: projectTemplates = [] } = useProjectTemplates();
@@ -1328,6 +1350,39 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
       },
       onError: (e: any) => toast.error(e.message || 'Erro ao excluir elemento'),
     });
+  };
+
+  const handleArchiveTask = async (task: TaskWithAssignees) => {
+    const hasSubtasks = (task.subtasks?.length || 0) > 0;
+    const ok = await confirm({
+      title: hasSubtasks ? `Arquivar "${task.title}" e seus subelementos?` : `Arquivar "${task.title}"?`,
+      description: hasSubtasks ? 'O elemento sai das visualizacoes ativas junto com os subelementos vinculados.' : 'O elemento sai das visualizacoes ativas, sem ser apagado.',
+      confirmText: 'Arquivar',
+    });
+    if (!ok) return;
+    const taskIds = [task.id, ...(task.subtasks || []).map((subtask) => subtask.id)];
+    Promise.all(taskIds.map((taskId) => archiveTask.mutateAsync(taskId))).then(() => {
+      toast.success('Elemento arquivado!');
+      setSidePanelTask((current) => current?.task.id === task.id ? null : current);
+    }).catch((e: any) => toast.error(e.message || 'Erro ao arquivar elemento'));
+  };
+
+  const handleArchiveGroup = async (group: { label: string; tasks: TaskWithAssignees[] }) => {
+    if (group.tasks.length === 0) return;
+    const subtaskCount = group.tasks.reduce((sum, task) => sum + (task.subtasks?.length || 0), 0);
+    const ok = await confirm({
+      title: `Arquivar grupo "${group.label}"?`,
+      description: `Isto arquiva ${group.tasks.length} elemento${group.tasks.length === 1 ? '' : 's'}${subtaskCount ? ` e ${subtaskCount} subelemento${subtaskCount === 1 ? '' : 's'}` : ''}. Eles saem das visualizacoes ativas sem serem apagados.`,
+      confirmText: 'Arquivar grupo',
+    });
+    if (!ok) return;
+    try {
+      const taskIds = group.tasks.flatMap((task) => [task.id, ...(task.subtasks || []).map((subtask) => subtask.id)]);
+      await Promise.all(taskIds.map((taskId) => archiveTask.mutateAsync(taskId)));
+      toast.success(`Grupo "${group.label}" arquivado`);
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao arquivar grupo');
+    }
   };
 
   const handleDeleteGroup = async (group: { label: string; tasks: TaskWithAssignees[] }) => {
@@ -1503,6 +1558,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
           profilesMap={profilesMap || new Map()}
           projectMembers={projectMembers}
           onOpen={handleClickTask}
+          onArchive={handleArchiveTask}
           onDelete={handleDeleteTask}
           onStatusChange={(taskId, status) => updateTask.mutate({ taskId, updates: { status } })}
           onQuickAdd={(status) => handleQuickAdd(status)}
@@ -1515,6 +1571,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
           profilesMap={profilesMap || new Map()}
           projectMembers={projectMembers}
           onOpen={handleClickTask}
+          onArchive={handleArchiveTask}
           onDelete={handleDeleteTask}
           onAddAssignee={(taskId, userId) => addAssignee.mutate({ taskId, userId })}
           onRemoveAssignee={(taskId, userId) => removeAssignee.mutate({ taskId, userId })}
@@ -1543,6 +1600,10 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => handleArchiveGroup(group)}>
+                        <Archive className="h-4 w-4 mr-2" /> Arquivar grupo inteiro
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleDeleteGroup(group)} className="text-destructive focus:text-destructive">
                         <Trash2 className="h-4 w-4 mr-2" /> Excluir grupo inteiro
                       </DropdownMenuItem>
@@ -1589,6 +1650,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                         allTopLevelTasks={tasks}
                         onMoveToParent={(taskId, parentId) => { updateTask.mutate({ taskId, updates: { parent_task_id: parentId } }); toast.success('Elemento movido!'); }}
                         onPromoteToTopLevel={(taskId) => { updateTask.mutate({ taskId, updates: { parent_task_id: null } }); toast.success('Elemento promovido!'); }}
+                        onArchiveTask={handleArchiveTask}
                         onDeleteTask={handleDeleteTask}
                         draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
                       />
