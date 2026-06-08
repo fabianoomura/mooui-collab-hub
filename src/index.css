@@ -178,6 +178,25 @@
   .sidebar-gradient {
     background: hsl(var(--sidebar-background));
   }
+  .sunday-table-scroll {
+    scrollbar-color: hsl(var(--primary) / 0.75) hsl(var(--muted) / 0.7);
+    scrollbar-width: thin;
+  }
+  .sunday-table-scroll::-webkit-scrollbar {
+    height: 12px;
+  }
+  .sunday-table-scroll::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.7);
+    border-radius: 999px;
+  }
+  .sunday-table-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.75);
+    border: 3px solid hsl(var(--muted) / 0.7);
+    border-radius: 999px;
+  }
+  .sunday-table-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
   .kanban-card {
     @apply bg-card rounded-lg border shadow-sm hover:shadow-md transition-shadow duration-200;
   }

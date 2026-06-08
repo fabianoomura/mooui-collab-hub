@@ -197,6 +197,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-08 | Validacao: npm run build OK; npm run test -- src/test/edits.test.ts src/test/consolidated.test.ts OK (29 testes) |
 | 2026-06-08 | Sunday e boards embutidos ganharam arquivamento de elementos e grupos inteiros via `tasks.archived_at`; arquivados saem das visualizacoes ativas sem apagar dados |
 | 2026-06-08 | Validacao arquivamento: npm run build OK; npm run test -- src/test/edits.test.ts src/test/consolidated.test.ts OK (29 testes) |
+| 2026-06-08 | Tabelas Sunday ganharam scroll horizontal mais visivel para boards com muitas colunas/campos extensos; validado com build e edits.test |
 
 ### Validacao 2026-06-05
 
