@@ -86,7 +86,11 @@ const nlStatusColors: Record<NewsletterStatus, string> = {
   em_andamento: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
   enviado: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 };
-const nlChannelLabels: Record<NewsletterChannel, string> = { brasil: 'Brasil', barcelona: 'Barcelona' };
+const nlChannelLabels: Record<string, string> = { brasil: 'Brasil', barcelona: 'Barcelona' };
+const nlChannelOrder = ['brasil', 'barcelona'];
+function newsletterChannelLabel(channel: NewsletterChannel) {
+  return nlChannelLabels[channel] || channel;
+}
 const pautaStatusLabels: Record<PautaStatus, string> = {
   pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída',
 };
@@ -506,19 +510,6 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
         });
       }
     }
-    for (const item of items) {
-      const name = programacaoWorkspaceName(item);
-      const id = `sheet:${normalizedKey(name)}`;
-      if (!map.has(id)) {
-        map.set(id, {
-          id,
-          name,
-          description: 'Detectado nos campos da planilha',
-          color: channelAccentColors[item.channel] || '#D6336C',
-          source: 'planilha',
-        });
-      }
-    }
     for (const workspace of savedWorkspaces as ProgramacaoWorkspace[]) {
       map.set(`saved:${workspace.id}`, {
         id: `saved:${workspace.id}`,
@@ -634,8 +625,13 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Workspaces de Programacao</span>
-          {activeWorkspace && <span className="text-xs text-muted-foreground">{workspaceItems.length} elementos neste workspace</span>}
+          <span className="text-xs font-medium text-muted-foreground">Redes de Programacao</span>
+          <div className="flex items-center gap-2">
+            {activeWorkspace && <span className="text-xs text-muted-foreground">{workspaceItems.length} elementos nesta rede</span>}
+            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setShowWorkspaceDialog(true)}>
+              <Plus className="mr-1 h-3.5 w-3.5" />Rede
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
         {workspaces.map(workspace => {
@@ -657,12 +653,12 @@ function ProgramacaoTab({ orgMembers }: { orgMembers: { id: string; full_name: s
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: workspace.color }} />
                   {workspace.name}
                 </span>
-                <Badge variant="outline" className="text-[10px] shrink-0">{workspace.source === 'planilha' ? 'Planilha' : 'Manual'}</Badge>
+                <Badge variant="outline" className="text-[10px] shrink-0">{workspace.source === 'planilha' ? 'Rede' : 'Manual'}</Badge>
               </div>
               <div className="mt-2 text-2xl font-semibold leading-none">{count}</div>
               <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                 <span>{pending} pendentes</span>
-                <span className="truncate">{workspace.description || 'Sunday normal'}</span>
+                <span className="truncate">{workspace.description || 'Sunday puro'}</span>
               </div>
             </button>
           );
@@ -1743,8 +1739,11 @@ function NewslettersTab() {
   const confirm = useConfirm();
 
   const [showNew, setShowNew] = useState(false);
+  const [showChannelDialog, setShowChannelDialog] = useState(false);
   const [openItem, setOpenItem] = useState<Newsletter | null>(null);
-  const [channelFilter, setChannelFilter] = useState<'all' | NewsletterChannel>('all');
+  const [activeChannel, setActiveChannel] = useState<NewsletterChannel>('brasil');
+  const [localNewsletterChannels, setLocalNewsletterChannels] = useState<NewsletterChannel[]>([]);
+  const [newChannelName, setNewChannelName] = useState('');
   const [groupFilter, setGroupFilter] = useState('all');
 
   // New form
@@ -1753,11 +1752,28 @@ function NewslettersTab() {
   const [nTema, setNTema] = useState('');
   const [nChannel, setNChannel] = useState<NewsletterChannel>('brasil');
 
-  const channelFilteredNewsletters = newsletters.filter(n => channelFilter === 'all' || n.channel === channelFilter);
+  const newsletterChannels = useMemo(() => {
+    const channels = new Set<NewsletterChannel>([...nlChannelOrder, ...localNewsletterChannels]);
+    newsletters.forEach((item) => channels.add(item.channel));
+    return [...channels].sort((a, b) => {
+      const ai = nlChannelOrder.indexOf(a);
+      const bi = nlChannelOrder.indexOf(b);
+      if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      return newsletterChannelLabel(a).localeCompare(newsletterChannelLabel(b), 'pt-BR');
+    });
+  }, [newsletters, localNewsletterChannels]);
+
+  useEffect(() => {
+    if (newsletterChannels.length > 0 && !newsletterChannels.includes(activeChannel)) {
+      setActiveChannel(newsletterChannels[0]);
+    }
+  }, [activeChannel, newsletterChannels]);
+
+  const channelFilteredNewsletters = newsletters.filter(n => n.channel === activeChannel);
   const newsletterGroups = useMemo(() => buildGroupStats(channelFilteredNewsletters), [channelFilteredNewsletters]);
   const filtered = channelFilteredNewsletters.filter(n => groupFilter === 'all' || spreadsheetGroup(n.custom_fields) === groupFilter);
   const newsletterSheetColumns = useMemo(() => dynamicNewsletterColumns(filtered), [filtered]);
-  const channelStats = (Object.keys(nlChannelLabels) as NewsletterChannel[]).map((channel) => {
+  const channelStats = newsletterChannels.map((channel) => {
     const channelItems = newsletters.filter((item) => item.channel === channel);
     return {
       channel,
@@ -1768,37 +1784,58 @@ function NewslettersTab() {
     };
   });
 
+  const handleCreateChannel = () => {
+    const name = newChannelName.trim();
+    if (!name) return;
+    setLocalNewsletterChannels((current) => current.includes(name) ? current : [...current, name]);
+    setActiveChannel(name);
+    setNChannel(name);
+    setGroupFilter('all');
+    setNewChannelName('');
+    setShowChannelDialog(false);
+  };
+
   const handleCreate = () => {
     if (!nTitle.trim()) return;
     createMut.mutate({
       title: nTitle.trim(), scheduled_date: nDate || undefined,
-      tema: nTema || undefined, channel: nChannel,
+      tema: nTema || undefined, channel: nChannel || activeChannel,
     }, {
       onSuccess: () => {
         toast.success('Newsletter criada!');
         setShowNew(false);
-        setNTitle(''); setNDate(''); setNTema(''); setNChannel('brasil');
+        setNTitle(''); setNDate(''); setNTema(''); setNChannel(activeChannel);
       },
     });
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Workspaces de Newsletter</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{channelFilteredNewsletters.length} elementos neste workspace</span>
+            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setShowChannelDialog(true)}>
+              <Plus className="mr-1 h-3.5 w-3.5" />Workspace
+            </Button>
+          </div>
+        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
         {channelStats.map((stat) => {
-          const active = channelFilter === stat.channel;
+          const active = activeChannel === stat.channel;
           return (
             <button
               key={stat.channel}
               type="button"
-              onClick={() => setChannelFilter(active ? 'all' : stat.channel)}
+              onClick={() => { setActiveChannel(stat.channel); setNChannel(stat.channel); setGroupFilter('all'); }}
               className={cn(
                 'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
                 active && 'border-primary ring-1 ring-primary/30',
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium">{nlChannelLabels[stat.channel]}</span>
+                <span className="text-sm font-medium">{newsletterChannelLabel(stat.channel)}</span>
                 <Badge variant="outline" className="text-[10px]">{stat.pending} pendentes</Badge>
               </div>
               <div className="mt-2 text-2xl font-semibold leading-none">{stat.total}</div>
@@ -1809,6 +1846,7 @@ function NewslettersTab() {
             </button>
           );
         })}
+      </div>
       </div>
 
       {newsletterGroups.length > 0 && (
@@ -1834,15 +1872,6 @@ function NewslettersTab() {
       )}
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as any)}>
-          <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os cards</SelectItem>
-            {(Object.keys(nlChannelLabels) as NewsletterChannel[]).map(k => (
-              <SelectItem key={k} value={k}>{nlChannelLabels[k]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select value={groupFilter} onValueChange={setGroupFilter}>
           <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -1874,7 +1903,7 @@ function NewslettersTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start gap-2 flex-wrap">
                     <h3 className="font-medium truncate flex-1 min-w-0">{nl.title}</h3>
-                    <Badge variant="outline" className="text-[10px]">{nlChannelLabels[nl.channel]}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{newsletterChannelLabel(nl.channel)}</Badge>
                     <Badge variant="outline" className="text-[10px]">{spreadsheetGroup(nl.custom_fields)}</Badge>
                     <Badge variant="outline" className={cn('text-[10px]', nlStatusColors[nl.status])}>{nlStatusLabels[nl.status]}</Badge>
                   </div>
@@ -1892,6 +1921,27 @@ function NewslettersTab() {
         </>
       )}
 
+      <Dialog open={showChannelDialog} onOpenChange={setShowChannelDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Novo workspace de Newsletter</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome do workspace</Label>
+              <Input
+                autoFocus
+                value={newChannelName}
+                onChange={(e) => setNewChannelName(e.target.value)}
+                placeholder="Ex.: Brasil, Barcelona, B2B"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowChannelDialog(false)}>Cancelar</Button>
+            <Button onClick={handleCreateChannel} disabled={!newChannelName.trim()}>Criar workspace</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* New dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent>
@@ -1903,7 +1953,7 @@ function NewslettersTab() {
                 <Select value={nChannel} onValueChange={(v) => setNChannel(v as NewsletterChannel)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(nlChannelLabels) as NewsletterChannel[]).map(k => (<SelectItem key={k} value={k}>{nlChannelLabels[k]}</SelectItem>))}
+                    {newsletterChannels.map(k => (<SelectItem key={k} value={k}>{newsletterChannelLabel(k)}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1996,7 +2046,7 @@ function NewsletterSheetTable({
                   >
                     <SheetCell className="sticky left-0 z-10 min-w-[280px] bg-background font-medium">{item.title}</SheetCell>
                     <SheetCell className="max-w-[180px] break-words">{subelements}</SheetCell>
-                    <SheetCell>{nlChannelLabels[item.channel]}</SheetCell>
+                    <SheetCell>{newsletterChannelLabel(item.channel)}</SheetCell>
                     <SheetCell className="max-w-[220px] break-words">{people}</SheetCell>
                     <SheetCell>{date}</SheetCell>
                     <SheetCell><Badge variant="outline" className={cn('text-[10px]', nlStatusColors[item.status])}>{nlStatusLabels[item.status]}</Badge></SheetCell>
@@ -2062,7 +2112,7 @@ function NewsletterDetail({
         <DialogHeader><DialogTitle>{item.title}</DialogTitle></DialogHeader>
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className={cn('text-[10px]', nlStatusColors[item.status])}>{nlStatusLabels[item.status]}</Badge>
-          <Badge variant="outline" className="text-[10px]">{nlChannelLabels[item.channel]}</Badge>
+          <Badge variant="outline" className="text-[10px]">{newsletterChannelLabel(item.channel)}</Badge>
         </div>
 
         <Tabs value={nlTab} onValueChange={(v) => setNlTab(v as any)}>

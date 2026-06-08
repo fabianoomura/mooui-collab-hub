@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { notifyUser } from '@/hooks/useNotifications';
 
 export type NewsletterStatus = 'nao_iniciado' | 'em_andamento' | 'enviado';
-export type NewsletterChannel = 'brasil' | 'barcelona';
+export type NewsletterChannel = string;
 
 export interface Newsletter {
   id: string;
