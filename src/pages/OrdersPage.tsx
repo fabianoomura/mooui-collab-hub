@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, X, Package, Eye, EyeOff, Send, CheckCircle2, Ban, AlertTriangle, Gift, Truck, RotateCcw, MapPin, Clock, MoreHorizontal, ArrowUpDown, History, Paperclip, Download, Trash2, BarChart3 } from 'lucide-react';
-import { OrdersReport } from '@/components/orders/OrdersReport';
+import { OrdersReport } from '@/features/orders';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +12,7 @@ import {
   useOrderComments, useAddOrderComment, useOrderActivity,
   type Order, type OrderStatus, type OrderPriority, type OrderProblem, type OrderSource,
   FINAL_STATUSES,
-} from '@/hooks/useOrders';
+} from '@/features/orders';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,8 @@ import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { notifyUser } from '@/hooks/useNotifications';
-import { useOrderAttachments } from '@/hooks/useOrderAttachments';
+import { LinkedItems } from '@/components/LinkedItems';
+import { useOrderAttachments } from '@/features/orders';
 import { useDepartments } from '@/hooks/useOrgSettings';
 import { cn } from '@/lib/utils';
 
@@ -356,23 +357,28 @@ export default function OrdersPage() {
           {canDo('view_reports') && (
             <Button
               variant={viewMode === 'report' ? 'default' : 'outline'}
+              size="sm"
+              className="h-10"
               onClick={() => setViewMode(v => v === 'list' ? 'report' : 'list')}
+              title="Relatório"
             >
-              <BarChart3 className="h-4 w-4 mr-1.5" />
-              Relatório
+              <BarChart3 className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Relatório</span>
             </Button>
           )}
           <Button
             variant="outline"
+            size="sm"
+            className="h-10"
             onClick={() => setShowFinished(s => !s)}
             title={showFinished ? 'Ocultar finalizados' : 'Mostrar finalizados'}
           >
-            {showFinished ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Eye className="h-4 w-4 mr-1.5" />}
-            {showFinished ? 'Em andamento' : 'Ver finalizados'}
+            {showFinished ? <EyeOff className="h-4 w-4 sm:mr-1.5" /> : <Eye className="h-4 w-4 sm:mr-1.5" />}
+            <span className="hidden sm:inline">{showFinished ? 'Em andamento' : 'Ver finalizados'}</span>
           </Button>
-          <Button onClick={() => { setNSource(defaultSource); setShowNew(true); }}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Sinalizar pedido
+          <Button className="h-10" onClick={() => { setNSource(defaultSource); setShowNew(true); }}>
+            <Plus className="h-4 w-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Sinalizar pedido</span>
           </Button>
         </div>
       </div>
@@ -382,19 +388,19 @@ export default function OrdersPage() {
       ) : (
       <>
       {/* Search + filtros */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        <div className="relative flex-1 min-w-0">
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por código, cliente, Shopify, TOTVS…"
-            className="pl-8 h-9"
+            className="pl-8 h-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
           <Select value={problemFilter} onValueChange={(v) => setProblemFilter(v as any)}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Problema" /></SelectTrigger>
+            <SelectTrigger className="h-10 sm:w-[160px]"><SelectValue placeholder="Problema" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Qualquer problema</SelectItem>
               {(Object.keys(problemLabels) as OrderProblem[]).map(k => (
@@ -403,7 +409,7 @@ export default function OrdersPage() {
             </SelectContent>
           </Select>
           <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as any)}>
-            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Setor" /></SelectTrigger>
+            <SelectTrigger className="h-10 sm:w-[140px]"><SelectValue placeholder="Setor" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Qualquer setor</SelectItem>
               {sourceKeys.map(k => (
@@ -412,7 +418,7 @@ export default function OrdersPage() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
-            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectTrigger className="h-10 sm:w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Qualquer prioridade</SelectItem>
               {(Object.keys(priorityLabels) as OrderPriority[]).map(k => (
@@ -421,7 +427,7 @@ export default function OrdersPage() {
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-            <SelectTrigger className="h-9 w-[170px]">
+            <SelectTrigger className="h-10 sm:w-[170px]">
               <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
               <SelectValue />
             </SelectTrigger>
@@ -433,12 +439,12 @@ export default function OrdersPage() {
           </Select>
           {activeChips > 0 && (
             <Button
-              variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
+              variant="ghost" size="sm" className="h-10 text-xs text-muted-foreground col-span-2 sm:col-span-1"
               onClick={() => {
                 setSearch(''); setProblemFilter('all'); setSourceFilter('all'); setPriorityFilter('all');
               }}
             >
-              <X className="h-3.5 w-3.5 mr-1" />Limpar
+              <X className="h-3.5 w-3.5 mr-1" />Limpar filtros
             </Button>
           )}
         </div>
@@ -446,11 +452,11 @@ export default function OrdersPage() {
 
       {/* Status tabs */}
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-        <TabsList className="flex flex-wrap h-auto">
-          <TabsTrigger value="all">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
-          <TabsTrigger value="open">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
-          <TabsTrigger value="in_progress">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
-          <TabsTrigger value="waiting">Aguardando <Badge variant="secondary" className="ml-1.5">{counts.waiting}</Badge></TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto gap-1">
+          <TabsTrigger value="all" className="min-h-[40px]">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
+          <TabsTrigger value="open" className="min-h-[40px]">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
+          <TabsTrigger value="in_progress" className="min-h-[40px]">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
+          <TabsTrigger value="waiting" className="min-h-[40px]">Aguardando <Badge variant="secondary" className="ml-1.5">{counts.waiting}</Badge></TabsTrigger>
           {showFinished && (
             <>
               <TabsTrigger value="sent">Enviados <Badge variant="secondary" className="ml-1.5">{counts.sent}</Badge></TabsTrigger>
@@ -485,7 +491,7 @@ export default function OrdersPage() {
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center shrink-0">
+                  <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center shrink-0">
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -536,11 +542,11 @@ export default function OrdersPage() {
 
       {/* New order dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Sinalizar pedido</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-3">
+          <div className="grid gap-3 overflow-y-auto pr-1">
             <div>
               <Label>Título / resumo *</Label>
               <Input value={nTitle} onChange={(e) => setNTitle(e.target.value)} placeholder="Ex: Pedido aguardando reposição de SKU X" />
@@ -953,6 +959,8 @@ function OrderDetail({
                 </p>
               )}
             </div>
+
+            <LinkedItems sourceType="order" sourceId={order.id} className="pt-2 border-t" />
 
             {!isFinal && (
               <div className="space-y-1.5 pt-2 border-t">

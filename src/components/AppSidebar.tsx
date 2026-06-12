@@ -2,6 +2,7 @@ import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
   ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers, Globe, Mail, FileText,
+  Palette, ShoppingCart, DollarSign, Plane, Factory, Monitor,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Badge } from '@/components/ui/badge';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -46,12 +47,10 @@ type NavItem = { title: string; url: string; icon: LucideIcon };
 
 const navGroups: { label: string; items: NavItem[] }[] = [
   {
-    label: 'Principal',
-    items: [{ title: 'Início', url: '/', icon: LayoutDashboard }],
-  },
-  {
-    label: 'Colaboração',
+    label: 'Geral',
     items: [
+      { title: 'Início', url: '/', icon: LayoutDashboard },
+      { title: 'Calendário', url: '/calendario', icon: CalendarDays },
       { title: 'Speaks', url: '/mensagens', icon: MessageSquare },
       { title: 'Papelinho', url: '/docs', icon: BookOpen },
       { title: 'Salas', url: '/salas', icon: Calendar },
@@ -61,33 +60,72 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Marketing',
     items: [
-      { title: 'Calendário de Ações Mensais', url: '/calendario', icon: CalendarDays },
-      { title: 'Programacao', url: '/programacao', icon: Camera },
+      { title: 'Programação', url: '/programacao', icon: Camera },
       { title: 'Newsletters', url: '/newsletters', icon: Mail },
-      { title: 'Demandas Marketing', url: '/demandas-marketing', icon: FileText },
+      { title: 'Demandas', url: '/demandas-marketing', icon: FileText },
+    ],
+  },
+  {
+    label: 'Estúdio',
+    items: [
       { title: 'Sessões', url: '/sessoes', icon: Camera },
+    ],
+  },
+  {
+    label: 'Design',
+    items: [
+      { title: 'Design', url: '/design', icon: Palette },
+    ],
+  },
+  {
+    label: 'Produto',
+    items: [
+      { title: 'Produtos', url: '/produtos', icon: Package },
     ],
   },
   {
     label: 'Produção',
     items: [
-      { title: 'Produção', url: '/lancamentos', icon: Rocket },
-      { title: 'Check Lançamentos', url: '/checagens', icon: ClipboardCheck },
-      { title: 'Produtos', url: '/produtos', icon: Package },
+      { title: 'Lançamentos', url: '/lancamentos', icon: Rocket },
+      { title: 'Checagens', url: '/checagens', icon: ClipboardCheck },
+      { title: 'Boards', url: '/producao-boards', icon: Factory },
     ],
   },
   {
-    label: 'Tecnologia',
+    label: 'Site & TI',
     items: [
-      { title: 'Tickets de TI', url: '/tickets', icon: Briefcase },
-      { title: 'Melhorias', url: '/melhorias', icon: Globe },
+      { title: 'Melhorias', url: '/melhorias', icon: Monitor },
+      { title: 'Tickets', url: '/tickets', icon: Briefcase },
     ],
   },
   {
-    label: 'Operações',
+    label: 'Comercial',
+    items: [
+      { title: 'Atacado', url: '/comercial', icon: ShoppingCart },
+    ],
+  },
+  {
+    label: 'SAC & Expedição',
+    items: [
+      { title: 'Pedidos', url: '/pedidos', icon: Package },
+    ],
+  },
+  {
+    label: 'Financeiro',
+    items: [
+      { title: 'Financeiro', url: '/financeiro', icon: DollarSign },
+    ],
+  },
+  {
+    label: 'Internacional',
+    items: [
+      { title: 'Internacional', url: '/internacional', icon: Plane },
+    ],
+  },
+  {
+    label: 'Ferramentas',
     items: [
       { title: 'Sunday', url: '/projetos', icon: FolderKanban },
-      { title: 'Pedidos', url: '/pedidos', icon: Package },
       { title: 'Timeline', url: '/timeline', icon: Layers },
     ],
   },
@@ -106,6 +144,47 @@ export function AppSidebar() {
   const location = useLocation();
   const confirm = useConfirm();
   const showProjects = location.pathname.startsWith('/tabela') || location.pathname.startsWith('/projetos');
+
+  // Collapsible nav groups — auto-expand group containing active route
+  const STORAGE_KEY = 'sidebar-open-groups';
+  const activeGroupLabel = useMemo(() => {
+    for (const group of navGroups) {
+      for (const item of group.items) {
+        if (item.url === '/' ? location.pathname === '/' : location.pathname.startsWith(item.url)) {
+          return group.label;
+        }
+      }
+    }
+    return 'Geral';
+  }, [location.pathname]);
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    // Default: Geral always open
+    return { Geral: true };
+  });
+
+  // Ensure active group is always open
+  useEffect(() => {
+    if (!openGroups[activeGroupLabel]) {
+      setOpenGroups((prev) => {
+        const next = { ...prev, [activeGroupLabel]: true };
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
+    }
+  }, [activeGroupLabel]);
+
+  const toggleGroup = useCallback((label: string) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
 
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -180,35 +259,73 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="gap-0">
-        {/* Navigation groups */}
-        {navGroups.map((group) => (
-          <SidebarGroup key={group.label} className="py-2">
-            {!collapsed && (
-              <SidebarGroupLabel className="text-sidebar-muted text-[10px] uppercase tracking-wider font-semibold px-3">
-                {group.label}
-              </SidebarGroupLabel>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title}>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === '/'}
-                        className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                      >
-                        <item.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        {/* Navigation groups — collapsible */}
+        {navGroups.map((group) => {
+          const isOpen = !!openGroups[group.label];
+          if (collapsed) {
+            // Icon-only mode: just show icons, no labels or collapsing
+            return (
+              <SidebarGroup key={group.label} className="py-1">
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild tooltip={item.title}>
+                          <NavLink
+                            to={item.url}
+                            end={item.url === '/'}
+                            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                          >
+                            <item.icon className="h-4 w-4 shrink-0" />
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            );
+          }
+          return (
+            <Collapsible key={group.label} open={isOpen} onOpenChange={() => toggleGroup(group.label)}>
+              <SidebarGroup className="py-1">
+                <CollapsibleTrigger asChild>
+                  <button className="flex items-center gap-1 px-3 py-1 w-full text-sidebar-muted hover:text-sidebar-foreground transition-colors group">
+                    <ChevronDown className={cn(
+                      'h-3 w-3 transition-transform',
+                      !isOpen && '-rotate-90'
+                    )} />
+                    <span className="text-[10px] uppercase tracking-wider font-semibold">
+                      {group.label}
+                    </span>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {group.items.map((item) => (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton asChild tooltip={item.title}>
+                            <NavLink
+                              to={item.url}
+                              end={item.url === '/'}
+                              className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                            >
+                              <item.icon className="h-4 w-4 shrink-0" />
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          );
+        })}
 
         {/* Admin */}
         {isAdmin && (

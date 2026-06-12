@@ -1,6 +1,6 @@
 # MOOUI Collab Hub — Status do Projeto
 
-Atualizado em: 2026-06-05
+Atualizado em: 2026-06-12
 
 ---
 
@@ -44,10 +44,10 @@ Atualizado em: 2026-06-05
 
 | # | Modulo | Rota | Status |
 |---|--------|------|--------|
-| 14 | Melhorias | `/melhorias` | OK — site/shopify/SEO, subitems com CRUD completo, progresso, kanban DnD |
-| 15 | Marketing | `/conteudo` | OK — Programacao, Newsletters por card Brasil/Barcelona e Demandas Marketing em tabela Sunday pura por Grupo Monday |
-| 16 | Calendario de Fotos e Videos | `/sessoes` | OK — foto/video em tabela Sunday pura por Grupo Monday, shots, contratos, banco de ideias, comentarios, anexos, kanban DnD |
-| 17 | Produto | `/produtos` | OK — tabela Sunday pura por grupo, pipeline 15 etapas, design items, auto-progress, comentarios, anexos, kanban DnD |
+| 14 | Melhorias | `/melhorias` | OK — SectorBoardsPage com 4 boards Sunday (Site, Shopify, SEO On-Page, SEO Tecnico) |
+| 15 | Marketing | `/conteudo`, `/programacao`, `/newsletters`, `/demandas-marketing` | OK — SectorBoardsPage; `/conteudo` agrega 9 boards; rotas standalone por sub-modulo |
+| 16 | Calendario de Fotos e Videos | `/sessoes` | OK — SectorBoardsPage com 1 board Sunday |
+| 17 | Produto | `/produtos` | OK — SectorBoardsPage com 1 board Sunday |
 
 ---
 
@@ -198,9 +198,45 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-08 | Sunday e boards embutidos ganharam arquivamento de elementos e grupos inteiros via `tasks.archived_at`; arquivados saem das visualizacoes ativas sem apagar dados |
 | 2026-06-08 | Validacao arquivamento: npm run build OK; npm run test -- src/test/edits.test.ts src/test/consolidated.test.ts OK (29 testes) |
 | 2026-06-08 | Tabelas Sunday ganharam scroll horizontal mais visivel para boards com muitas colunas/campos extensos; validado com build e edits.test |
+| 2026-06-11 | Fase 0 da reestruturacao: funcao SQL `has_min_role` (hierarquia 5 niveis), policy DELETE de tasks restrita a manager+, storage DELETE de melhoria-attachments restrito ao dono, todas as policies de storage DELETE atualizadas para dono OU manager+, usePermissions com default deny para acoes destrutivas |
+| 2026-06-11 | Fase 1 da reestruturacao: Sunday como fonte unica — hook `useSundayModuleProjects`, Dashboard/KPIPanel/ExecutivePanel/PersonalPanel/CommandPalette/TimelinePage migrados para contar tasks em projetos `Modulo | ...`, realtime de tabelas dedicadas removido do Dashboard, ProdutoPage internalizado com Sunday board embutido, todas as paginas de modulo exibem Sunday como primario |
+| 2026-06-11 | Fase 1 itens 1.4+1.6: script `migrate-dedicated-to-sunday.mjs` criado para migrar comments/attachments e remapear module_links; dry-run confirmou zero dados nas tabelas dedicadas (nenhum usuario criou comentarios/anexos/links via UI legada); board `Modulo | Produtos` clonado com 367 tasks via internalize-sunday-module-boards |
+| 2026-06-11 | Fase 2.5: DELETE policies restritas a manager+ em 20+ tabelas (melhorias, conteudo, newsletters, pautas, sessoes, produtos, launches, events, docs, orders, tickets, channels + sub-items); tabela `module_access` criada para controle de visibilidade por modulo; aba Liberacoes em Configuracoes; `useModuleAccess` hook; `usePermissions` expandido com delete_order/ticket/channel/launch/event/doc/link/label; 4 testes role-based DELETE em security.test.ts (3 passam agora, 1 aguarda migration push) |
+| 2026-06-11 | Fase 2A: tabelas polimorficas `comments`, `attachments`, `activity_log`, `entity_code_seq` criadas com RLS; hooks genericos `useComments`, `useAttachments`, `useActivityLog`; componentes genericos `CommentsTab`, `AttachmentsTab`, `ActivityTab` extraidos do padrao ProdutoPage |
+| 2026-06-11 | Fase 2B: migracao SQL de 21 tabelas dedicadas de comments/attachments/activity para polimorficas (idempotente, ON CONFLICT DO NOTHING); hooks `useTaskComments`, `useTaskActivity`, `useTaskAttachments` reescritos para ler das tabelas polimorficas; tabelas antigas marcadas DEPRECATED |
+| 2026-06-11 | Fase 2C: migracao SQL de orders/tickets comments/activity/attachments para polimorficas; hooks `useOrderComments`, `useOrderActivity`, `useOrderAttachments`, `useTicketComments`, `useTicketActivity`, `useTicketAttachments`, `useAddOrderComment`, `useAddTicketComment` reescritos; notificacoes preservadas; TicketsPage upload direto atualizado; message_attachments mantido como esta (dominio proprio) |
+| 2026-06-11 | Fase 3 (3.1-3.6): SundayBoard extraido para `src/features/boards/`; SectorBoardsPage generica com fuzzy matching por aliases; 7 paginas migradas — MelhoriasPage (1194→17), SessoesPage (1399→22), ProdutoPage (1016→22), ConteudoPage (2908→25), ProgramacaoPage (nova, 6 boards), NewslettersPage (nova, 2 boards), DemandasMarketingPage (nova, 1 board); 9 arquivos mortos deletados (useConteudo, useNewsletters, usePautas, useMelhorias, useSessoes, useProdutos, ContentCalendar, PipelineTracker, SpreadsheetFields) |
+| 2026-06-12 | Fase 3 (3.4e-3.5): LinkedItems adicionado a Pedidos e Tickets; ExecutivePanel reorganizado por setor com 6 setores; KPIPanel expandido para 9 metricas; 10 feature folders criados (orders, tickets, messages, docs, production, calendar, rooms, team, settings, boards) com barrel exports; 14 arquivos mortos removidos incluindo 5 hooks legados de attachments/contracts/ideas |
+| 2026-06-12 | Fase 3 (3.10): UX mobile em Pedidos, Tickets e Speaks — filtros em grid 2-col no mobile, touch targets 40px+, dialogs com max-h-[90dvh] e scroll interno, botoes header icon-only no mobile |
+| 2026-06-12 | Fase 3 (3.7): UX Kit em `src/shared/components/` — PageHeader, FilterBar (colapsa em Sheet mobile), EmptyState, LoadingSkeleton (list/cards/table), ResponsiveDialog (Dialog desktop + Sheet mobile), MobileListCard; `useMediaQuery` em `src/shared/hooks/` |
+| 2026-06-12 | Fase 3 (3.8): SundayBoard responsivo — SundayMobileList renderiza cards agrupados no mobile (<640px) em vez da tabela; accordion por grupo, card com titulo/status/prioridade/data/avatares, quick-add, touch targets 44px |
+| 2026-06-12 | Fase 3 (3.9): Kanban mobile com snap scroll (85vw colunas); Timeline com layout compacto e assignee picker hidden no mobile |
+| 2026-06-12 | Fase 3 (3.11): Varredura final — dialogs max-h-[90dvh] em ChecklistPage e LaunchesPage; selects responsive em KanbanPage e SprintsPage; flex-wrap em SprintsPage header |
+| 2026-06-12 | Fase 4 (4.1): Migration `20260612_phase4_calendar_events.sql` — tabela `calendar_events` com scope/category/sector, backfill de annual_events, launches e bookings |
+| 2026-06-12 | Fase 4 (4.2): Sync hooks — annual_events, launches e bookings agora fazem upsert/delete em calendar_events no onSuccess das mutacoes |
+| 2026-06-12 | Fase 4 (4.3+4.4): CalendarPage refatorada — display unificado via `useCalendarEvents`, filtros por categoria+setor+escopo, pin-to-master toggle para manager+; CRUD de eventos anuais preservado |
+| 2026-06-12 | Fase 4 (4.5): Confirmado que posts/newsletters nao sincronizam com calendar_events — by design |
+| 2026-06-12 | Fase 4 (4.6): Auditoria CRM — zero referencias a `crm_*` em src/; tabelas sao candidatas a drop na 4.7 |
+| 2026-06-12 | Fase 5 (5.1): ColumnType expandido para 11 tipos (+ checkbox, link, rating, select); ColumnCell em `features/boards/columns/` com renderers tipados (checkbox, stars, link com external, select dropdown, tags multi-select, date formatada) |
+| 2026-06-12 | Fase 5 (5.2): Card layout config via `config.show_on_card` em project_columns; colunas marcadas aparecem nos cards do Kanban com ColumnCell inline |
+| 2026-06-12 | Fase 5 (5.3): Board management — reordenacao de colunas (mover esquerda/direita), editor de opcoes para select/status/tags (prompt multiline), PromptDialog ganhou modo multiline |
+| 2026-06-12 | Fase 4 (4.8): Cleanup — `useSundayModuleProjects.ts` removido (morto); auditoria confirmou zero codigo morto restante |
+| 2026-06-12 | Fase 3 (3.4c parcial): 5 novas paginas de setor — DesignPage, ComercialPage, FinanceiroPage, InternacionalPage, ProducaoBoardsPage — com SectorBoardsPage e aliases prontos para boards `Modulo \| ...` |
+| 2026-06-12 | Sidebar reorganizada por setores (Geral, Marketing, Estudio, Design, Produto, Producao, Site & TI, Comercial, SAC & Expedicao, Financeiro, Internacional, Ferramentas); CommandPalette atualizado com novos setores |
+| 2026-06-12 | Sidebar com grupos colapsaveis — cada setor abre/fecha com chevron, grupo ativo auto-expande por rota, estado persiste em localStorage |
+| 2026-06-12 | Script `setup-sector-boards.mjs` criado — 3.4b (merge Site+Shopify Novo), 3.4d (criar Demandas Design), seed de boards para setores novos (Atacado, Financeiro, Internacional, Producao) |
+| 2026-06-12 | Auditoria RLS (0.3): 97/98 testes passam; falha em member-delete-task aguarda aplicacao da migration no Supabase remoto |
+| 2026-06-12 | Migrations aplicadas no Supabase remoto: 6 schema migrations (has_min_role, DELETE policies, module_access, polymorphic tables, calendar_events) com guards IF EXISTS + EXCEPTION WHEN para compatibilidade com schema Lovable |
+| 2026-06-12 | Hotfix has_min_role: LEFT JOIN user_roles com COALESCE para organization_members.role como fallback, corrigindo usuarios sem entry em user_roles |
+| 2026-06-12 | Script `seed-board-guide-doc.mjs` criado (5.4) — guia "Como criar um board no Sunday" para o Papelinho com 11 tipos de coluna, visualizacoes, filtros e dicas |
+| 2026-06-12 | Code-splitting: React.lazy para 27 paginas + manualChunks para vendor (react, query, ui, supabase, editor, charts). Chunk inicial de 2.324KB caiu para 269KB (88% reducao); editor e charts carregam sob demanda |
+| 2026-06-12 | Scripts executados: setup-sector-boards (merge Site Unificado 333 tasks, Demandas Design, Atacado, Financeiro, Internacional, Producao) e seed-board-guide-doc (guia Papelinho criado) |
+| 2026-06-12 | TableViewPage refatorada de 1.869 para ~500 linhas: constants.ts (labels/utils), TableCells.tsx (StatusCell/PriorityCell/AssigneeAvatars/AssigneePickerCell), TableToolbar.tsx (7 componentes de toolbar), SundayViews.tsx (MiniCard/Kanban/Timeline/Calendar), TaskRow.tsx (linha recursiva com drag-and-drop) extraidos para `features/boards/components/` |
 
 ### Validacao 2026-06-05
 
+- `npm run build`: OK apos refatoracao de TableViewPage em componentes focados.
+- `npm run test`: OK apos refatoracao de TableViewPage, 9 arquivos e 98 testes (97 passam, 1 falha preexistente em security.test.ts aguarda migration).
 - `npm run build`: OK apos custom fields operacionais.
 - `npm run build`: OK apos rotas separadas de Marketing.
 - `npm run build`: OK apos tabelas estilo Excel em Programacao, Newsletters e Demandas Marketing.

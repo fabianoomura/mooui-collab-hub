@@ -55,15 +55,15 @@ export default function SprintsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Sprints</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie ciclos de desenvolvimento</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {projects && projects.length > 0 && (
             <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger className="w-56">
+              <SelectTrigger className="w-full sm:w-56">
                 <SelectValue placeholder="Selecione um projeto" />
               </SelectTrigger>
               <SelectContent>

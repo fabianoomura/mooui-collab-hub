@@ -51,7 +51,7 @@ export default function KanbanPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {hasProjects && (
             <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger className="w-56">
+              <SelectTrigger className="w-full sm:w-56">
                 <SelectValue placeholder="Selecione um projeto" />
               </SelectTrigger>
               <SelectContent>

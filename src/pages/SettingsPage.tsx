@@ -32,12 +32,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown, Mail, ArrowLeft, ArrowRight, KeyRound, Wrench, Pencil } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown, Mail, ArrowLeft, ArrowRight, KeyRound, Wrench, Pencil, Lock } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 
 import { toast } from 'sonner';
-import { ProfileTab } from '@/components/settings/ProfileTab';
+import { ProfileTab, ModuleAccessTab } from '@/features/settings';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -170,12 +170,13 @@ export default function SettingsPage() {
       )}
 
       <Tabs defaultValue="profile" className="space-y-5">
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-lg bg-muted/60 p-1 sm:grid-cols-2 lg:grid-cols-6">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-lg bg-muted/60 p-1 sm:grid-cols-2 lg:grid-cols-7">
           <TabsTrigger value="profile" className="justify-start gap-2 px-3 py-2"><UserIcon className="h-4 w-4" />Meu perfil</TabsTrigger>
           {isAdmin && <TabsTrigger value="users" className="justify-start gap-2 px-3 py-2"><UsersIcon className="h-4 w-4" />Usuários</TabsTrigger>}
           {isAdmin && <TabsTrigger value="departments" className="justify-start gap-2 px-3 py-2"><Building2 className="h-4 w-4" />Setores</TabsTrigger>}
           {isAdmin && <TabsTrigger value="teams" className="justify-start gap-2 px-3 py-2"><UsersIcon className="h-4 w-4" />Equipes de setor</TabsTrigger>}
           {isAdmin && <TabsTrigger value="permissions" className="justify-start gap-2 px-3 py-2"><Shield className="h-4 w-4" />Permissões</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="access" className="justify-start gap-2 px-3 py-2"><Lock className="h-4 w-4" />Liberações</TabsTrigger>}
           {isAdmin && <TabsTrigger value="emails" className="justify-start gap-2 px-3 py-2"><Mail className="h-4 w-4" />Emails</TabsTrigger>}
         </TabsList>
 
@@ -199,6 +200,9 @@ export default function SettingsPage() {
               <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 <PermissionsTab orgId={currentOrg.id} canEdit={isAdmin} />
               </div>
+            </TabsContent>
+            <TabsContent value="access" className="mt-0">
+              <ModuleAccessTab orgId={currentOrg.id} canEdit={isAdmin} />
             </TabsContent>
             <TabsContent value="emails" className="mt-0">
               <EmailsTab />

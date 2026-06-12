@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useDocPages, useCreateDocPage, useUpdateDocPage, useDeleteDocPage, type DocPage,
-} from '@/hooks/useDocPages';
+} from '@/features/docs';
 import { useDepartments } from '@/hooks/useOrgSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RichTextEditor } from '@/components/docs/RichTextEditor';
+import { RichTextEditor } from '@/features/docs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, FileText, Trash2, MoreHorizontal, Folder, ChevronDown, ChevronRight, Menu, Search, X, Check, Loader2, Plus as PlusIcon, Star, Download, FileArchive, LayoutTemplate, Lock } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -20,13 +20,10 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { NewPageDialog } from '@/components/docs/NewPageDialog';
-import { PagePermissions } from '@/components/docs/PagePermissions';
-import { IconPicker } from '@/components/docs/IconPicker';
-import { TemplatePickerDialog } from '@/components/docs/TemplatePickerDialog';
+import { NewPageDialog, PagePermissions, IconPicker, TemplatePickerDialog } from '@/features/docs';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useDocFavorites, useToggleFavorite } from '@/hooks/useDocFavorites';
+import { useDocFavorites, useToggleFavorite } from '@/features/docs';
 import JSZip from 'jszip';
 
 interface ProfileLite { id: string; full_name: string | null; avatar_url: string | null; }

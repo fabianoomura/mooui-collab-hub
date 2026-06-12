@@ -3,8 +3,8 @@ import {
   useChecklists, useChecklistItems, useTemplates,
   useCreateChecklistFromTemplate, useUpdateChecklistItem, useSaveAsTemplate,
   useDeleteChecklist, useDeleteChecklistItem,
-} from '@/hooks/useChecklists';
-import { useLaunches } from '@/hooks/useLaunches';
+} from '@/features/production';
+import { useLaunches } from '@/features/production';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -381,7 +381,7 @@ export default function ChecklistPage() {
 
       {/* New checklist */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>Nova checagem</DialogTitle></DialogHeader>
           <NewChecklistForm
             launches={launches} templates={templates}
@@ -394,7 +394,7 @@ export default function ChecklistPage() {
 
       {/* Save as template */}
       <Dialog open={showSaveTpl} onOpenChange={setShowSaveTpl}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>Salvar como template</DialogTitle></DialogHeader>
           <SaveTemplateForm
             onSubmit={(name) => saveTpl.mutate({ checklistId: activeId!, name }, {

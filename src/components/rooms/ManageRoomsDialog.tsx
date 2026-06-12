@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Trash2, Plus } from 'lucide-react';
 import {
   useMeetingRooms, useCreateMeetingRoom, useDeleteMeetingRoom, useUpdateMeetingRoom,
-} from '@/hooks/useMeetingRooms';
+} from '@/features/rooms';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 

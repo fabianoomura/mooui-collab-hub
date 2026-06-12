@@ -166,41 +166,59 @@ export function PersonalPanel() {
         .limit(5);
       const myOrders = (myOrdersData || []) as any[];
 
-      // 9) Melhorias atribuídas a mim
-      const { data: myMelhoriasData } = await supabase
-        .from('melhorias' as any)
-        .select('id, title, code, priority, status, area')
+      // 9) Module tasks assigned to me (from Sunday boards)
+      const { data: modProjects } = await supabase
+        .from('projects').select('id, name')
         .eq('organization_id', currentOrg.id)
-        .eq('assigned_to', user.id)
-        .not('status', 'in', '("done","cancelled")')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      const myMelhorias = (myMelhoriasData || []) as any[];
+        .ilike('name', 'Modulo | %');
 
-      // 10) Novos modulos atribuídos a mim
-      const { data: myConteudosData } = await supabase
-        .from('conteudo_items' as any)
-        .select('id, title, channel, scheduled_date, status')
-        .eq('organization_id', currentOrg.id)
-        .eq('assigned_to', user.id)
-        .neq('status', 'publicado');
-      const myConteudos = (myConteudosData || []) as any[];
+      const modProjectIds = (modProjects || []).map((p) => p.id);
+      let myModuleTasks: any[] = [];
+      if (modProjectIds.length) {
+        const { data: modAssignments } = await supabase
+          .from('task_assignees').select('task_id')
+          .eq('user_id', user.id);
+        const modTaskIds = (modAssignments || []).map((a) => a.task_id);
+        if (modTaskIds.length) {
+          const { data: modTasksData } = await supabase
+            .from('tasks')
+            .select('id, title, status, priority, due_date, project_id')
+            .in('id', modTaskIds)
+            .in('project_id', modProjectIds)
+            .is('archived_at', null)
+            .is('parent_task_id', null)
+            .neq('status', 'done')
+            .order('created_at', { ascending: false })
+            .limit(20);
+          myModuleTasks = modTasksData || [];
+        }
+      }
 
-      const { data: mySessoesData } = await supabase
-        .from('sessoes' as any)
-        .select('id, title, scheduled_date, status, professional')
-        .eq('organization_id', currentOrg.id)
-        .contains('responsaveis', [user.id])
-        .not('status', 'in', '("entregue","cancelada")');
-      const mySessoes = (mySessoesData || []) as any[];
+      // Categorize module tasks by project prefix
+      const projectNameById = new Map((modProjects || []).map((p) => [p.id, p.name]));
+      const getModuleKind = (projectId: string) => {
+        const name = (projectNameById.get(projectId) || '').toLowerCase();
+        if (name.includes('melhorias')) return 'melhoria';
+        if (name.includes('programacao')) return 'conteudo';
+        if (name.includes('sessoes')) return 'sessao';
+        if (name.includes('produtos')) return 'produto';
+        if (name.includes('newsletters')) return 'conteudo';
+        if (name.includes('demandas')) return 'conteudo';
+        return 'task';
+      };
 
-      const { data: myProdutosData } = await supabase
-        .from('produtos' as any)
-        .select('id, name, launch_target, collection_group, progress')
-        .eq('organization_id', currentOrg.id)
-        .eq('responsible', user.id)
-        .neq('collection_group', 'arquivado');
-      const myProdutos = (myProdutosData || []) as any[];
+      const myMelhorias = myModuleTasks
+        .filter((t) => getModuleKind(t.project_id) === 'melhoria')
+        .map((t) => ({ id: t.id, title: t.title, code: '', priority: t.priority, status: t.status, area: '' }));
+      const myConteudos = myModuleTasks
+        .filter((t) => getModuleKind(t.project_id) === 'conteudo')
+        .map((t) => ({ id: t.id, title: t.title, channel: '', scheduled_date: t.due_date, status: t.status }));
+      const mySessoes = myModuleTasks
+        .filter((t) => getModuleKind(t.project_id) === 'sessao')
+        .map((t) => ({ id: t.id, title: t.title, scheduled_date: t.due_date, status: t.status, professional: '' }));
+      const myProdutos = myModuleTasks
+        .filter((t) => getModuleKind(t.project_id) === 'produto')
+        .map((t) => ({ id: t.id, name: t.title, launch_target: t.due_date, collection_group: '', progress: 0 }));
 
       // ---- Build derived sets ----
       const priorityWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };

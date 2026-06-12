@@ -58,10 +58,7 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'launch_checklists' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'meeting_room_bookings' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_events' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'melhorias' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conteudo_items' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessoes' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'produtos' }, invalidate)
+      // Module data now lives in tasks (Sunday boards) — tasks listener above covers it
       .on('postgres_changes', { event: '*', schema: 'public', table: 'doc_pages' }, invalidate)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, invalidate)
       .subscribe();
@@ -84,7 +81,8 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0];
       const year = new Date().getFullYear();
 
-      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, ticketsRes, checklistsRes, melhoriasRes, conteudoRes, newslettersRes, pautasRes, sessoesRes, produtosRes] = await Promise.all([
+      // Core module queries (specialized — keep as is)
+      const [tasksRes, unreadRes, docsRes, bookingsRes, eventsRes, launchesRes, ticketsRes, checklistsRes] = await Promise.all([
         supabase.from('task_assignees').select('task_id').eq('user_id', user.id),
         supabase.from('messages').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 86400000).toISOString()),
         supabase.from('doc_pages').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
@@ -93,12 +91,39 @@ export default function Dashboard() {
         supabase.from('launches').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).eq('status', 'active'),
         supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['open', 'in_progress']),
         supabase.from('launch_checklists').select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id),
-        supabase.from('melhorias' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['open', 'in_progress']),
-        supabase.from('conteudo_items' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('status', 'publicado'),
-        supabase.from('newsletters' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('status', 'enviado'),
-        supabase.from('pautas' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('status', 'concluida'),
-        supabase.from('sessoes' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).in('status', ['planejada', 'em_producao', 'em_edicao']),
-        supabase.from('produtos' as any).select('id', { count: 'exact', head: true }).eq('organization_id', currentOrg.id).neq('collection_group', 'arquivado'),
+      ]);
+
+      // Module stats from Sunday boards (replaces dedicated table queries)
+      const { data: moduleProjects } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('organization_id', currentOrg.id)
+        .ilike('name', 'Modulo | %');
+
+      const byPrefix = (prefix: string) =>
+        (moduleProjects || [])
+          .filter((p) => p.name.toLowerCase().includes(prefix.toLowerCase()))
+          .map((p) => p.id);
+
+      const countActive = async (ids: string[]) => {
+        if (ids.length === 0) return 0;
+        const { count } = await supabase
+          .from('tasks')
+          .select('id', { count: 'exact', head: true })
+          .in('project_id', ids)
+          .is('archived_at', null)
+          .is('parent_task_id', null)
+          .neq('status', 'done');
+        return count ?? 0;
+      };
+
+      const [openMelhorias, conteudosPendentes, newslettersPendentes, demandasPendentes, sessoesAtivas, produtosAtivos] = await Promise.all([
+        countActive(byPrefix('Melhorias')),
+        countActive(byPrefix('Programacao')),
+        countActive(byPrefix('Newsletters')),
+        countActive(byPrefix('Demandas')),
+        countActive(byPrefix('Sessoes')),
+        countActive(byPrefix('Produtos')),
       ]);
 
       let myOpenTasks = 0;
@@ -137,12 +162,12 @@ export default function Dashboard() {
         activeLaunches: launchesRes.count ?? 0,
         openTickets: ticketsRes.count ?? 0,
         checklists: checklistsRes.count ?? 0,
-        openMelhorias: melhoriasRes.count ?? 0,
-        conteudosPendentes: conteudoRes.count ?? 0,
-        newslettersPendentes: newslettersRes.count ?? 0,
-        demandasPendentes: pautasRes.count ?? 0,
-        sessoesAtivas: sessoesRes.count ?? 0,
-        produtosAtivos: produtosRes.count ?? 0,
+        openMelhorias,
+        conteudosPendentes,
+        newslettersPendentes,
+        demandasPendentes,
+        sessoesAtivas,
+        produtosAtivos,
         nextStage: nextStage?.[0] ?? null,
       };
     },

@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type ColumnType = 'status' | 'texto' | 'pessoas' | 'cronograma' | 'data' | 'tags' | 'numeros';
+export type ColumnType =
+  | 'status' | 'texto' | 'pessoas' | 'cronograma' | 'data'
+  | 'tags' | 'numeros' | 'checkbox' | 'link' | 'rating' | 'select';
 
 export interface ProjectColumn {
   id: string;
@@ -88,7 +90,7 @@ export function useProjectColumns(projectId: string | undefined) {
   });
 
   const updateColumn = useMutation({
-    mutationFn: async ({ columnId, updates }: { columnId: string; updates: { name?: string; position?: number; width?: number; column_type?: string } }) => {
+    mutationFn: async ({ columnId, updates }: { columnId: string; updates: { name?: string; position?: number; width?: number; column_type?: string; config?: Record<string, unknown> } }) => {
       const { error } = await supabase
         .from('project_columns')
         .update(updates)

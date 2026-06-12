@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { TrendingUp, TrendingDown, CheckCircle2, Clock, Package, Briefcase, BarChart3, Wrench, FileText, ShoppingBag } from 'lucide-react';
+import { TrendingUp, TrendingDown, CheckCircle2, Clock, Package, Briefcase, BarChart3, Wrench, FileText, ShoppingBag, Camera, Mail } from 'lucide-react';
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -79,26 +79,45 @@ export function KPIPanel() {
         avgTicketHours = Math.round(totalMs / resolvedTickets.length / 3600000);
       }
 
-      // Melhorias: open vs done this week
-      const [melhoriasOpen, melhoriasDone] = await Promise.all([
-        supabase.from('melhorias' as any).select('id', { count: 'exact', head: true })
-          .eq('organization_id', currentOrg.id).not('status', 'in', '("done","cancelled")'),
-        supabase.from('melhorias' as any).select('id', { count: 'exact', head: true })
-          .eq('organization_id', currentOrg.id).eq('status', 'done').gte('updated_at', week),
-      ]);
+      // Module stats from Sunday boards
+      const { data: modProjects } = await supabase
+        .from('projects').select('id, name')
+        .eq('organization_id', currentOrg.id)
+        .ilike('name', 'Modulo | %');
 
-      // Conteudo: pending vs published this week
-      const [conteudoPending, conteudoPublished] = await Promise.all([
-        supabase.from('conteudo_items' as any).select('id', { count: 'exact', head: true })
-          .eq('organization_id', currentOrg.id).not('status', 'in', '("publicado")'),
-        supabase.from('conteudo_items' as any).select('id', { count: 'exact', head: true })
-          .eq('organization_id', currentOrg.id).eq('status', 'publicado').gte('updated_at', week),
-      ]);
+      const idsByPrefix = (prefix: string) =>
+        (modProjects || []).filter((p) => p.name.toLowerCase().includes(prefix.toLowerCase())).map((p) => p.id);
 
-      // Produtos: active pipeline count
-      const { count: produtosActive } = await supabase
-        .from('produtos' as any).select('id', { count: 'exact', head: true })
-        .eq('organization_id', currentOrg.id).neq('collection_group', 'arquivado');
+      const countActive = async (ids: string[]) => {
+        if (!ids.length) return 0;
+        const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true })
+          .in('project_id', ids).is('archived_at', null).is('parent_task_id', null).neq('status', 'done');
+        return count ?? 0;
+      };
+      const countDone = async (ids: string[], since: string) => {
+        if (!ids.length) return 0;
+        const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true })
+          .in('project_id', ids).is('parent_task_id', null).eq('status', 'done').gte('updated_at', since);
+        return count ?? 0;
+      };
+
+      const melhoriasIds = idsByPrefix('Melhorias');
+      const programacaoIds = idsByPrefix('Programacao');
+      const produtosIds = idsByPrefix('Produtos');
+      const newslettersIds = idsByPrefix('Newsletters');
+      const sessoesIds = idsByPrefix('Sessoes');
+      const demandasIds = idsByPrefix('Demandas');
+
+      const [melhoriasOpenCount, melhoriasDoneCount, conteudoPendingCount, conteudoPublishedCount, produtosActiveCount, newslettersPendingCount, sessoesActiveCount, demandasPendingCount] = await Promise.all([
+        countActive(melhoriasIds),
+        countDone(melhoriasIds, week),
+        countActive(programacaoIds),
+        countDone(programacaoIds, week),
+        countActive(produtosIds),
+        countActive(newslettersIds),
+        countActive(sessoesIds),
+        countActive(demandasIds),
+      ]);
 
       const doneThis = tasksDoneThisWeek.count ?? 0;
       const doneLast = tasksDoneLastWeek.count ?? 0;
@@ -113,11 +132,14 @@ export function KPIPanel() {
         ticketsCreated: ticketsCreated.count ?? 0,
         ticketsResolved: ticketsResolved.count ?? 0,
         avgTicketHours,
-        melhoriasOpen: melhoriasOpen.count ?? 0,
-        melhoriasDoneWeek: melhoriasDone.count ?? 0,
-        conteudoPending: conteudoPending.count ?? 0,
-        conteudoPublishedWeek: conteudoPublished.count ?? 0,
-        produtosActive: produtosActive ?? 0,
+        melhoriasOpen: melhoriasOpenCount,
+        melhoriasDoneWeek: melhoriasDoneCount,
+        conteudoPending: conteudoPendingCount,
+        conteudoPublishedWeek: conteudoPublishedCount,
+        produtosActive: produtosActiveCount,
+        newslettersPending: newslettersPendingCount,
+        sessoesActive: sessoesActiveCount,
+        demandasPending: demandasPendingCount,
       };
     },
     enabled: !!currentOrg && canDo('view_reports'),
@@ -174,6 +196,27 @@ export function KPIPanel() {
       icon: ShoppingBag,
       iconColor: 'text-amber-600',
     },
+    {
+      label: 'Newsletters',
+      value: data.newslettersPending,
+      suffix: 'pendentes',
+      icon: Mail,
+      iconColor: 'text-fuchsia-600',
+    },
+    {
+      label: 'Sessoes',
+      value: data.sessoesActive,
+      suffix: 'ativas',
+      icon: Camera,
+      iconColor: 'text-violet-600',
+    },
+    {
+      label: 'Demandas',
+      value: data.demandasPending,
+      suffix: 'pendentes',
+      icon: FileText,
+      iconColor: 'text-rose-600',
+    },
   ];
 
   return (
@@ -182,7 +225,7 @@ export function KPIPanel() {
         <BarChart3 className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold uppercase tracking-wide">KPIs da Semana</h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {kpis.map((kpi) => (
           <div key={kpi.label} className="flex items-start gap-3">
             <div className={`h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0`}>

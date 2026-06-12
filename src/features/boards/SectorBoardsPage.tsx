@@ -1,0 +1,108 @@
+import { useState, type ReactNode } from 'react';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useProjectsByOrg } from '@/hooks/useProjectData';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import SundayBoard from './SundayBoard';
+
+function normalizedKey(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9/]+/g, '');
+}
+
+export interface BoardCard {
+  /** Unique key for this card */
+  key: string;
+  /** Display label */
+  label: string;
+  /** Color dot */
+  color: string;
+  /** Aliases for matching project names (e.g. 'Modulo | Melhorias | Site', '1780430139') */
+  aliases: string[];
+  /** Optional icon component */
+  icon?: ReactNode;
+}
+
+export interface SectorBoardsPageConfig {
+  /** Page title */
+  title: string;
+  /** Subtitle / description */
+  description?: string;
+  /** Board cards to display */
+  cards: BoardCard[];
+  /** Optional extra content rendered above the board (e.g. pipeline tracker) */
+  headerExtra?: ReactNode;
+}
+
+function findProject(projects: any[], aliases: string[]): any | null {
+  for (const alias of aliases) {
+    const key = normalizedKey(alias);
+    const found = projects.find((p: any) => normalizedKey(p.name).includes(key));
+    if (found) return found;
+  }
+  return null;
+}
+
+export default function SectorBoardsPage({ title, description, cards, headerExtra }: SectorBoardsPageConfig) {
+  const { currentOrg } = useOrganization();
+  const { data: projects = [], isLoading } = useProjectsByOrg(currentOrg?.id);
+  const [activeKey, setActiveKey] = useState(cards[0]?.key || '');
+
+  const resolvedCards = cards.map((card) => ({
+    ...card,
+    project: findProject(projects, card.aliases),
+  }));
+
+  const activeCard = resolvedCards.find((c) => c.key === activeKey) || resolvedCards[0];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">{title}</h1>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </div>
+
+      {cards.length > 1 && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {resolvedCards.map((card) => (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => setActiveKey(card.key)}
+              className={cn(
+                'rounded-md border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40',
+                activeKey === card.key && 'border-primary ring-1 ring-primary/30',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: card.color }} />
+                  {card.icon}
+                  {card.label}
+                </span>
+                <Badge variant="outline" className="text-[10px]">Sunday</Badge>
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground">
+                {card.project ? 'Abrir board completo' : isLoading ? 'Carregando...' : 'Projeto nao encontrado'}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {headerExtra}
+
+      {activeCard?.project ? (
+        <SundayBoard projectId={activeCard.project.id} />
+      ) : (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          {isLoading ? 'Carregando board...' : `Board Sunday de ${activeCard?.label || title} nao encontrado em Projetos.`}
+        </Card>
+      )}
+    </div>
+  );
+}

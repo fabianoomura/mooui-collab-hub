@@ -23,10 +23,9 @@ function weekLabel(weeksAgo: number): string {
   return `${weeksAgo} semanas`;
 }
 
-type ModuleHealth = {
-  name: string;
-  openCount: number;
-  avgHours: number;
+type SectorHealth = {
+  sector: string;
+  modules: { name: string; openCount: number; avgHours: number }[];
 };
 
 function healthDot(avgHours: number) {
@@ -126,43 +125,69 @@ export function ExecutivePanel() {
         avgTaskHours = Math.round(totalMs / doneTasks.length / 3600000);
       }
 
-      // Melhorias
-      const { count: openMelhorias } = await supabase
-        .from('melhorias' as any).select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId).not('status', 'in', '("done","cancelled")');
+      // Module stats from Sunday boards
+      const { data: modProjects } = await supabase
+        .from('projects').select('id, name')
+        .eq('organization_id', orgId)
+        .ilike('name', 'Modulo | %');
 
-      const { data: doneMelhorias } = await supabase
-        .from('melhorias' as any).select('data_abertura, data_conclusao')
-        .eq('organization_id', orgId).eq('status', 'done')
-        .not('data_conclusao', 'is', null)
-        .gte('data_conclusao', thirtyDaysAgo);
+      const idsByPrefix = (prefix: string) =>
+        (modProjects || []).filter((p) => p.name.toLowerCase().includes(prefix.toLowerCase())).map((p) => p.id);
 
-      let avgMelhoriaHours = 0;
-      if (doneMelhorias?.length) {
-        const totalMs = (doneMelhorias as any[]).reduce((sum, m) => {
-          return sum + (new Date(m.data_conclusao).getTime() - new Date(m.data_abertura).getTime());
-        }, 0);
-        avgMelhoriaHours = Math.round(totalMs / doneMelhorias.length / 3600000);
+      const countActiveModule = async (ids: string[]) => {
+        if (!ids.length) return 0;
+        const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true })
+          .in('project_id', ids).is('archived_at', null).is('parent_task_id', null).neq('status', 'done');
+        return count ?? 0;
+      };
+
+      // Module counts per prefix
+      const modulePrefixes = [
+        { prefix: 'Melhorias', name: 'Melhorias', sector: 'Site & TI' },
+        { prefix: 'Programacao', name: 'Programacao', sector: 'Marketing' },
+        { prefix: 'Newsletters', name: 'Newsletters', sector: 'Marketing' },
+        { prefix: 'Demandas', name: 'Demandas', sector: 'Marketing' },
+        { prefix: 'Sessoes', name: 'Sessoes', sector: 'Estudio' },
+        { prefix: 'Produtos', name: 'Produtos', sector: 'Produto' },
+      ];
+
+      const moduleCounts = await Promise.all(
+        modulePrefixes.map(async (m) => {
+          const ids = idsByPrefix(m.prefix);
+          const openCount = await countActiveModule(ids);
+          let avgHours = 0;
+          if (ids.length && m.prefix === 'Melhorias') {
+            const { data: doneTasks } = await supabase
+              .from('tasks').select('created_at, updated_at')
+              .in('project_id', ids).is('parent_task_id', null)
+              .eq('status', 'done').gte('updated_at', thirtyDaysAgo);
+            if (doneTasks?.length) {
+              const totalMs = doneTasks.reduce((sum, t) =>
+                sum + (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime()), 0);
+              avgHours = Math.round(totalMs / doneTasks.length / 3600000);
+            }
+          }
+          return { ...m, openCount, avgHours };
+        }),
+      );
+
+      // Group by sector
+      const sectorMap = new Map<string, SectorHealth>();
+
+      // Specialized modules first
+      const addToSector = (sector: string, name: string, openCount: number, avgHours: number) => {
+        if (!sectorMap.has(sector)) sectorMap.set(sector, { sector, modules: [] });
+        sectorMap.get(sector)!.modules.push({ name, openCount, avgHours });
+      };
+
+      addToSector('Geral', 'Tarefas', openTasks ?? 0, avgTaskHours);
+      addToSector('SAC & Expedicao', 'Pedidos', openOrders ?? 0, avgOrderHours);
+      addToSector('Site & TI', 'Tickets', openTickets ?? 0, avgTicketHours);
+      for (const mc of moduleCounts) {
+        addToSector(mc.sector, mc.name, mc.openCount, mc.avgHours);
       }
 
-      // Conteudo
-      const { count: openConteudo } = await supabase
-        .from('conteudo_items' as any).select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId).not('status', 'in', '("publicado")');
-
-      // Produtos
-      const { count: activeProdutos } = await supabase
-        .from('produtos' as any).select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId).neq('collection_group', 'arquivado');
-
-      const modules: ModuleHealth[] = [
-        { name: 'Pedidos', openCount: openOrders ?? 0, avgHours: avgOrderHours },
-        { name: 'Tickets', openCount: openTickets ?? 0, avgHours: avgTicketHours },
-        { name: 'Tarefas', openCount: openTasks ?? 0, avgHours: avgTaskHours },
-        { name: 'Melhorias', openCount: openMelhorias ?? 0, avgHours: avgMelhoriaHours },
-        { name: 'Conteúdo', openCount: openConteudo ?? 0, avgHours: 0 },
-        { name: 'Produtos', openCount: activeProdutos ?? 0, avgHours: 0 },
-      ];
+      const sectors = [...sectorMap.values()];
 
       return {
         tasksDone: tasksDone.count ?? 0,
@@ -170,7 +195,7 @@ export function ExecutivePanel() {
         ordersClosed: ordersClosed.count ?? 0,
         ticketsResolved: ticketsResolved.count ?? 0,
         weeklyTasks,
-        modules,
+        sectors,
       };
     },
     enabled: !!orgId && canDo('view_reports'),
@@ -230,34 +255,41 @@ export function ExecutivePanel() {
         </div>
       </div>
 
-      {/* Module health */}
+      {/* Sector health */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Activity className="h-3.5 w-3.5 text-muted-foreground" />
           <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">
-            Saude dos modulos
+            Saude por setor
           </h3>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-4">
+          {data.sectors.map((sec) => (
+            <div key={sec.sector}>
+              <p className="text-[11px] font-semibold uppercase text-muted-foreground tracking-wide mb-1.5 px-1">{sec.sector}</p>
+              <div className="space-y-1">
+                {sec.modules.map((mod) => (
+                  <div key={mod.name} className="grid grid-cols-4 gap-2 items-center bg-muted/40 rounded-lg px-3 py-2 text-sm">
+                    <span className="font-medium">{mod.name}</span>
+                    <span className="text-center">{mod.openCount}</span>
+                    <span className="text-center text-muted-foreground">
+                      {mod.avgHours > 0 ? `${mod.avgHours}h` : '--'}
+                    </span>
+                    <div className="flex justify-center">
+                      <span className={`h-2.5 w-2.5 rounded-full ${healthDot(mod.avgHours)}`} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
           <div className="grid grid-cols-4 gap-2 text-[10px] uppercase text-muted-foreground tracking-wide px-1">
             <span>Modulo</span>
             <span className="text-center">Abertos</span>
             <span className="text-center">Tempo medio</span>
             <span className="text-center">Status</span>
           </div>
-          {data.modules.map((mod) => (
-            <div key={mod.name} className="grid grid-cols-4 gap-2 items-center bg-muted/40 rounded-lg px-3 py-2.5 text-sm">
-              <span className="font-medium">{mod.name}</span>
-              <span className="text-center">{mod.openCount}</span>
-              <span className="text-center text-muted-foreground">
-                {mod.avgHours > 0 ? `${mod.avgHours}h` : '--'}
-              </span>
-              <div className="flex justify-center">
-                <span className={`h-2.5 w-2.5 rounded-full ${healthDot(mod.avgHours)}`} />
-              </div>
-            </div>
-          ))}
-          <div className="flex items-center gap-4 text-[10px] text-muted-foreground mt-2 px-1">
+          <div className="flex items-center gap-4 text-[10px] text-muted-foreground px-1">
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> {'< 24h'}</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-500" /> {'< 72h'}</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" /> {'> 72h'}</span>

@@ -10,14 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Search, LayoutGrid, GanttChart, CalendarRange } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Search, LayoutGrid, GanttChart, CalendarRange, Pin, PinOff } from 'lucide-react';
 import {
-  useAnnualEvents, useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent, type AnnualEvent,
-} from '@/hooks/useAnnualEvents';
-import {
-  defaultEventEtapas, useEventEtapas, useSeedEventEtapas, useUpdateEventEtapa,
+  useCreateAnnualEvent, useUpdateAnnualEvent, useDeleteAnnualEvent,
+  useEventEtapas, useSeedEventEtapas, useUpdateEventEtapa, defaultEventEtapas,
   type EventEtapa, type EventEtapaStatus,
-} from '@/hooks/useEventEtapas';
+} from '@/features/calendar';
+import { useCalendarEvents, usePinCalendarEvent, type CalendarEventCategory } from '@/hooks/useCalendarEvents';
+import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -27,14 +27,54 @@ import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanc
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 
-const CATEGORIES = [
+/* Categories for annual_events form (source-level categories) */
+const ANNUAL_CATEGORIES = [
   { value: 'lancamento', label: 'Lançamento', color: '#D6336C' },
   { value: 'acao', label: 'Ação', color: '#2563EB' },
   { value: 'marco', label: 'Marco', color: '#16A34A' },
   { value: 'data', label: 'Data importante', color: '#F59E0B' },
 ];
+
+/* Categories for unified calendar_events display */
+const CATEGORIES: { value: CalendarEventCategory; label: string; color: string }[] = [
+  { value: 'lancamento', label: 'Lançamento', color: '#D6336C' },
+  { value: 'campanha', label: 'Campanha', color: '#2563EB' },
+  { value: 'feira', label: 'Feira / Data', color: '#F59E0B' },
+  { value: 'reuniao', label: 'Reunião', color: '#8B5CF6' },
+  { value: 'sessao', label: 'Sessão', color: '#0891B2' },
+  { value: 'prazo', label: 'Prazo', color: '#DC2626' },
+];
+
+const SOURCE_LABELS: Record<string, string> = {
+  annual_event: 'Ações Mensais',
+  launch: 'Lançamento (Produção)',
+  booking: 'Reserva de Sala',
+};
+
+const SECTORS = [
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'produto', label: 'Produto' },
+  { value: 'estudio', label: 'Estúdio' },
+  { value: 'ti', label: 'TI' },
+  { value: 'sac', label: 'SAC' },
+];
+
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-type MonthlyActionCalendarItem = AnnualEvent & {
+
+type CalendarItem = {
+  id: string;
+  calendarEventId?: string;
+  source_type: string;
+  source_id: string;
+  title: string;
+  description: string | null;
+  start_date: string;
+  end_date: string | null;
+  color: string;
+  category: string;
+  scope: string;
+  sector: string | null;
+  pinned_by: string | null;
   originLabel: string;
   originDetail?: string;
 };
@@ -47,19 +87,26 @@ const ETAPA_STATUS_LABELS: Record<EventEtapaStatus, string> = {
 
 export default function CalendarPage() {
   const { currentOrg } = useOrganization();
+  const { isAtLeast } = usePermissions();
+  const canPin = isAtLeast('manager');
   const [year, setYear] = useState(new Date().getFullYear());
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', description: '', category: 'acao', start_date: '', end_date: '' });
   const [search, setSearch] = useState('');
   const [activeCats, setActiveCats] = useState<string[]>([]);
+  const [activeSectors, setActiveSectors] = useState<string[]>([]);
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'master' | 'sector'>('all');
 
   const { activeId: activeInstance, setActive: setActiveInstance } = useActiveInstance('calendario');
-  const { data: events = [], isLoading } = useAnnualEvents(year, activeInstance);
+  // Unified display source
+  const { data: calEvents = [], isLoading } = useCalendarEvents({ year });
+  // CRUD still through annual_events
   const createEvt = useCreateAnnualEvent();
   const updateEvt = useUpdateAnnualEvent();
   const deleteEvt = useDeleteAnnualEvent();
   const seedEtapas = useSeedEventEtapas();
+  const pinEvt = usePinCalendarEvent();
   const confirm = useConfirm();
 
   const { data: orgMembers = [] } = useQuery({
@@ -79,29 +126,46 @@ export default function CalendarPage() {
   const currentMonth = today.getMonth();
   const isCurrentYear = year === today.getFullYear();
 
-  const calendarItems = useMemo<MonthlyActionCalendarItem[]>(() => {
-    return events.map((event) => ({
-      ...event,
-      originLabel: 'Ações Mensais',
-      originDetail: CATEGORIES.find((category) => category.value === event.category)?.label || event.category,
-    }));
-  }, [events]);
+  /* Map CalendarEvent → CalendarItem for views */
+  const calendarItems = useMemo<CalendarItem[]>(() => {
+    return calEvents.map((ce) => {
+      const catMeta = CATEGORIES.find(c => c.value === ce.category);
+      return {
+        id: ce.source_id,
+        calendarEventId: ce.id,
+        source_type: ce.source_type,
+        source_id: ce.source_id,
+        title: ce.title,
+        description: ce.description,
+        start_date: ce.starts_at?.split('T')[0] ?? '',
+        end_date: ce.ends_at?.split('T')[0] ?? null,
+        color: catMeta?.color ?? '#6B7280',
+        category: ce.category,
+        scope: ce.scope,
+        sector: ce.sector,
+        pinned_by: ce.pinned_by,
+        originLabel: SOURCE_LABELS[ce.source_type] ?? ce.source_type,
+        originDetail: catMeta?.label ?? ce.category,
+      };
+    });
+  }, [calEvents]);
 
   const filtered = useMemo(() => {
     return calendarItems.filter((e) => {
       if (activeCats.length && !activeCats.includes(e.category)) return false;
+      if (activeSectors.length && (!e.sector || !activeSectors.includes(e.sector))) return false;
+      if (scopeFilter !== 'all' && e.scope !== scopeFilter) return false;
       if (search.trim() && !`${e.title} ${e.originLabel} ${e.originDetail || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [calendarItems, activeCats, search]);
+  }, [calendarItems, activeCats, activeSectors, scopeFilter, search]);
 
   const byMonth = useMemo(() => {
-    const map: Record<number, MonthlyActionCalendarItem[]> = {};
+    const map: Record<number, CalendarItem[]> = {};
     for (let i = 0; i < 12; i++) map[i] = [];
     filtered.forEach(e => {
       const startM = new Date(e.start_date + 'T00:00:00').getMonth();
       const endM = e.end_date ? new Date(e.end_date + 'T00:00:00').getMonth() : startM;
-      // Span a faixa em todos os meses cobertos
       for (let m = startM; m <= endM; m++) map[m].push(e);
     });
     return map;
@@ -116,7 +180,7 @@ export default function CalendarPage() {
     setOpen(true);
   };
 
-  const openEdit = (e: AnnualEvent) => {
+  const openEdit = (e: { id: string; title: string; description: string | null; category: string; start_date: string; end_date: string | null }) => {
     setEditingId(e.id);
     setForm({
       title: e.title,
@@ -128,11 +192,35 @@ export default function CalendarPage() {
     setOpen(true);
   };
 
-  const openCalendarItem = (item: MonthlyActionCalendarItem) => openEdit(item);
+  const openCalendarItem = (item: CalendarItem) => {
+    if (item.source_type === 'annual_event') {
+      // Editable — open form with the annual_event's source_id
+      openEdit({
+        id: item.source_id,
+        title: item.title,
+        description: item.description,
+        category: item.category,
+        start_date: item.start_date,
+        end_date: item.end_date,
+      });
+    } else {
+      // Read-only events from launches/bookings — just show a toast with info
+      toast.info(`${item.title} — origem: ${item.originLabel}`);
+    }
+  };
+
+  const handlePin = (item: CalendarItem) => {
+    if (!item.calendarEventId) return;
+    const isPinned = item.scope === 'master';
+    pinEvt.mutate({ id: item.calendarEventId, pin: !isPinned }, {
+      onSuccess: () => toast.success(isPinned ? 'Removido do calendário mestre' : 'Fixado no calendário mestre'),
+      onError: (e: any) => toast.error(e.message),
+    });
+  };
 
   const handleSave = () => {
     if (!form.title.trim() || !form.start_date) return;
-    const cat = CATEGORIES.find(c => c.value === form.category)!;
+    const cat = ANNUAL_CATEGORIES.find(c => c.value === form.category)!;
     const payload = {
       title: form.title.trim(),
       description: form.description.trim() || null,
@@ -174,9 +262,9 @@ export default function CalendarPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        crumbs={[{ label: 'Início', to: '/' }, { label: 'Calendário de Ações Mensais' }]}
-        title="Calendário de Ações Mensais"
-        subtitle="Planejamento anual de ações mensais, lançamentos e datas-chave"
+        crumbs={[{ label: 'Início', to: '/' }, { label: 'Calendário' }]}
+        title="Calendário"
+        subtitle="Visão unificada de ações, lançamentos, reuniões e datas-chave"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={() => setYear(y => y - 1)}><ChevronLeft className="h-4 w-4" /></Button>
@@ -193,17 +281,35 @@ export default function CalendarPage() {
       <ModuleInstanceBar moduleKey="calendario" value={activeInstance} onChange={setActiveInstance} />
 
       {/* Search + filter chips */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar evento…"
-            className="pl-8 h-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative w-full sm:w-72">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar evento…"
+              className="pl-8 h-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {/* Scope toggle */}
+          <div className="flex items-center gap-1.5">
+            {(['all', 'master', 'sector'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setScopeFilter(s)}
+                className={cn(
+                  'text-xs px-2.5 py-1 rounded-full border transition-colors',
+                  scopeFilter === s ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                {s === 'all' ? 'Todos' : s === 'master' ? 'Mestre' : 'Setor'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Category chips */}
           {CATEGORIES.map(c => {
             const active = activeCats.includes(c.value);
             return (
@@ -220,8 +326,25 @@ export default function CalendarPage() {
               </button>
             );
           })}
-          {activeCats.length > 0 && (
-            <button onClick={() => setActiveCats([])} className="text-xs text-muted-foreground hover:text-foreground underline">
+          <span className="text-muted-foreground text-xs">|</span>
+          {/* Sector chips */}
+          {SECTORS.map(s => {
+            const active = activeSectors.includes(s.value);
+            return (
+              <button
+                key={s.value}
+                onClick={() => setActiveSectors(prev => prev.includes(s.value) ? prev.filter(x => x !== s.value) : [...prev, s.value])}
+                className={cn(
+                  'text-xs px-2.5 py-1 rounded-full border transition-colors',
+                  active ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+          {(activeCats.length > 0 || activeSectors.length > 0) && (
+            <button onClick={() => { setActiveCats([]); setActiveSectors([]); }} className="text-xs text-muted-foreground hover:text-foreground underline">
               limpar
             </button>
           )}
@@ -273,19 +396,32 @@ export default function CalendarPage() {
                         <button
                           key={`${e.id}-${i}`}
                           onClick={() => openCalendarItem(e)}
-                          className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors"
+                          className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/40 hover:bg-muted text-xs text-left transition-colors group/card"
                         >
                           <div className="h-2 w-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: e.color }} />
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{e.title}</div>
-                            <div className="mt-0.5">
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium truncate">{e.title}</span>
+                              {e.scope === 'master' && <Pin className="h-2.5 w-2.5 text-primary shrink-0" />}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1">
                               <Badge variant="outline" className="h-4 px-1 text-[9px]">{e.originLabel}</Badge>
+                              {e.sector && <Badge variant="secondary" className="h-4 px-1 text-[9px]">{e.sector}</Badge>}
                             </div>
                             <div className="text-muted-foreground">
                               {new Date(e.start_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                               {e.end_date && ` → ${new Date(e.end_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
                             </div>
                           </div>
+                          {canPin && (
+                            <button
+                              onClick={(ev) => { ev.stopPropagation(); handlePin(e); }}
+                              className="opacity-0 group-hover/card:opacity-100 p-0.5 rounded hover:bg-background/50 transition-opacity shrink-0"
+                              title={e.scope === 'master' ? 'Remover do mestre' : 'Fixar no mestre'}
+                            >
+                              {e.scope === 'master' ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                            </button>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -307,7 +443,7 @@ export default function CalendarPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>{editingId ? 'Editar evento' : 'Novo evento'}</DialogTitle></DialogHeader>
           <Tabs defaultValue="detalhes">
             <TabsList className={cn('grid w-full', editingId ? 'grid-cols-2' : 'grid-cols-1')}>
@@ -325,7 +461,7 @@ export default function CalendarPage() {
                   <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map(c => (
+                      {ANNUAL_CATEGORIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
                           <span className="flex items-center gap-2">
                             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
@@ -455,9 +591,9 @@ function TimelineView({
   year, events, isCurrentYear, onEventClick,
 }: {
   year: number;
-  events: MonthlyActionCalendarItem[];
+  events: CalendarItem[];
   isCurrentYear: boolean;
-  onEventClick: (e: MonthlyActionCalendarItem) => void;
+  onEventClick: (e: CalendarItem) => void;
 }) {
   const totalDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
 
@@ -611,8 +747,8 @@ function TimelineView({
 function AgendaView({
   events, onEventClick, onNew,
 }: {
-  events: MonthlyActionCalendarItem[];
-  onEventClick: (e: MonthlyActionCalendarItem) => void;
+  events: CalendarItem[];
+  onEventClick: (e: CalendarItem) => void;
   onNew: () => void;
 }) {
   const today = new Date();

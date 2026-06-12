@@ -20,9 +20,9 @@ import {
   useLaunch, useLaunchStages, useUpsertStage, useDeleteStage, usePersistRecalc,
   useReorderStages, useDuplicateLaunch, useSeedDefaultStages,
   recalcStageDates, type LaunchStage,
-} from '@/hooks/useLaunches';
-import { useCreateChecklistFromTemplate, useTemplates } from '@/hooks/useChecklists';
-import { useCreateAnnualEvent } from '@/hooks/useAnnualEvents';
+} from '@/features/production';
+import { useCreateChecklistFromTemplate, useTemplates } from '@/features/production';
+import { useCreateAnnualEvent } from '@/features/calendar';
 import { useCreateLink, useLinksFrom } from '@/hooks/useModuleLinks';
 import { LinkedItems } from '@/components/LinkedItems';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,9 +35,8 @@ import { cn } from '@/lib/utils';
 import { ModuleInstanceBar, useActiveInstance } from '@/components/ModuleInstanceBar';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useDocPages } from '@/hooks/useDocPages';
-import { useLaunchActivity, useLogLaunchActivity } from '@/hooks/useLaunchActivity';
-import { useStageAttachments } from '@/hooks/useStageAttachments';
+import { useDocPages } from '@/features/docs';
+import { useLaunchActivity, useLogLaunchActivity, useStageAttachments } from '@/features/production';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -200,7 +199,7 @@ function LaunchList({ onSelect }: { onSelect: (id: string) => void }) {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>Novo lançamento</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus /></div>
@@ -675,7 +674,7 @@ function LaunchDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       {/* Checklist template selection dialog */}
       <Dialog open={checklistDialog} onOpenChange={setChecklistDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>Criar checklist para este lançamento</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>

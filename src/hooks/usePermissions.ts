@@ -27,6 +27,24 @@ const PERMISSIONS: Record<string, AppRole> = {
   manage_templates: 'manager',
   delete_any_order: 'director',
   manage_module_instances: 'manager',
+  delete_task: 'manager',
+  delete_attachment: 'manager',
+  delete_comment: 'member',
+  delete_melhoria: 'manager',
+  delete_sessao: 'manager',
+  delete_produto: 'manager',
+  delete_conteudo: 'manager',
+  delete_newsletter: 'manager',
+  delete_pauta: 'manager',
+  delete_launch: 'manager',
+  delete_checklist: 'manager',
+  delete_event: 'manager',
+  delete_doc: 'manager',
+  delete_link: 'manager',
+  delete_label: 'manager',
+  delete_order: 'manager',
+  delete_ticket: 'manager',
+  delete_channel: 'manager',
 };
 
 function roleAtLeast(userRole: AppRole, minRole: AppRole): boolean {
@@ -63,7 +81,8 @@ export function usePermissions() {
     if (isOrgAdmin) return true;
 
     const minRole = PERMISSIONS[action];
-    if (!minRole) return true; // Unknown action = allowed by default
+    // Unknown destructive actions denied by default; other unknowns allowed
+    if (!minRole) return !action.startsWith('delete_');
     return roleAtLeast(role, minRole);
   };
 

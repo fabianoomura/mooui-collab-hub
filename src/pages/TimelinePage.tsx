@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useAnnualEvents } from '@/hooks/useAnnualEvents';
-import { useLaunches } from '@/hooks/useLaunches';
+import { useAnnualEvents } from '@/features/calendar';
+import { useLaunches } from '@/features/production';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
@@ -75,70 +75,41 @@ export default function TimelinePage() {
     enabled: !!currentOrg,
   });
 
-  const { data: melhorias = [] } = useQuery({
-    queryKey: ['timeline-melhorias', currentOrg?.id, year],
+  // Module tasks from Sunday boards (replaces melhorias, conteudo, sessoes, produtos queries)
+  const { data: moduleTimelineTasks = [] } = useQuery({
+    queryKey: ['timeline-module-tasks', currentOrg?.id, year],
     queryFn: async () => {
       if (!currentOrg) return [];
-      const { data, error } = await supabase
-        .from('melhorias' as any)
-        .select('id, title, area, status, data_abertura, data_conclusao, created_at')
+      const { data: modProjects } = await supabase
+        .from('projects').select('id, name')
         .eq('organization_id', currentOrg.id)
-        .gte('data_abertura', `${year}-01-01`)
-        .lte('data_abertura', `${year}-12-31`);
+        .ilike('name', 'Modulo | %');
+      const projectIds = (modProjects || []).map((p) => p.id);
+      if (!projectIds.length) return [];
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, title, due_date, status, project_id')
+        .in('project_id', projectIds)
+        .is('archived_at', null)
+        .is('parent_task_id', null)
+        .not('due_date', 'is', null)
+        .gte('due_date', `${year}-01-01`)
+        .lte('due_date', `${year}-12-31`);
       if (error) throw error;
-      return data || [];
+      const nameById = Object.fromEntries((modProjects || []).map((p) => [p.id, p.name]));
+      return (data || []).map((t) => ({ ...t, projectName: nameById[t.project_id] || '' }));
     },
     enabled: !!currentOrg,
   });
 
-  const { data: conteudos = [] } = useQuery({
-    queryKey: ['timeline-conteudo', currentOrg?.id, year],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data, error } = await supabase
-        .from('conteudo_items' as any)
-        .select('id, title, channel, status, scheduled_date, content_type')
-        .eq('organization_id', currentOrg.id)
-        .gte('scheduled_date', `${year}-01-01`)
-        .lte('scheduled_date', `${year}-12-31`);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!currentOrg,
-  });
-
-  const { data: sessoes = [] } = useQuery({
-    queryKey: ['timeline-sessoes', currentOrg?.id, year],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data, error } = await supabase
-        .from('sessoes' as any)
-        .select('id, title, status, scheduled_date, professional')
-        .eq('organization_id', currentOrg.id)
-        .gte('scheduled_date', `${year}-01-01`)
-        .lte('scheduled_date', `${year}-12-31`);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!currentOrg,
-  });
-
-  const { data: produtos = [] } = useQuery({
-    queryKey: ['timeline-produtos', currentOrg?.id, year],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data, error } = await supabase
-        .from('produtos' as any)
-        .select('id, name, collection_group, launch_target, cronograma_start, cronograma_end, progress')
-        .eq('organization_id', currentOrg.id);
-      if (error) throw error;
-      return (data || []).filter((p: any) => {
-        const start = p.cronograma_start || p.launch_target;
-        return start && start >= `${year}-01-01` && start <= `${year}-12-31`;
-      });
-    },
-    enabled: !!currentOrg,
-  });
+  const moduleTypeFromName = (name: string): TimelineType => {
+    const l = name.toLowerCase();
+    if (l.includes('melhorias')) return 'melhoria';
+    if (l.includes('programacao') || l.includes('newsletters') || l.includes('demandas')) return 'conteudo';
+    if (l.includes('sessoes')) return 'sessao';
+    if (l.includes('produtos')) return 'produto';
+    return 'task';
+  };
 
   const items = useMemo(() => {
     const result: TimelineItem[] = [];
@@ -191,74 +162,27 @@ export default function TimelinePage() {
       });
     }
 
-    if (filter === 'all' || filter === 'melhoria') {
-      melhorias.forEach((melhoria: any) => {
-        const start = melhoria.data_abertura || melhoria.created_at?.split('T')[0];
-        if (!start) return;
+    // Module tasks from Sunday boards (replaces melhorias, conteudos, sessoes, produtos)
+    const moduleTypes: TimelineType[] = ['melhoria', 'conteudo', 'sessao', 'produto'];
+    if (filter === 'all' || moduleTypes.includes(filter as TimelineType)) {
+      moduleTimelineTasks.forEach((t: any) => {
+        const type = moduleTypeFromName(t.projectName);
+        if (filter !== 'all' && filter !== type) return;
         result.push({
-          id: `melhoria-${melhoria.id}`,
-          title: melhoria.title,
-          start,
-          end: melhoria.data_conclusao,
-          type: 'melhoria',
-          color: TYPE_COLORS.melhoria,
-          meta: melhoria.area,
-          sourceDetail: melhoria.area,
-        });
-      });
-    }
-
-    if (filter === 'all' || filter === 'conteudo') {
-      conteudos.forEach((conteudo: any) => {
-        if (!conteudo.scheduled_date) return;
-        result.push({
-          id: `conteudo-${conteudo.id}`,
-          title: conteudo.title,
-          start: conteudo.scheduled_date,
+          id: `${type}-${t.id}`,
+          title: t.title,
+          start: t.due_date,
           end: null,
-          type: 'conteudo',
-          color: TYPE_COLORS.conteudo,
-          meta: conteudo.channel,
-          sourceDetail: [conteudo.channel, conteudo.content_type, conteudo.status].filter(Boolean).join(' / '),
-        });
-      });
-    }
-
-    if (filter === 'all' || filter === 'sessao') {
-      sessoes.forEach((sessao: any) => {
-        if (!sessao.scheduled_date) return;
-        result.push({
-          id: `sessao-${sessao.id}`,
-          title: sessao.title,
-          start: sessao.scheduled_date,
-          end: null,
-          type: 'sessao',
-          color: TYPE_COLORS.sessao,
-          meta: sessao.professional || sessao.status,
-          sourceDetail: sessao.professional || sessao.status,
-        });
-      });
-    }
-
-    if (filter === 'all' || filter === 'produto') {
-      produtos.forEach((produto: any) => {
-        const start = produto.cronograma_start || produto.launch_target;
-        if (!start) return;
-        result.push({
-          id: `produto-${produto.id}`,
-          title: produto.name,
-          start,
-          end: produto.cronograma_end || produto.launch_target || null,
-          type: 'produto',
-          color: TYPE_COLORS.produto,
-          meta: `${produto.progress ?? 0}%`,
-          sourceDetail: [produto.collection_group, `${produto.progress ?? 0}%`].filter(Boolean).join(' / '),
+          type,
+          color: TYPE_COLORS[type],
+          meta: t.status,
+          sourceDetail: t.projectName.replace(/^Modulo \| /, ''),
         });
       });
     }
 
     return result.sort((a, b) => a.start.localeCompare(b.start));
-  }, [events, launches, tasks, melhorias, conteudos, sessoes, produtos, filter, year]);
+  }, [events, launches, tasks, moduleTimelineTasks, filter, year]);
 
   const byMonth = useMemo(() => {
     const map = new Map<number, TimelineItem[]>();

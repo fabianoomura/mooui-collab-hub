@@ -9,7 +9,7 @@ import {
   useTickets, useCreateTicket, useUpdateTicket, useDeleteTicket,
   useTicketComments, useAddTicketComment, useIsITSupport, useTicketActivity,
   type Ticket, type TicketStatus, type TicketPriority, type TicketCategory, type TicketActivity,
-} from '@/hooks/useTickets';
+} from '@/features/tickets';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -27,13 +27,10 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
-import { TicketFilesTab } from '@/components/tickets/TicketFilesTab';
-import { SlaBadge, useSlaBreached } from '@/components/tickets/SlaBadge';
-import { TicketLabelChips, TicketLabelPicker } from '@/components/tickets/TicketLabelPicker';
-import { useTicketLabelAssignments, useTicketLabels } from '@/hooks/useTicketLabels';
-import { TicketsReport } from '@/components/tickets/TicketsReport';
+import { TicketFilesTab, SlaBadge, useSlaBreached, TicketLabelChips, TicketLabelPicker, useTicketLabelAssignments, useTicketLabels, TicketsReport } from '@/features/tickets';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useCreateDocPage } from '@/hooks/useDocPages';
+import { useCreateDocPage } from '@/features/docs';
+import { LinkedItems } from '@/components/LinkedItems';
 
 const priorityColors: Record<TicketPriority, string> = {
   low: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
@@ -194,17 +191,18 @@ export default function TicketsPage() {
         onSuccess: async (data: any) => {
           const ticketId = data?.id;
           // Upload pending files
-          if (ticketId && nFiles.length > 0 && user) {
+          if (ticketId && nFiles.length > 0 && user && currentOrg) {
             await Promise.allSettled(nFiles.map(async (file) => {
               const ext = file.name.split('.').pop() || 'bin';
-              const path = `${ticketId}/${crypto.randomUUID()}.${ext}`;
-              const { error: upErr } = await supabase.storage.from('ticket-attachments').upload(path, file, {
+              const path = `ticket/${ticketId}/${crypto.randomUUID()}.${ext}`;
+              const { error: upErr } = await supabase.storage.from('entity-attachments').upload(path, file, {
                 contentType: file.type, upsert: false,
               });
               if (upErr) return;
-              await supabase.from('ticket_attachments').insert({
-                ticket_id: ticketId, user_id: user.id,
-                file_url: path, file_name: file.name,
+              await supabase.from('attachments' as any).insert({
+                organization_id: currentOrg.id, entity_type: 'ticket',
+                entity_id: ticketId, uploaded_by: user.id,
+                storage_path: path, file_name: file.name,
                 file_size: file.size, file_type: file.type || null,
               });
             }));
@@ -234,15 +232,18 @@ export default function TicketsPage() {
           {canDo('view_reports') && (
             <Button
               variant={viewMode === 'report' ? 'default' : 'outline'}
+              size="sm"
+              className="h-10"
               onClick={() => setViewMode(v => v === 'list' ? 'report' : 'list')}
+              title="Relatório"
             >
-              <BarChart3 className="h-4 w-4 mr-1.5" />
-              Relatório
+              <BarChart3 className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Relatório</span>
             </Button>
           )}
-          <Button onClick={() => setShowNew(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Abrir ticket
+          <Button className="h-10" onClick={() => setShowNew(true)}>
+            <Plus className="h-4 w-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Abrir ticket</span>
           </Button>
         </div>
       </div>
@@ -267,20 +268,20 @@ export default function TicketsPage() {
       )}
 
       {/* Busca + filtros */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        <div className="relative flex-1 min-w-0">
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por título ou descrição…"
-            className="pl-8 h-9"
+            className="pl-8 h-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
           {view === 'manage' && (
             <Select value={scope} onValueChange={(v) => setScope(v as any)}>
-              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-10 sm:w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os tickets</SelectItem>
                 <SelectItem value="assigned">Atribuídos a mim</SelectItem>
@@ -289,7 +290,7 @@ export default function TicketsPage() {
             </Select>
           )}
           <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
-            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectTrigger className="h-10 sm:w-[130px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Qualquer prioridade</SelectItem>
               {(Object.keys(priorityLabels) as TicketPriority[]).map(k => (
@@ -298,7 +299,7 @@ export default function TicketsPage() {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
-            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectTrigger className="h-10 sm:w-[130px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Qualquer categoria</SelectItem>
               {(Object.keys(categoryLabels) as TicketCategory[]).map(k => (
@@ -307,7 +308,7 @@ export default function TicketsPage() {
             </SelectContent>
           </Select>
           <Select value={slaFilter} onValueChange={(v) => setSlaFilter(v as any)}>
-            <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-10 sm:w-[140px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">SLA: qualquer</SelectItem>
               <SelectItem value="breached">SLA estourado</SelectItem>
@@ -315,7 +316,7 @@ export default function TicketsPage() {
           </Select>
           {orgLabels.length > 0 && (
             <Select value={labelFilter} onValueChange={setLabelFilter}>
-              <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-10 sm:w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Qualquer label</SelectItem>
                 {orgLabels.map(l => (
@@ -326,14 +327,14 @@ export default function TicketsPage() {
           )}
           {activeChips > 0 && (
             <Button
-              variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground"
+              variant="ghost" size="sm" className="h-10 text-xs text-muted-foreground col-span-2 sm:col-span-1"
               onClick={() => {
                 setSearch(''); setPriorityFilter('all'); setCategoryFilter('all');
                 setScope(view === 'mine' ? 'mine' : 'all');
                 setSlaFilter('all'); setLabelFilter('all');
               }}
             >
-              <X className="h-3.5 w-3.5 mr-1" />Limpar
+              <X className="h-3.5 w-3.5 mr-1" />Limpar filtros
             </Button>
           )}
         </div>
@@ -355,12 +356,12 @@ export default function TicketsPage() {
       ) : (
         <>
           <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-            <TabsList className="flex flex-wrap h-auto">
-              <TabsTrigger value="all">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
-              <TabsTrigger value="open">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
-              <TabsTrigger value="in_progress">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
-              <TabsTrigger value="resolved">Resolvidos <Badge variant="secondary" className="ml-1.5">{counts.resolved}</Badge></TabsTrigger>
-              <TabsTrigger value="closed">Fechados <Badge variant="secondary" className="ml-1.5">{counts.closed}</Badge></TabsTrigger>
+            <TabsList className="flex flex-wrap h-auto gap-1">
+              <TabsTrigger value="all" className="min-h-[40px]">Todos <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge></TabsTrigger>
+              <TabsTrigger value="open" className="min-h-[40px]">Abertos <Badge variant="secondary" className="ml-1.5">{counts.open}</Badge></TabsTrigger>
+              <TabsTrigger value="in_progress" className="min-h-[40px]">Em andamento <Badge variant="secondary" className="ml-1.5">{counts.in_progress}</Badge></TabsTrigger>
+              <TabsTrigger value="resolved" className="min-h-[40px]">Resolvidos <Badge variant="secondary" className="ml-1.5">{counts.resolved}</Badge></TabsTrigger>
+              <TabsTrigger value="closed" className="min-h-[40px]">Fechados <Badge variant="secondary" className="ml-1.5">{counts.closed}</Badge></TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -432,11 +433,11 @@ export default function TicketsPage() {
 
       {/* New ticket dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Abrir ticket</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto pr-1">
             <div>
               <Label className="text-xs">Título</Label>
               <Input autoFocus value={nTitle} onChange={(e) => setNTitle(e.target.value)} placeholder="Resumo do problema" />
@@ -583,7 +584,7 @@ function TicketDetail({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex-1 text-left flex items-baseline gap-2 flex-wrap pr-8">
             {ticket.code && (
@@ -593,7 +594,7 @@ function TicketDetail({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto pr-1 flex-1">
           {/* Meta */}
           <div className="flex flex-wrap gap-2 items-center">
             <Badge variant="outline" className={cn('text-[10px]', statusColors[ticket.status])}>
@@ -733,6 +734,8 @@ function TicketDetail({
             </TabsContent>
           </Tabs>
         </div>
+
+        <LinkedItems sourceType="ticket" sourceId={ticket.id} className="px-1" />
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           {(isIT || isOwner) && (

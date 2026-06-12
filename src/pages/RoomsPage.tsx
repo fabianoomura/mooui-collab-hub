@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useMeetingRooms } from '@/hooks/useMeetingRooms';
-import { useRoomBookings, useDeleteBooking, type RoomBooking } from '@/hooks/useRoomBookings';
+import { useMeetingRooms, useRoomBookings, useDeleteBooking, type RoomBooking } from '@/features/rooms';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -187,7 +186,7 @@ export default function RoomsPage() {
                           onDelete={async () => {
                             const ok = await confirm({ title: 'Excluir esta reserva?', destructive: true, confirmText: 'Excluir' });
                             if (!ok) return;
-                            delBooking.mutate(b.id, {
+                            delBooking.mutate({ id: b.id, organization_id: currentOrg?.id }, {
                               onSuccess: () => toast.success('Reserva excluída'),
                               onError: () => toast.error('Sem permissão'),
                             });
@@ -227,7 +226,7 @@ export default function RoomsPage() {
                       onDelete={async () => {
                         const ok = await confirm({ title: 'Excluir esta reserva?', destructive: true, confirmText: 'Excluir' });
                         if (!ok) return;
-                        delBooking.mutate(b.id, {
+                        delBooking.mutate({ id: b.id, organization_id: currentOrg?.id }, {
                           onSuccess: () => toast.success('Reserva excluída'),
                           onError: () => toast.error('Sem permissão'),
                         });

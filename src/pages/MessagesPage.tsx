@@ -6,20 +6,12 @@ import { ptBR } from 'date-fns/locale';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  useChannels,
-  useDmChannels,
-  useOrgMembers,
-  useReachableMembers,
-  useOpenDm,
-  useCreateChannel,
-  useDeleteChannel,
-  useUpdateChannel,
-  useMarkChannelRead,
-  useUnreadCounts,
-} from '@/hooks/useChannels';
-import { useMessages, useSendMessage, useDeleteMessage, useThreadMessages, useSearchMessages, type MessageWithProfile } from '@/hooks/useMessages';
-import { useChannelReactions, useToggleReaction, useUpdateMessage, type ReactionGroup } from '@/hooks/useMessageReactions';
-import { ReactionBar } from '@/components/messages/ReactionBar';
+  useChannels, useDmChannels, useOrgMembers, useReachableMembers, useOpenDm,
+  useCreateChannel, useDeleteChannel, useUpdateChannel, useMarkChannelRead, useUnreadCounts,
+  useMessages, useSendMessage, useDeleteMessage, useThreadMessages, useSearchMessages, type MessageWithProfile,
+  useChannelReactions, useToggleReaction, useUpdateMessage, type ReactionGroup,
+  ReactionBar,
+} from '@/features/messages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,7 +26,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { notifyUser } from '@/hooks/useNotifications';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { ChannelMembersDialog } from '@/components/messages/ChannelMembersDialog';
+import { ChannelMembersDialog } from '@/features/messages';
 
 function formatBytes(n: number) {
   if (n < 1024) return `${n} B`;
@@ -590,7 +582,7 @@ export default function MessagesPage() {
             </span>
             <button
               onClick={() => setShowNewChannel(true)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors p-2 -m-1"
               aria-label="Novo canal"
             >
               <Plus className="h-4 w-4" />
@@ -610,7 +602,7 @@ export default function MessagesPage() {
                   key={c.id}
                   onClick={() => setActiveChannelId(c.id)}
                   className={cn(
-                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors text-left',
+                    'w-full flex items-center gap-2 px-2 py-2 min-h-[40px] rounded-md text-sm transition-colors text-left',
                     active ? 'bg-primary/10 text-primary font-medium' : 'text-foreground hover:bg-accent',
                     unread > 0 && !active && 'font-semibold'
                   )}
@@ -641,7 +633,7 @@ export default function MessagesPage() {
             </span>
             <button
               onClick={() => setShowNewDm(true)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors p-2 -m-1"
               aria-label="Nova conversa"
             >
               <Plus className="h-4 w-4" />
@@ -659,7 +651,7 @@ export default function MessagesPage() {
                   key={d.id}
                   onClick={() => setActiveChannelId(d.id)}
                   className={cn(
-                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors text-left',
+                    'w-full flex items-center gap-2 px-2 py-2 min-h-[40px] rounded-md text-sm transition-colors text-left',
                     active ? 'bg-primary/10 text-primary font-medium' : 'text-foreground hover:bg-accent',
                     unread > 0 && !active && 'font-semibold'
                   )}
@@ -924,7 +916,7 @@ export default function MessagesPage() {
 
       {/* New channel dialog */}
       <Dialog open={showNewChannel} onOpenChange={setShowNewChannel}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Novo canal</DialogTitle>
           </DialogHeader>
@@ -968,17 +960,18 @@ export default function MessagesPage() {
 
       {/* New DM dialog */}
       <Dialog open={showNewDm} onOpenChange={(o) => { setShowNewDm(o); if (!o) setDmSearch(''); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Nova conversa</DialogTitle>
           </DialogHeader>
           <Input
             placeholder="Buscar pessoa…"
+            className="h-10"
             value={dmSearch}
             onChange={(e) => setDmSearch(e.target.value)}
             autoFocus
           />
-          <div className="space-y-1 max-h-80 overflow-y-auto -mx-2 px-2">
+          <div className="space-y-1 flex-1 overflow-y-auto -mx-2 px-2">
             {reachable.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Não há outros membros disponíveis.
@@ -992,7 +985,7 @@ export default function MessagesPage() {
                   key={m.id}
                   onClick={() => handleStartDm(m.id)}
                   disabled={openDm.isPending}
-                  className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left disabled:opacity-50"
+                  className="w-full flex items-center gap-3 px-2 py-2 min-h-[44px] rounded-md hover:bg-accent transition-colors text-left disabled:opacity-50"
                 >
                   <Avatar className="h-8 w-8 shrink-0">
                     <AvatarFallback className="bg-primary/15 text-primary text-xs">

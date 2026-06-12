@@ -98,6 +98,12 @@ const BOARD_CLONES = [
     color: '#8B5CF6',
     aliases: ['NP SEO Tecnico 1780430208', 'SEO Tecnico 1780430208', '1780430208'],
   },
+  {
+    module: 'produtos',
+    target: 'Modulo | Produtos',
+    color: '#F97316',
+    aliases: ['Excel | 4 - novos produtos (1780430107)', '4 - novos produtos 1780430107', '1780430107'],
+  },
 ];
 
 function norm(value) {

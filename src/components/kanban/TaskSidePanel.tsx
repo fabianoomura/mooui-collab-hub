@@ -1,7 +1,7 @@
 import type { TaskWithAssignees, TaskPriority, TaskStatus } from '@/hooks/useProjectData';
 import { useTaskComments, useTaskActivity } from '@/hooks/useProjectData';
 import { useProjectMembers } from '@/hooks/useProjectMembers';
-import { useCreateAnnualEvent } from '@/hooks/useAnnualEvents';
+import { useCreateAnnualEvent } from '@/features/calendar';
 import { useCreateLink } from '@/hooks/useModuleLinks';
 import { LinkedItems } from '@/components/LinkedItems';
 import { Button } from '@/components/ui/button';

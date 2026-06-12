@@ -439,3 +439,180 @@ describe("Security: cross-user data leak prevention", () => {
     await alice.from("messages").delete().eq("id", msg!.id);
   });
 });
+
+// ─────────────────────────────────────────────────
+// 6. ROLE-BASED DELETE RESTRICTIONS (Phase 2.5)
+// ─────────────────────────────────────────────────
+describe("Security: role-based DELETE restrictions", () => {
+  let alice: SupabaseClient; // admin
+  let bob: SupabaseClient;   // member
+  let aliceId: string;
+  let bobId: string;
+  const tag = `sec-del-${Date.now()}`;
+
+  beforeAll(async () => {
+    alice = newClient();
+    bob = newClient();
+    aliceId = await signIn(alice, ALICE);
+    bobId = await signIn(bob, BOB);
+  }, 30_000);
+
+  afterAll(async () => {
+    await alice.auth.signOut();
+    await bob.auth.signOut();
+  });
+
+  it("member cannot delete a task (manager+ required)", async () => {
+    // Alice (admin) creates a project and task
+    const { data: proj } = await alice.from("projects").insert({
+      name: `del-test-${tag}`, organization_id: ORG_ID, created_by: aliceId,
+    }).select().single();
+
+    // Add Alice (admin) and Bob (member) as project members
+    await alice.from("project_members").insert([
+      { project_id: proj!.id, user_id: aliceId },
+      { project_id: proj!.id, user_id: bobId },
+    ]);
+
+    const { data: task } = await alice.from("tasks").insert({
+      project_id: proj!.id, title: `task-${tag}`, created_by: aliceId,
+    }).select().single();
+
+    // Bob (member) tries to delete → should fail
+    const { error: delError } = await bob.from("tasks").delete().eq("id", task!.id);
+    // Verify task still exists
+    const { data: stillExists } = await alice.from("tasks")
+      .select("id").eq("id", task!.id).maybeSingle();
+    expect(stillExists).not.toBeNull();
+
+    // Alice (admin) can delete
+    await alice.from("tasks").delete().eq("id", task!.id);
+    const { data: gone } = await alice.from("tasks")
+      .select("id").eq("id", task!.id).maybeSingle();
+    expect(gone).toBeNull();
+
+    // Cleanup
+    await alice.from("project_members").delete()
+      .eq("project_id", proj!.id);
+    await alice.from("projects").delete().eq("id", proj!.id);
+  });
+
+  it("member can archive a task (soft delete via archived_at)", async () => {
+    const { data: proj } = await alice.from("projects").insert({
+      name: `arch-test-${tag}`, organization_id: ORG_ID, created_by: aliceId,
+    }).select().single();
+
+    await alice.from("project_members").insert({
+      project_id: proj!.id, user_id: bobId,
+    });
+
+    const { data: task } = await alice.from("tasks").insert({
+      project_id: proj!.id, title: `archivable-${tag}`, created_by: aliceId,
+    }).select().single();
+
+    // Bob (member) can archive (update archived_at)
+    const { error: archError } = await bob.from("tasks")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", task!.id);
+    expect(archError).toBeNull();
+
+    // Verify it's archived
+    const { data: archived } = await alice.from("tasks")
+      .select("id, archived_at").eq("id", task!.id).maybeSingle();
+    expect(archived?.archived_at).not.toBeNull();
+
+    // Cleanup
+    await alice.from("tasks").delete().eq("id", task!.id);
+    await alice.from("project_members").delete()
+      .eq("project_id", proj!.id).eq("user_id", bobId);
+    await alice.from("projects").delete().eq("id", proj!.id);
+  });
+
+  it("member can delete own task comment but not others'", async () => {
+    const { data: proj } = await alice.from("projects").insert({
+      name: `comment-del-${tag}`, organization_id: ORG_ID, created_by: aliceId,
+    }).select().single();
+
+    await alice.from("project_members").insert({
+      project_id: proj!.id, user_id: bobId,
+    });
+
+    const { data: task } = await alice.from("tasks").insert({
+      project_id: proj!.id, title: `commented-${tag}`, created_by: aliceId,
+    }).select().single();
+
+    // Alice comments
+    const { data: aliceComment } = await alice.from("task_comments").insert({
+      task_id: task!.id, user_id: aliceId, content: `alice-says-${tag}`,
+    }).select().single();
+
+    // Bob comments
+    const { data: bobComment } = await bob.from("task_comments").insert({
+      task_id: task!.id, user_id: bobId, content: `bob-says-${tag}`,
+    }).select().single();
+
+    // Bob tries to delete Alice's comment → should fail (RLS: own only)
+    await bob.from("task_comments").delete().eq("id", aliceComment!.id);
+    const { data: aliceCommentStillExists } = await alice.from("task_comments")
+      .select("id").eq("id", aliceComment!.id).maybeSingle();
+    expect(aliceCommentStillExists).not.toBeNull();
+
+    // Bob deletes own comment → should succeed
+    await bob.from("task_comments").delete().eq("id", bobComment!.id);
+    const { data: bobCommentGone } = await alice.from("task_comments")
+      .select("id").eq("id", bobComment!.id).maybeSingle();
+    expect(bobCommentGone).toBeNull();
+
+    // Cleanup
+    await alice.from("task_comments").delete().eq("id", aliceComment!.id);
+    await alice.from("tasks").delete().eq("id", task!.id);
+    await alice.from("project_members").delete()
+      .eq("project_id", proj!.id).eq("user_id", bobId);
+    await alice.from("projects").delete().eq("id", proj!.id);
+  });
+
+  it("member can delete own task attachment but not others'", async () => {
+    const { data: proj } = await alice.from("projects").insert({
+      name: `attach-del-${tag}`, organization_id: ORG_ID, created_by: aliceId,
+    }).select().single();
+
+    await alice.from("project_members").insert({
+      project_id: proj!.id, user_id: bobId,
+    });
+
+    const { data: task } = await alice.from("tasks").insert({
+      project_id: proj!.id, title: `attached-${tag}`, created_by: aliceId,
+    }).select().single();
+
+    // Alice's attachment
+    const { data: aliceAttach } = await alice.from("task_attachments").insert({
+      task_id: task!.id, user_id: aliceId,
+      file_name: "alice.pdf", file_url: `test/${aliceId}/alice.pdf`,
+    }).select().single();
+
+    // Bob's attachment
+    const { data: bobAttach } = await bob.from("task_attachments").insert({
+      task_id: task!.id, user_id: bobId,
+      file_name: "bob.pdf", file_url: `test/${bobId}/bob.pdf`,
+    }).select().single();
+
+    // Bob tries to delete Alice's → should fail
+    await bob.from("task_attachments").delete().eq("id", aliceAttach!.id);
+    const { data: aliceAttachStillExists } = await alice.from("task_attachments")
+      .select("id").eq("id", aliceAttach!.id).maybeSingle();
+    expect(aliceAttachStillExists).not.toBeNull();
+
+    // Bob deletes own → should succeed
+    await bob.from("task_attachments").delete().eq("id", bobAttach!.id);
+    const { data: bobAttachGone } = await alice.from("task_attachments")
+      .select("id").eq("id", bobAttach!.id).maybeSingle();
+    expect(bobAttachGone).toBeNull();
+
+    // Cleanup
+    await alice.from("task_attachments").delete().eq("id", aliceAttach!.id);
+    await alice.from("tasks").delete().eq("id", task!.id);
+    await alice.from("project_members").delete()
+      .eq("project_id", proj!.id).eq("user_id", bobId);
+    await alice.from("projects").delete().eq("id", proj!.id);
+  });
+});

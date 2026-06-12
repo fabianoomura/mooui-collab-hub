@@ -284,7 +284,8 @@ export function useDestroyProject() {
   });
 }
 
-// Hook for task comments
+// Hook for task comments — reads from polymorphic comments table
+// Returns shape compatible with TaskSidePanel: { id, content, user_id, created_at, profile }
 export function useTaskComments(taskId: string | undefined) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -294,26 +295,22 @@ export function useTaskComments(taskId: string | undefined) {
     queryFn: async () => {
       if (!taskId) return [];
       const { data, error } = await supabase
-        .from('task_comments')
-        .select('*')
-        .eq('task_id', taskId)
+        .from('comments' as any)
+        .select('*, author:profiles!author_id(id, full_name, avatar_url)')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      
-      // Fetch profiles
-      const userIds = [...new Set((data || []).map(c => c.user_id))];
-      if (userIds.length === 0) return [];
-      
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', userIds);
-      
-      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-      
-      return (data || []).map(c => ({
-        ...c,
-        profile: profileMap.get(c.user_id) || null,
+
+      // Map to legacy shape for TaskSidePanel compatibility
+      return (data || []).map((c: any) => ({
+        id: c.id,
+        task_id: c.entity_id,
+        user_id: c.author_id,
+        content: c.body,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        profile: c.author || null,
       }));
     },
     enabled: !!taskId,
@@ -322,10 +319,21 @@ export function useTaskComments(taskId: string | undefined) {
   const addComment = useMutation({
     mutationFn: async ({ taskId, content }: { taskId: string; content: string }) => {
       if (!user) throw new Error('Not authenticated');
-      const { error } = await supabase.from('task_comments').insert({
-        task_id: taskId,
-        user_id: user.id,
-        content,
+      // Need org_id — get from task's project
+      const { data: task } = await supabase
+        .from('tasks')
+        .select('project_id, projects(organization_id)')
+        .eq('id', taskId)
+        .single();
+      const orgId = (task as any)?.projects?.organization_id;
+      if (!orgId) throw new Error('Could not resolve organization');
+
+      const { error } = await supabase.from('comments' as any).insert({
+        organization_id: orgId,
+        entity_type: 'task',
+        entity_id: taskId,
+        author_id: user.id,
+        body: content,
       });
       if (error) throw error;
     },
@@ -337,32 +345,31 @@ export function useTaskComments(taskId: string | undefined) {
   return { comments: commentsQuery.data || [], isLoading: commentsQuery.isLoading, addComment };
 }
 
-// Hook for task activity log
+// Hook for task activity log — reads from polymorphic activity_log table
+// Returns shape compatible with TaskSidePanel: { id, field_name, old_value, new_value, created_at, profile }
 export function useTaskActivity(taskId: string | undefined) {
   return useQuery({
     queryKey: ['task-activity', taskId],
     queryFn: async () => {
       if (!taskId) return [];
       const { data, error } = await supabase
-        .from('task_activity_log')
-        .select('*')
-        .eq('task_id', taskId)
+        .from('activity_log' as any)
+        .select('*, actor:profiles!actor_id(id, full_name)')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      
-      const userIds = [...new Set((data || []).map(a => a.user_id))];
-      if (userIds.length === 0) return [];
-      
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds);
-      
-      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-      
-      return (data || []).map(a => ({
-        ...a,
-        profile: profileMap.get(a.user_id) || null,
+
+      // Map to legacy shape for TaskSidePanel compatibility
+      return (data || []).map((a: any) => ({
+        id: a.id,
+        task_id: a.entity_id,
+        user_id: a.actor_id,
+        field_name: a.action,
+        old_value: a.payload?.from ?? null,
+        new_value: a.payload?.to ?? null,
+        created_at: a.created_at,
+        profile: a.actor || null,
       }));
     },
     enabled: !!taskId,

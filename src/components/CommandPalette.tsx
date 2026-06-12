@@ -30,6 +30,11 @@ const ROUTES = [
   { label: 'Demandas Marketing', href: '/demandas-marketing', icon: FileText, kw: 'demandas marketing pautas subelementos' },
   { label: 'Sessões', href: '/sessoes', icon: Camera, kw: 'sessoes fotos videos shots' },
   { label: 'Produtos', href: '/produtos', icon: ShoppingBag, kw: 'produtos pipeline design novos' },
+  { label: 'Design', href: '/design', icon: ShoppingBag, kw: 'design colecao demandas' },
+  { label: 'Comercial', href: '/comercial', icon: Package, kw: 'atacado feiras b2b comercial' },
+  { label: 'Financeiro', href: '/financeiro', icon: Package, kw: 'financeiro caixa fluxo' },
+  { label: 'Internacional', href: '/internacional', icon: Layers, kw: 'internacional expansao global' },
+  { label: 'Produção Boards', href: '/producao-boards', icon: Rocket, kw: 'producao folders compras boards' },
   { label: 'Timeline', href: '/timeline', icon: Layers, kw: 'timeline visao unificada panorama' },
   { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios' },
   { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings' },
@@ -134,61 +139,53 @@ export function CommandPalette() {
     enabled: !!currentOrg && open && hasSearch,
   });
 
-  const { data: melhorias = [] } = useQuery({
-    queryKey: ['cmdk-melhorias', currentOrg?.id, debouncedSearch],
+  // Module search — query tasks from Sunday "Modulo | ..." boards
+  const { data: moduleProjects = [] } = useQuery({
+    queryKey: ['cmdk-mod-projects', currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg) return [];
-      const { data } = await supabase.from('melhorias' as any)
-        .select('id, title, code')
-        .eq('organization_id', currentOrg.id)
-        .ilike('title', `%${debouncedSearch}%`)
-        .limit(8);
-      return (data ?? []) as any[];
+      const { data } = await supabase.from('projects').select('id, name')
+        .eq('organization_id', currentOrg.id).ilike('name', 'Modulo | %');
+      return data ?? [];
     },
-    enabled: !!currentOrg && open && hasSearch,
+    enabled: !!currentOrg && open,
+    staleTime: 300_000,
   });
 
-  const { data: conteudos = [] } = useQuery({
-    queryKey: ['cmdk-conteudos', currentOrg?.id, debouncedSearch],
+  const moduleProjectIds = moduleProjects.map((p) => p.id);
+  const projectNameById = Object.fromEntries(moduleProjects.map((p) => [p.id, p.name]));
+
+  const { data: moduleSearchResults = [] } = useQuery({
+    queryKey: ['cmdk-module-tasks', currentOrg?.id, debouncedSearch, moduleProjectIds.join(',')],
     queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data } = await supabase.from('conteudo_items' as any)
-        .select('id, title, code')
-        .eq('organization_id', currentOrg.id)
+      if (!currentOrg || !moduleProjectIds.length) return [];
+      const { data } = await supabase.from('tasks')
+        .select('id, title, project_id')
+        .in('project_id', moduleProjectIds)
+        .is('archived_at', null)
+        .is('parent_task_id', null)
         .ilike('title', `%${debouncedSearch}%`)
-        .limit(8);
-      return (data ?? []) as any[];
+        .limit(24);
+      return (data ?? []).map((t) => ({ ...t, projectName: projectNameById[t.project_id] || '' }));
     },
-    enabled: !!currentOrg && open && hasSearch,
+    enabled: !!currentOrg && open && hasSearch && moduleProjectIds.length > 0,
   });
 
-  const { data: sessoes = [] } = useQuery({
-    queryKey: ['cmdk-sessoes', currentOrg?.id, debouncedSearch],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data } = await supabase.from('sessoes' as any)
-        .select('id, title, code')
-        .eq('organization_id', currentOrg.id)
-        .ilike('title', `%${debouncedSearch}%`)
-        .limit(8);
-      return (data ?? []) as any[];
-    },
-    enabled: !!currentOrg && open && hasSearch,
-  });
+  const categorize = (projectName: string) => {
+    const l = projectName.toLowerCase();
+    if (l.includes('melhorias')) return 'melhorias';
+    if (l.includes('programacao')) return 'conteudos';
+    if (l.includes('newsletters')) return 'conteudos';
+    if (l.includes('demandas')) return 'conteudos';
+    if (l.includes('sessoes')) return 'sessoes';
+    if (l.includes('produtos')) return 'produtos';
+    return 'other';
+  };
 
-  const { data: produtos = [] } = useQuery({
-    queryKey: ['cmdk-produtos', currentOrg?.id, debouncedSearch],
-    queryFn: async () => {
-      if (!currentOrg) return [];
-      const { data } = await supabase.from('produtos' as any)
-        .select('id, name, code')
-        .eq('organization_id', currentOrg.id)
-        .ilike('name', `%${debouncedSearch}%`)
-        .limit(8);
-      return (data ?? []) as any[];
-    },
-    enabled: !!currentOrg && open && hasSearch,
-  });
+  const melhorias = moduleSearchResults.filter((t) => categorize(t.projectName) === 'melhorias');
+  const conteudos = moduleSearchResults.filter((t) => categorize(t.projectName) === 'conteudos');
+  const sessoes = moduleSearchResults.filter((t) => categorize(t.projectName) === 'sessoes');
+  const produtos = moduleSearchResults.filter((t) => categorize(t.projectName) === 'produtos');
 
   const go = (path: string) => { setOpen(false); navigate(path); };
 
@@ -251,9 +248,9 @@ export function CommandPalette() {
             {melhorias.length > 0 && (
               <CommandGroup heading="Melhorias">
                 {melhorias.map((m: any) => (
-                  <CommandItem key={m.id} value={`melhoria ${m.title} ${m.code || ''}`} onSelect={() => go('/melhorias')}>
+                  <CommandItem key={m.id} value={`melhoria ${m.title}`} onSelect={() => go('/melhorias')}>
                     <Wrench className="h-4 w-4 mr-2 text-violet-500" />
-                    {m.code ? `${m.code} — ` : ''}{m.title}
+                    {m.title}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -261,9 +258,9 @@ export function CommandPalette() {
             {conteudos.length > 0 && (
               <CommandGroup heading="Conteúdo">
                 {conteudos.map((c: any) => (
-                  <CommandItem key={c.id} value={`conteudo ${c.title} ${c.code || ''}`} onSelect={() => go('/programacao')}>
+                  <CommandItem key={c.id} value={`conteudo ${c.title}`} onSelect={() => go('/programacao')}>
                     <FileText className="h-4 w-4 mr-2 text-pink-500" />
-                    {c.code ? `${c.code} — ` : ''}{c.title}
+                    {c.title}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -271,9 +268,9 @@ export function CommandPalette() {
             {sessoes.length > 0 && (
               <CommandGroup heading="Sessões">
                 {sessoes.map((s: any) => (
-                  <CommandItem key={s.id} value={`sessao ${s.title} ${s.code || ''}`} onSelect={() => go('/sessoes')}>
+                  <CommandItem key={s.id} value={`sessao ${s.title}`} onSelect={() => go('/sessoes')}>
                     <Camera className="h-4 w-4 mr-2 text-cyan-500" />
-                    {s.code ? `${s.code} — ` : ''}{s.title}
+                    {s.title}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -281,9 +278,9 @@ export function CommandPalette() {
             {produtos.length > 0 && (
               <CommandGroup heading="Produtos">
                 {produtos.map((p: any) => (
-                  <CommandItem key={p.id} value={`produto ${p.name} ${p.code || ''}`} onSelect={() => go('/produtos')}>
+                  <CommandItem key={p.id} value={`produto ${p.title}`} onSelect={() => go('/produtos')}>
                     <ShoppingBag className="h-4 w-4 mr-2 text-amber-500" />
-                    {p.code ? `${p.code} — ` : ''}{p.name}
+                    {p.title}
                   </CommandItem>
                 ))}
               </CommandGroup>
