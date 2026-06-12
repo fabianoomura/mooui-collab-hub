@@ -19,13 +19,18 @@ import { useNotificationListener } from '@/hooks/useDesktopNotifications';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 import { OnboardingTour } from '@/components/OnboardingTour';
 
-type ModuleCard = {
+type ModuleItem = {
   title: string;
-  description: string;
   href: string;
   icon: React.ElementType;
+  stat?: string;
+};
+
+type SectorCard = {
+  sector: string;
   accent: string;
-  stat: string;
+  sectorIcon: React.ElementType;
+  items: ModuleItem[];
 };
 
 function greeting() {
@@ -175,59 +180,87 @@ export default function Dashboard() {
     enabled: !!user && !!currentOrg,
   });
 
-  const cards: ModuleCard[] = [
-    // Geral
-    { title: 'Speaks', description: 'Mensagens da equipe', href: '/mensagens', icon: MessageSquare, accent: 'from-violet-500/15 to-violet-500/5 text-violet-500',
-      stat: stats ? `${stats.recentMessages} mensagens 24h` : '—' },
-    { title: 'Papelinho', description: 'Documentação', href: '/docs', icon: BookOpen, accent: 'from-amber-500/15 to-amber-500/5 text-amber-600',
-      stat: stats ? `${stats.docs} documento${stats.docs === 1 ? '' : 's'}` : '—' },
-    { title: 'Reserva de Sala', description: 'Salas de reunião', href: '/salas', icon: Calendar, accent: 'from-emerald-500/15 to-emerald-500/5 text-emerald-600',
-      stat: stats ? `${stats.upcomingBookings} reserva${stats.upcomingBookings === 1 ? '' : 's'} agendada${stats.upcomingBookings === 1 ? '' : 's'}` : '—' },
-    { title: 'Equipe', description: 'Membros e perfis', href: '/equipe', icon: Users, accent: 'from-blue-500/15 to-blue-500/5 text-blue-500',
-      stat: '—' },
-    // Marketing
-    { title: 'Programação', description: 'Posts e redes sociais', href: '/programacao', icon: Camera, accent: 'from-pink-500/15 to-pink-500/5 text-pink-600',
-      stat: stats ? `${stats.conteudosPendentes} pendente${stats.conteudosPendentes === 1 ? '' : 's'}` : '—' },
-    { title: 'Newsletters', description: 'Brasil e Barcelona', href: '/newsletters', icon: Mail, accent: 'from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-600',
-      stat: stats ? `${stats.newslettersPendentes} pendente${stats.newslettersPendentes === 1 ? '' : 's'}` : '—' },
-    { title: 'Demandas Marketing', description: 'Pautas e subelementos', href: '/demandas-marketing', icon: FileText, accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
-      stat: stats ? `${stats.demandasPendentes} pendente${stats.demandasPendentes === 1 ? '' : 's'}` : '—' },
-    // Estúdio
-    { title: 'Sessões', description: 'Foto, vídeo e banco de ideias', href: '/sessoes', icon: Camera, accent: 'from-violet-500/15 to-violet-500/5 text-violet-600',
-      stat: stats ? `${stats.sessoesAtivas} ativa${stats.sessoesAtivas === 1 ? '' : 's'}` : '—' },
-    // Design
-    { title: 'Design', description: 'Demandas de design', href: '/design', icon: Palette, accent: 'from-purple-500/15 to-purple-500/5 text-purple-600',
-      stat: '—' },
-    // Produto
-    { title: 'Produtos', description: 'Pipeline de desenvolvimento', href: '/produtos', icon: Package, accent: 'from-orange-500/15 to-orange-500/5 text-orange-600',
-      stat: stats ? `${stats.produtosAtivos} ativo${stats.produtosAtivos === 1 ? '' : 's'}` : '—' },
-    // Produção
-    { title: 'Lançamentos', description: 'Etapas, prazos e gargalos', href: '/lancamentos', icon: Rocket, accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
-      stat: stats ? `${stats.activeLaunches} ativo${stats.activeLaunches === 1 ? '' : 's'}` : '—' },
-    { title: 'Checagens', description: 'Checklist de validação no site', href: '/checagens', icon: ClipboardCheck, accent: 'from-teal-500/15 to-teal-500/5 text-teal-600',
-      stat: stats ? `${stats.checklists} checagem${stats.checklists === 1 ? '' : 's'}` : '—' },
-    { title: 'Produção Boards', description: 'Boards de produção', href: '/producao-boards', icon: Factory, accent: 'from-stone-500/15 to-stone-500/5 text-stone-600',
-      stat: '—' },
-    // Site & TI
-    { title: 'Melhorias', description: 'Site, SEO e sistemas', href: '/melhorias', icon: Monitor, accent: 'from-cyan-500/15 to-cyan-500/5 text-cyan-600',
-      stat: stats ? `${stats.openMelhorias} aberta${stats.openMelhorias === 1 ? '' : 's'}` : '—' },
-    { title: 'Tickets', description: 'Bugs e suporte', href: '/tickets', icon: Briefcase, accent: 'from-indigo-500/15 to-indigo-500/5 text-indigo-600',
-      stat: stats ? `${stats.openTickets} aberto${stats.openTickets === 1 ? '' : 's'}` : '—' },
-    // Comercial
-    { title: 'Atacado', description: 'Comercial e vendas', href: '/comercial', icon: ShoppingCart, accent: 'from-lime-500/15 to-lime-500/5 text-lime-600',
-      stat: '—' },
-    // SAC & Expedição
-    { title: 'Pedidos', description: 'SAC e expedição', href: '/pedidos', icon: Package, accent: 'from-yellow-500/15 to-yellow-500/5 text-yellow-600',
-      stat: '—' },
-    // Financeiro
-    { title: 'Financeiro', description: 'Controle financeiro', href: '/financeiro', icon: DollarSign, accent: 'from-green-500/15 to-green-500/5 text-green-600',
-      stat: '—' },
-    // Internacional
-    { title: 'Internacional', description: 'Barcelona e exportação', href: '/internacional', icon: Plane, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
-      stat: '—' },
-    // Ações Mensais
-    { title: 'Ações Mensais', description: 'Planejamento do ano', href: '/calendario', icon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-500',
-      stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'} em ${new Date().getFullYear()}` : '—' },
+  const sectors: SectorCard[] = [
+    {
+      sector: 'Geral', sectorIcon: Users, accent: 'from-blue-500/15 to-blue-500/5 text-blue-500',
+      items: [
+        { title: 'Speaks', href: '/mensagens', icon: MessageSquare, stat: stats ? `${stats.recentMessages} msg 24h` : undefined },
+        { title: 'Papelinho', href: '/docs', icon: BookOpen, stat: stats ? `${stats.docs} doc${stats.docs === 1 ? '' : 's'}` : undefined },
+        { title: 'Salas', href: '/salas', icon: Calendar, stat: stats ? `${stats.upcomingBookings} reserva${stats.upcomingBookings === 1 ? '' : 's'}` : undefined },
+        { title: 'Equipe', href: '/equipe', icon: Users },
+      ],
+    },
+    {
+      sector: 'Marketing', sectorIcon: Camera, accent: 'from-pink-500/15 to-pink-500/5 text-pink-500',
+      items: [
+        { title: 'Programação', href: '/programacao', icon: Camera, stat: stats ? `${stats.conteudosPendentes} pendente${stats.conteudosPendentes === 1 ? '' : 's'}` : undefined },
+        { title: 'Newsletters', href: '/newsletters', icon: Mail, stat: stats ? `${stats.newslettersPendentes} pendente${stats.newslettersPendentes === 1 ? '' : 's'}` : undefined },
+        { title: 'Demandas', href: '/demandas-marketing', icon: FileText, stat: stats ? `${stats.demandasPendentes} pendente${stats.demandasPendentes === 1 ? '' : 's'}` : undefined },
+      ],
+    },
+    {
+      sector: 'Estúdio', sectorIcon: Camera, accent: 'from-violet-500/15 to-violet-500/5 text-violet-500',
+      items: [
+        { title: 'Sessões', href: '/sessoes', icon: Camera, stat: stats ? `${stats.sessoesAtivas} ativa${stats.sessoesAtivas === 1 ? '' : 's'}` : undefined },
+      ],
+    },
+    {
+      sector: 'Design', sectorIcon: Palette, accent: 'from-purple-500/15 to-purple-500/5 text-purple-500',
+      items: [
+        { title: 'Design', href: '/design', icon: Palette },
+      ],
+    },
+    {
+      sector: 'Produto', sectorIcon: Package, accent: 'from-orange-500/15 to-orange-500/5 text-orange-500',
+      items: [
+        { title: 'Produtos', href: '/produtos', icon: Package, stat: stats ? `${stats.produtosAtivos} ativo${stats.produtosAtivos === 1 ? '' : 's'}` : undefined },
+      ],
+    },
+    {
+      sector: 'Produção', sectorIcon: Rocket, accent: 'from-rose-500/15 to-rose-500/5 text-rose-500',
+      items: [
+        { title: 'Lançamentos', href: '/lancamentos', icon: Rocket, stat: stats ? `${stats.activeLaunches} ativo${stats.activeLaunches === 1 ? '' : 's'}` : undefined },
+        { title: 'Checagens', href: '/checagens', icon: ClipboardCheck, stat: stats ? `${stats.checklists} checagem${stats.checklists === 1 ? '' : 's'}` : undefined },
+        { title: 'Boards', href: '/producao-boards', icon: Factory },
+      ],
+    },
+    {
+      sector: 'Site & TI', sectorIcon: Monitor, accent: 'from-cyan-500/15 to-cyan-500/5 text-cyan-500',
+      items: [
+        { title: 'Melhorias', href: '/melhorias', icon: Monitor, stat: stats ? `${stats.openMelhorias} aberta${stats.openMelhorias === 1 ? '' : 's'}` : undefined },
+        { title: 'Tickets', href: '/tickets', icon: Briefcase, stat: stats ? `${stats.openTickets} aberto${stats.openTickets === 1 ? '' : 's'}` : undefined },
+      ],
+    },
+    {
+      sector: 'Comercial', sectorIcon: ShoppingCart, accent: 'from-lime-500/15 to-lime-500/5 text-lime-600',
+      items: [
+        { title: 'Atacado', href: '/comercial', icon: ShoppingCart },
+      ],
+    },
+    {
+      sector: 'SAC & Expedição', sectorIcon: Package, accent: 'from-yellow-500/15 to-yellow-500/5 text-yellow-600',
+      items: [
+        { title: 'Pedidos', href: '/pedidos', icon: Package },
+      ],
+    },
+    {
+      sector: 'Financeiro', sectorIcon: DollarSign, accent: 'from-green-500/15 to-green-500/5 text-green-600',
+      items: [
+        { title: 'Financeiro', href: '/financeiro', icon: DollarSign },
+      ],
+    },
+    {
+      sector: 'Internacional', sectorIcon: Plane, accent: 'from-sky-500/15 to-sky-500/5 text-sky-500',
+      items: [
+        { title: 'Internacional', href: '/internacional', icon: Plane },
+      ],
+    },
+    {
+      sector: 'Ações Mensais', sectorIcon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
+      items: [
+        { title: 'Calendário', href: '/calendario', icon: CalendarDays, stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'}` : undefined },
+      ],
+    },
   ];
 
   const fmtTime = (iso?: string) => iso
@@ -321,24 +354,35 @@ export default function Dashboard() {
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Módulos</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cards.map((c) => (
-            <Link key={c.title} to={c.href} className="group">
-              <Card className="p-5 h-full hover:shadow-md transition-all hover:-translate-y-0.5 border-border/60">
-                <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${c.accent} flex items-center justify-center mb-4`}>
-                  <c.icon className="h-5 w-5" />
+          {sectors.map((s) => (
+            <Card key={s.sector} className="p-5 h-full border-border/60 hover:shadow-md transition-all hover:-translate-y-0.5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${s.accent} flex items-center justify-center shrink-0`}>
+                  <s.sectorIcon className="h-5 w-5" />
                 </div>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{c.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <div className="mt-4 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-                  {isLoading ? <Skeleton className="h-3.5 w-24" /> : c.stat}
-                </div>
-              </Card>
-            </Link>
+                <h3 className="font-semibold text-foreground">{s.sector}</h3>
+              </div>
+              <div className="space-y-1">
+                {s.items.map((item) => (
+                  <Link
+                    key={item.title}
+                    to={item.href}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent/50 transition-colors group"
+                  >
+                    <item.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-foreground group-hover:text-primary transition-colors flex-1 truncate">
+                      {item.title}
+                    </span>
+                    {item.stat && (
+                      <span className="text-[11px] text-muted-foreground shrink-0">
+                        {isLoading ? '…' : item.stat}
+                      </span>
+                    )}
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            </Card>
           ))}
         </div>
       </div>
