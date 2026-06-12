@@ -2,9 +2,10 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import {
-  Table2, MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
+  MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
   ArrowRight, Briefcase, ClipboardCheck, ListTodo, CalendarClock,
-  Globe, Camera, Package, FileText, Mail,
+  Globe, Camera, Package, FileText, Mail, Palette, ShoppingCart,
+  DollarSign, Plane, Factory, Users, Monitor,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -175,34 +176,58 @@ export default function Dashboard() {
   });
 
   const cards: ModuleCard[] = [
-    { title: 'Sunday', description: 'Projetos e tarefas', href: '/projetos', icon: Table2, accent: 'from-pink-500/15 to-pink-500/5 text-pink-500',
-      stat: stats ? `${stats.myOpenTasks} tarefa${stats.myOpenTasks === 1 ? '' : 's'} sua${stats.myOpenTasks === 1 ? '' : 's'}` : '—' },
+    // Geral
     { title: 'Speaks', description: 'Mensagens da equipe', href: '/mensagens', icon: MessageSquare, accent: 'from-violet-500/15 to-violet-500/5 text-violet-500',
       stat: stats ? `${stats.recentMessages} mensagens 24h` : '—' },
     { title: 'Papelinho', description: 'Documentação', href: '/docs', icon: BookOpen, accent: 'from-amber-500/15 to-amber-500/5 text-amber-600',
       stat: stats ? `${stats.docs} documento${stats.docs === 1 ? '' : 's'}` : '—' },
     { title: 'Reserva de Sala', description: 'Salas de reunião', href: '/salas', icon: Calendar, accent: 'from-emerald-500/15 to-emerald-500/5 text-emerald-600',
       stat: stats ? `${stats.upcomingBookings} reserva${stats.upcomingBookings === 1 ? '' : 's'} agendada${stats.upcomingBookings === 1 ? '' : 's'}` : '—' },
-    { title: 'Calendário de Ações Mensais', description: 'Planejamento do ano', href: '/calendario', icon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
-      stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'} em ${new Date().getFullYear()}` : '—' },
-    { title: 'Produção', description: 'Etapas, prazos e gargalos', href: '/lancamentos', icon: Rocket, accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
-      stat: stats ? `${stats.activeLaunches} ativo${stats.activeLaunches === 1 ? '' : 's'}` : '—' },
-    { title: 'Check Lançamentos', description: 'Checklist de validação no site', href: '/checagens', icon: ClipboardCheck, accent: 'from-teal-500/15 to-teal-500/5 text-teal-600',
-      stat: stats ? `${stats.checklists} checagem${stats.checklists === 1 ? '' : 's'}` : '—' },
-    { title: 'Tickets de TI', description: 'Bugs e suporte', href: '/tickets', icon: Briefcase, accent: 'from-indigo-500/15 to-indigo-500/5 text-indigo-600',
-      stat: stats ? `${stats.openTickets} aberto${stats.openTickets === 1 ? '' : 's'}` : '—' },
-    { title: 'Melhorias', description: 'Site, SEO e sistemas', href: '/melhorias', icon: Globe, accent: 'from-cyan-500/15 to-cyan-500/5 text-cyan-600',
-      stat: stats ? `${stats.openMelhorias} aberta${stats.openMelhorias === 1 ? '' : 's'}` : '—' },
-    { title: 'Programacao', description: 'Posts e redes sociais', href: '/programacao', icon: Camera, accent: 'from-pink-500/15 to-pink-500/5 text-pink-600',
+    { title: 'Equipe', description: 'Membros e perfis', href: '/equipe', icon: Users, accent: 'from-blue-500/15 to-blue-500/5 text-blue-500',
+      stat: '—' },
+    // Marketing
+    { title: 'Programação', description: 'Posts e redes sociais', href: '/programacao', icon: Camera, accent: 'from-pink-500/15 to-pink-500/5 text-pink-600',
       stat: stats ? `${stats.conteudosPendentes} pendente${stats.conteudosPendentes === 1 ? '' : 's'}` : '—' },
     { title: 'Newsletters', description: 'Brasil e Barcelona', href: '/newsletters', icon: Mail, accent: 'from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-600',
       stat: stats ? `${stats.newslettersPendentes} pendente${stats.newslettersPendentes === 1 ? '' : 's'}` : '—' },
     { title: 'Demandas Marketing', description: 'Pautas e subelementos', href: '/demandas-marketing', icon: FileText, accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
       stat: stats ? `${stats.demandasPendentes} pendente${stats.demandasPendentes === 1 ? '' : 's'}` : '—' },
-    { title: 'Sessões', description: 'Foto, video e banco de ideias', href: '/sessoes', icon: Camera, accent: 'from-violet-500/15 to-violet-500/5 text-violet-600',
+    // Estúdio
+    { title: 'Sessões', description: 'Foto, vídeo e banco de ideias', href: '/sessoes', icon: Camera, accent: 'from-violet-500/15 to-violet-500/5 text-violet-600',
       stat: stats ? `${stats.sessoesAtivas} ativa${stats.sessoesAtivas === 1 ? '' : 's'}` : '—' },
+    // Design
+    { title: 'Design', description: 'Demandas de design', href: '/design', icon: Palette, accent: 'from-purple-500/15 to-purple-500/5 text-purple-600',
+      stat: '—' },
+    // Produto
     { title: 'Produtos', description: 'Pipeline de desenvolvimento', href: '/produtos', icon: Package, accent: 'from-orange-500/15 to-orange-500/5 text-orange-600',
       stat: stats ? `${stats.produtosAtivos} ativo${stats.produtosAtivos === 1 ? '' : 's'}` : '—' },
+    // Produção
+    { title: 'Lançamentos', description: 'Etapas, prazos e gargalos', href: '/lancamentos', icon: Rocket, accent: 'from-rose-500/15 to-rose-500/5 text-rose-600',
+      stat: stats ? `${stats.activeLaunches} ativo${stats.activeLaunches === 1 ? '' : 's'}` : '—' },
+    { title: 'Checagens', description: 'Checklist de validação no site', href: '/checagens', icon: ClipboardCheck, accent: 'from-teal-500/15 to-teal-500/5 text-teal-600',
+      stat: stats ? `${stats.checklists} checagem${stats.checklists === 1 ? '' : 's'}` : '—' },
+    { title: 'Produção Boards', description: 'Boards de produção', href: '/producao-boards', icon: Factory, accent: 'from-stone-500/15 to-stone-500/5 text-stone-600',
+      stat: '—' },
+    // Site & TI
+    { title: 'Melhorias', description: 'Site, SEO e sistemas', href: '/melhorias', icon: Monitor, accent: 'from-cyan-500/15 to-cyan-500/5 text-cyan-600',
+      stat: stats ? `${stats.openMelhorias} aberta${stats.openMelhorias === 1 ? '' : 's'}` : '—' },
+    { title: 'Tickets', description: 'Bugs e suporte', href: '/tickets', icon: Briefcase, accent: 'from-indigo-500/15 to-indigo-500/5 text-indigo-600',
+      stat: stats ? `${stats.openTickets} aberto${stats.openTickets === 1 ? '' : 's'}` : '—' },
+    // Comercial
+    { title: 'Atacado', description: 'Comercial e vendas', href: '/comercial', icon: ShoppingCart, accent: 'from-lime-500/15 to-lime-500/5 text-lime-600',
+      stat: '—' },
+    // SAC & Expedição
+    { title: 'Pedidos', description: 'SAC e expedição', href: '/pedidos', icon: Package, accent: 'from-yellow-500/15 to-yellow-500/5 text-yellow-600',
+      stat: '—' },
+    // Financeiro
+    { title: 'Financeiro', description: 'Controle financeiro', href: '/financeiro', icon: DollarSign, accent: 'from-green-500/15 to-green-500/5 text-green-600',
+      stat: '—' },
+    // Internacional
+    { title: 'Internacional', description: 'Barcelona e exportação', href: '/internacional', icon: Plane, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
+      stat: '—' },
+    // Ações Mensais
+    { title: 'Ações Mensais', description: 'Planejamento do ano', href: '/calendario', icon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-500',
+      stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'} em ${new Date().getFullYear()}` : '—' },
   ];
 
   const fmtTime = (iso?: string) => iso
