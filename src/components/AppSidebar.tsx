@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Layers, Globe, Mail, FileText,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, Package, Camera, Globe, Mail, FileText,
   Palette, ShoppingCart, DollarSign, Plane, Factory, Monitor,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -50,7 +50,6 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: 'Geral',
     items: [
       { title: 'Início', url: '/', icon: LayoutDashboard },
-      { title: 'Calendário', url: '/calendario', icon: CalendarDays },
       { title: 'Speaks', url: '/mensagens', icon: MessageSquare },
       { title: 'Papelinho', url: '/docs', icon: BookOpen },
       { title: 'Salas', url: '/salas', icon: Calendar },
@@ -123,10 +122,9 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'Ferramentas',
+    label: 'Ações Mensais',
     items: [
-      { title: 'Sunday', url: '/projetos', icon: FolderKanban },
-      { title: 'Timeline', url: '/timeline', icon: Layers },
+      { title: 'Calendário', url: '/calendario', icon: CalendarDays },
     ],
   },
 ];
@@ -252,9 +250,9 @@ export function AppSidebar() {
         'flex items-center gap-2 px-3 h-12 border-b border-sidebar-border/50',
         collapsed && 'justify-center px-0'
       )}>
-        <img src={mooUiLogo} alt="MOOUI" className="h-7 w-7 shrink-0 object-contain" />
+        <img src={mooUiLogo} alt="Sunday" className="h-7 w-7 shrink-0 object-contain" />
         {!collapsed && (
-          <span className="text-sidebar-foreground font-semibold text-sm tracking-tight">MOOUI</span>
+          <span className="text-sidebar-foreground font-semibold text-sm tracking-tight">Sunday</span>
         )}
       </div>
 
@@ -262,8 +260,9 @@ export function AppSidebar() {
         {/* Navigation groups — collapsible */}
         {navGroups.map((group) => {
           const isOpen = !!openGroups[group.label];
+          const isSingleItem = group.items.length === 1;
+
           if (collapsed) {
-            // Icon-only mode: just show icons, no labels or collapsing
             return (
               <SidebarGroup key={group.label} className="py-1">
                 <SidebarGroupContent>
@@ -287,16 +286,43 @@ export function AppSidebar() {
               </SidebarGroup>
             );
           }
+
+          // Single-item groups render flat — no collapsible wrapper
+          if (isSingleItem) {
+            const item = group.items[0];
+            return (
+              <SidebarGroup key={group.label} className="py-0.5">
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild tooltip={item.title}>
+                        <NavLink
+                          to={item.url}
+                          end={item.url === '/'}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          activeClassName="bg-sidebar-accent text-sidebar-primary"
+                        >
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          <span>{group.label}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            );
+          }
+
           return (
             <Collapsible key={group.label} open={isOpen} onOpenChange={() => toggleGroup(group.label)}>
               <SidebarGroup className="py-1">
                 <CollapsibleTrigger asChild>
-                  <button className="flex items-center gap-1 px-3 py-1 w-full text-sidebar-muted hover:text-sidebar-foreground transition-colors group">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 w-full text-sidebar-foreground hover:text-sidebar-foreground transition-colors group">
                     <ChevronDown className={cn(
-                      'h-3 w-3 transition-transform',
+                      'h-3.5 w-3.5 transition-transform text-sidebar-muted',
                       !isOpen && '-rotate-90'
                     )} />
-                    <span className="text-[10px] uppercase tracking-wider font-semibold">
+                    <span className="text-sm font-semibold">
                       {group.label}
                     </span>
                   </button>
@@ -310,10 +336,10 @@ export function AppSidebar() {
                             <NavLink
                               to={item.url}
                               end={item.url === '/'}
-                              className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground pl-7 text-[13px]"
                               activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                             >
-                              <item.icon className="h-4 w-4 shrink-0" />
+                              <item.icon className="h-3.5 w-3.5 shrink-0" />
                               <span>{item.title}</span>
                             </NavLink>
                           </SidebarMenuButton>
