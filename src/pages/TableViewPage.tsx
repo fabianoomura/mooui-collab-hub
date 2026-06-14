@@ -59,6 +59,9 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
   const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
+  const [groupRenames, setGroupRenames] = useState<Record<string, string>>(() => {
+    try { const s = localStorage.getItem(`mooui_group_names_${projectFromUrl}`); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const onDragStartTask = useCallback((id: string) => setDraggedTaskId(id), []);
   const onDragEndTask = useCallback(() => setDraggedTaskId(null), []);
@@ -371,6 +374,25 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     }
   };
 
+  const handleRenameGroup = (group: { key: string; label: string }) => {
+    setPromptState({
+      title: 'Renomear grupo',
+      label: 'Nome',
+      defaultValue: groupRenames[group.key] || group.label,
+      confirmLabel: 'Salvar',
+      onSubmit: (name) => {
+        const trimmed = name.trim();
+        setGroupRenames((prev) => {
+          const next = { ...prev, [group.key]: trimmed };
+          localStorage.setItem(`mooui_group_names_${activeProjectId}`, JSON.stringify(next));
+          return next;
+        });
+        toast.success('Grupo renomeado');
+        setPromptState(null);
+      },
+    });
+  };
+
   // Grid template: color bar + title + fixed columns + dynamic columns + add-column spacer
   const gridCols = useMemo(() => {
     const cols = ['3px', '1fr'];
@@ -390,7 +412,11 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
       <div className="flex items-center gap-3">
         {projects && projects.length > 0 ? (
           embedded ? (
-            <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
+            <h2
+              className="flex items-center gap-2 text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+              onDoubleClick={handleRenameProject}
+              title="Duplo-clique para renomear"
+            >
               <span
                 className="h-2.5 w-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: projects.find((p) => p.id === activeProjectId)?.color || 'hsl(var(--primary))' }}
@@ -555,7 +581,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                 <div className="mb-1 flex items-center gap-2">
                   <button onClick={() => toggleGroup(group.key)} className="flex items-center gap-2">
                     {isCollapsed ? <ChevronRight className="h-4 w-4" style={{ color: group.color }} /> : <ChevronDown className="h-4 w-4" style={{ color: group.color }} />}
-                    <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>{group.label}</span>
+                    <span className="text-sm font-bold tracking-wide" style={{ color: group.color }}>{groupRenames[group.key] || group.label}</span>
                     <span className="text-xs text-muted-foreground ml-1">{group.tasks.length} elementos</span>
                   </button>
                   <DropdownMenu>
@@ -565,6 +591,10 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => handleRenameGroup(group)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Renomear grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleArchiveGroup(group)}>
                         <Archive className="h-4 w-4 mr-2" /> Arquivar grupo inteiro
                       </DropdownMenuItem>

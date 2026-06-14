@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useProjectsByOrg } from '@/hooks/useProjectData';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import SundayBoard from './SundayBoard';
+import { Pencil } from 'lucide-react';
 
 function normalizedKey(value: unknown): string {
   return String(value ?? '')
@@ -47,10 +48,53 @@ function findProject(projects: any[], aliases: string[]): any | null {
   return null;
 }
 
+function InlineEditable({ value, onSave, className }: { value: string; onSave: (v: string) => void; className?: string }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  if (!editing) {
+    return (
+      <span
+        className={cn('cursor-pointer group/edit inline-flex items-center gap-1.5', className)}
+        onDoubleClick={() => { setDraft(value); setEditing(true); }}
+        title="Duplo-clique para editar"
+      >
+        {value}
+        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+      </span>
+    );
+  }
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) onSave(trimmed);
+    setEditing(false);
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
+      className={cn('bg-transparent border-b border-primary outline-none', className)}
+    />
+  );
+}
+
 export default function SectorBoardsPage({ title, description, cards, headerExtra }: SectorBoardsPageConfig) {
   const { currentOrg } = useOrganization();
   const { data: projects = [], isLoading } = useProjectsByOrg(currentOrg?.id);
   const [activeKey, setActiveKey] = useState(cards[0]?.key || '');
+
+  const TITLE_KEY = `sector-title:${title}`;
+  const DESC_KEY = `sector-desc:${title}`;
+  const [displayTitle, setDisplayTitle] = useState(() => localStorage.getItem(TITLE_KEY) || title);
+  const [displayDesc, setDisplayDesc] = useState(() => localStorage.getItem(DESC_KEY) || description || '');
 
   const resolvedCards = cards.map((card) => ({
     ...card,
@@ -62,8 +106,21 @@ export default function SectorBoardsPage({ title, description, cards, headerExtr
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        <h1 className="text-2xl font-bold">
+          <InlineEditable
+            value={displayTitle}
+            onSave={(v) => { setDisplayTitle(v); localStorage.setItem(TITLE_KEY, v); }}
+          />
+        </h1>
+        {displayDesc && (
+          <p className="text-sm text-muted-foreground">
+            <InlineEditable
+              value={displayDesc}
+              onSave={(v) => { setDisplayDesc(v); localStorage.setItem(DESC_KEY, v); }}
+              className="text-sm text-muted-foreground"
+            />
+          </p>
+        )}
       </div>
 
       {cards.length > 1 && (
