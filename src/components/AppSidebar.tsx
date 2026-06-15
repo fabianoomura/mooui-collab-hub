@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
   ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Globe, Mail, FileText,
-  Palette, ShoppingCart, DollarSign, Plane, Factory, Monitor,
+  Palette, ShoppingCart, DollarSign, Plane, Factory, Monitor, Home, Megaphone, Target,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
@@ -45,9 +45,10 @@ import { useI18n, type Locale } from '@/i18n';
 
 type NavItem = { title: string; url: string; icon: LucideIcon };
 
-const navGroups: { label: string; items: NavItem[] }[] = [
+const navGroups: { label: string; icon?: LucideIcon; items: NavItem[] }[] = [
   {
     label: 'Geral',
+    icon: Home,
     items: [
       { title: 'Início', url: '/', icon: LayoutDashboard },
       { title: 'Speaks', url: '/mensagens', icon: MessageSquare },
@@ -58,6 +59,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Ações Mensais',
+    icon: Target,
     items: [
       { title: 'Board', url: '/acoes-mensais', icon: FolderKanban },
       { title: 'Calendário', url: '/calendario', icon: CalendarDays },
@@ -65,6 +67,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Marketing',
+    icon: Megaphone,
     items: [
       { title: 'Board', url: '/marketing', icon: FolderKanban },
       { title: 'Programação', url: '/programacao', icon: Camera },
@@ -92,6 +95,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Produção',
+    icon: Factory,
     items: [
       { title: 'Lançamentos', url: '/lancamentos', icon: Rocket },
       { title: 'Checagens', url: '/checagens', icon: ClipboardCheck },
@@ -100,6 +104,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Site & TI',
+    icon: Monitor,
     items: [
       { title: 'Melhorias', url: '/melhorias', icon: Monitor },
       { title: 'Tickets', url: '/tickets', icon: Briefcase },
@@ -324,6 +329,7 @@ export function AppSidebar() {
                       'h-3.5 w-3.5 transition-transform text-sidebar-muted',
                       !isOpen && '-rotate-90'
                     )} />
+                    {group.icon && <group.icon className="h-4 w-4 shrink-0" />}
                     <span className="text-sm font-semibold">
                       {group.label}
                     </span>
