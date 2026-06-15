@@ -252,17 +252,27 @@ export function HideColumnsPopover({ visible, onToggle }: { visible: Set<FixedCo
   );
 }
 
-export function FixedColHeader({ label, colKey, onHide, onDragStart, onDragOver, onDrop }: {
+export function FixedColHeader({ label, colKey, onHide, onDragStart, onDrop }: {
   label: string; colKey: string; onHide: () => void;
-  onDragStart?: (key: string) => void; onDragOver?: (e: React.DragEvent, key: string) => void; onDrop?: (key: string) => void;
+  onDragStart?: (key: string) => void; onDrop?: (key: string) => void;
 }) {
+  const [dragOver, setDragOver] = useState(false);
   return (
     <span
-      className="px-2 py-2 text-center flex items-center justify-center gap-1 group cursor-grab active:cursor-grabbing"
+      className={`px-2 py-2 text-center flex items-center justify-center gap-1 group cursor-grab active:cursor-grabbing select-none transition-colors ${dragOver ? 'bg-primary/10' : ''}`}
       draggable
-      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/col', colKey); onDragStart?.(colKey); }}
-      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onDragOver?.(e, colKey); }}
-      onDrop={(e) => { e.preventDefault(); onDrop?.(colKey); }}
+      onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('application/col-key', colKey); onDragStart?.(colKey); }}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('application/col-key')) return;
+        e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move';
+        if (!dragOver) setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes('application/col-key')) return;
+        e.preventDefault(); e.stopPropagation(); setDragOver(false); onDrop?.(colKey);
+      }}
+      onDragEnd={() => setDragOver(false)}
     >
       {label}
       <button onClick={onHide} title="Ocultar coluna" className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">

@@ -109,10 +109,10 @@ export function TaskRow({
         draggable
         onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', task.id); onDragStartTask(task.id); }}
         onDragEnd={(e) => { e.stopPropagation(); setIsDragOver(false); onDragEndTask(); }}
-        onDragOver={(e) => { if (!canBeDropTarget) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!isDragOver) setIsDragOver(true); }}
+        onDragOver={(e) => { if (!canBeDropTarget || e.dataTransfer.types.includes('application/col-key')) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!isDragOver) setIsDragOver(true); }}
         onDragLeave={() => { if (isDragOver) setIsDragOver(false); }}
         onDrop={(e) => {
-          if (!canBeDropTarget) return;
+          if (!canBeDropTarget || e.dataTransfer.types.includes('application/col-key')) return;
           e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
           const draggedId = e.dataTransfer.getData('text/plain') || draggedTaskId;
           if (draggedId && draggedId !== task.id) onMoveToParent(draggedId, task.id);
