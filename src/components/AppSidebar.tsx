@@ -325,14 +325,14 @@ export function AppSidebar() {
               <SidebarGroup className="py-1">
                 <CollapsibleTrigger asChild>
                   <button className="flex items-center gap-1.5 px-3 py-1.5 w-full text-sidebar-foreground hover:text-sidebar-foreground transition-colors group">
+                    {group.icon && <group.icon className="h-4 w-4 shrink-0" />}
+                    <span className="text-sm font-semibold flex-1 text-left">
+                      {group.label}
+                    </span>
                     <ChevronDown className={cn(
                       'h-3.5 w-3.5 transition-transform text-sidebar-muted',
                       !isOpen && '-rotate-90'
                     )} />
-                    {group.icon && <group.icon className="h-4 w-4 shrink-0" />}
-                    <span className="text-sm font-semibold">
-                      {group.label}
-                    </span>
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
