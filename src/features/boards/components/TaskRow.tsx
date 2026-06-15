@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2, CornerDownRight, ArrowUp, Archive } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2, CornerDownRight, ArrowUp, Archive, Outdent } from 'lucide-react';
 import { type TaskWithAssignees, type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
 import { type ProjectColumn } from '@/hooks/useProjectColumns';
 import { type LabelOption } from '@/components/table/LabelEditor';
@@ -82,7 +82,15 @@ export function TaskRow({
               {hasSubtasks ? (isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />) : <span className="w-3.5" />}
             </button>
           )}
-          {isSubtask && <span className="w-6 shrink-0" />}
+          {isSubtask && (
+            <button
+              className="w-6 shrink-0 flex items-center justify-center text-muted-foreground/40 hover:text-primary transition-colors"
+              title="Promover a elemento principal"
+              onClick={(e) => { e.stopPropagation(); onPromoteToTopLevel(task.id); }}
+            >
+              <Outdent className="h-3.5 w-3.5" />
+            </button>
+          )}
           <span className={`font-medium text-foreground truncate ${isSubtask ? 'text-xs' : ''}`}>{task.title}</span>
           {!isSubtask && subtaskCount > 0 && (
             <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">{subtaskCount}</span>
@@ -143,7 +151,7 @@ export function TaskRow({
         <div />
       </div>
 
-      {!isSubtask && isExpanded && (
+      {!isSubtask && isExpanded && hasSubtasks && (
         <>
           {hasSubtasks && (
             <div className="grid items-center bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
