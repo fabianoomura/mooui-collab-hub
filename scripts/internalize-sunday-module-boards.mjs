@@ -104,6 +104,30 @@ const BOARD_CLONES = [
     color: '#F97316',
     aliases: ['Excel | 4 - novos produtos (1780430107)', '4 - novos produtos 1780430107', '1780430107'],
   },
+  {
+    module: 'marketing',
+    target: 'Modulo | Marketing',
+    color: '#EC4899',
+    aliases: ['Excel | 5 - marketing (1780430128)', '5 - marketing 1780430128', '1780430128'],
+  },
+  {
+    module: 'acoes-mensais',
+    target: 'Modulo | Acoes Mensais',
+    color: '#0EA5E9',
+    aliases: ['Excel | 0 - ações mensais (1780430011)', '0 - acoes mensais 1780430011', '1780430011'],
+  },
+  {
+    module: 'design',
+    target: 'Modulo | Design',
+    color: '#8B5CF6',
+    aliases: ['Excel | 2 - design (1780430075)', '2 - design 1780430075', '1780430075'],
+  },
+  {
+    module: 'producao',
+    target: 'Modulo | Producao',
+    color: '#DC2626',
+    aliases: ['Excel | 1 - produção (1780430055)', '1 - producao 1780430055', '1780430055'],
+  },
 ];
 
 function norm(value) {
@@ -377,7 +401,17 @@ async function main() {
     }
     if (existing) {
       const tasks = await selectAll('tasks', `select=id&project_id=eq.${existing.id}`);
-      results.push({ target: config.target, status: 'exists', projectId: existing.id, tasks: tasks.length });
+      if (tasks.length > 0) {
+        results.push({ target: config.target, status: 'exists', projectId: existing.id, tasks: tasks.length });
+        continue;
+      }
+      if (WRITE) {
+        await rest('projects', `id=eq.${existing.id}`, { method: 'DELETE' });
+        results.push({ status: 'created', ...(await cloneProject({ source, targetName: config.target, color: config.color, module: config.module })) });
+        continue;
+      }
+      const sourceTasks = await selectAll('tasks', `select=id&project_id=eq.${source.id}`);
+      results.push({ target: config.target, status: 'empty_will_recreate', projectId: existing.id, sourceTasks: sourceTasks.length });
       continue;
     }
     if (!WRITE) {
