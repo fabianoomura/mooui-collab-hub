@@ -66,6 +66,7 @@ export function useProjectTasks(projectId: string | undefined) {
       return parentTasks;
     },
     enabled: !!projectId,
+    staleTime: 30_000,
   });
 
   // Also return flat list of all tasks (parents + children) for counting etc
@@ -199,6 +200,7 @@ export function useProjectsByOrg(orgId: string | undefined) {
       return data || [];
     },
     enabled: !!user && !!orgId,
+    staleTime: 60_000,
   });
 }
 

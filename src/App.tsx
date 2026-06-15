@@ -38,6 +38,8 @@ const ComercialPage = lazy(() => import("./pages/ComercialPage"));
 const FinanceiroPage = lazy(() => import("./pages/FinanceiroPage"));
 const InternacionalPage = lazy(() => import("./pages/InternacionalPage"));
 const ProducaoBoardsPage = lazy(() => import("./pages/ProducaoBoardsPage"));
+const AcoesMensaisPage = lazy(() => import("./pages/AcoesMensaisPage"));
+const MarketingPage = lazy(() => import("./pages/MarketingPage"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -133,6 +135,8 @@ const App = () => (
               <Route path="/financeiro" element={<FinanceiroPage />} />
               <Route path="/internacional" element={<InternacionalPage />} />
               <Route path="/producao-boards" element={<ProducaoBoardsPage />} />
+              <Route path="/acoes-mensais" element={<AcoesMensaisPage />} />
+              <Route path="/marketing" element={<MarketingPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>
 

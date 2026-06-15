@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, LogOut, Table2, ChevronDown, Search, Check, Plus, Trash2,
   MessageSquare, BookOpen, Settings, Calendar, CalendarDays, Rocket, Briefcase,
-  ClipboardCheck, ChevronsUpDown, User as UserIcon, Package, Camera, Globe, Mail, FileText,
+  ClipboardCheck, ChevronsUpDown, User as UserIcon, FolderKanban, Package, Camera, Globe, Mail, FileText,
   Palette, ShoppingCart, DollarSign, Plane, Factory, Monitor,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -57,8 +57,16 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'Ações Mensais',
+    items: [
+      { title: 'Board', url: '/acoes-mensais', icon: FolderKanban },
+      { title: 'Calendário', url: '/calendario', icon: CalendarDays },
+    ],
+  },
+  {
     label: 'Marketing',
     items: [
+      { title: 'Board', url: '/marketing', icon: FolderKanban },
       { title: 'Programação', url: '/programacao', icon: Camera },
       { title: 'Newsletters', url: '/newsletters', icon: Mail },
       { title: 'Demandas', url: '/demandas-marketing', icon: FileText },
@@ -119,12 +127,6 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: 'Internacional',
     items: [
       { title: 'Internacional', url: '/internacional', icon: Plane },
-    ],
-  },
-  {
-    label: 'Ações Mensais',
-    items: [
-      { title: 'Calendário', url: '/calendario', icon: CalendarDays },
     ],
   },
 ];

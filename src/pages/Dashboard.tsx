@@ -5,7 +5,7 @@ import {
   MessageSquare, BookOpen, Calendar, CalendarDays, Rocket,
   ArrowRight, Briefcase, ClipboardCheck, ListTodo, CalendarClock,
   Globe, Camera, Package, FileText, Mail, Palette, ShoppingCart,
-  DollarSign, Plane, Factory, Users, Monitor,
+  DollarSign, Plane, Factory, Users, Monitor, FolderKanban,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -191,8 +191,16 @@ export default function Dashboard() {
       ],
     },
     {
+      sector: 'Ações Mensais', sectorIcon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
+      items: [
+        { title: 'Board', href: '/acoes-mensais', icon: FolderKanban },
+        { title: 'Calendário', href: '/calendario', icon: CalendarDays, stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'}` : undefined },
+      ],
+    },
+    {
       sector: 'Marketing', sectorIcon: Camera, accent: 'from-pink-500/15 to-pink-500/5 text-pink-500',
       items: [
+        { title: 'Board', href: '/marketing', icon: FolderKanban },
         { title: 'Programação', href: '/programacao', icon: Camera, stat: stats ? `${stats.conteudosPendentes} pendente${stats.conteudosPendentes === 1 ? '' : 's'}` : undefined },
         { title: 'Newsletters', href: '/newsletters', icon: Mail, stat: stats ? `${stats.newslettersPendentes} pendente${stats.newslettersPendentes === 1 ? '' : 's'}` : undefined },
         { title: 'Demandas', href: '/demandas-marketing', icon: FileText, stat: stats ? `${stats.demandasPendentes} pendente${stats.demandasPendentes === 1 ? '' : 's'}` : undefined },
@@ -253,12 +261,6 @@ export default function Dashboard() {
       sector: 'Internacional', sectorIcon: Plane, accent: 'from-sky-500/15 to-sky-500/5 text-sky-500',
       items: [
         { title: 'Internacional', href: '/internacional', icon: Plane },
-      ],
-    },
-    {
-      sector: 'Ações Mensais', sectorIcon: CalendarDays, accent: 'from-sky-500/15 to-sky-500/5 text-sky-600',
-      items: [
-        { title: 'Calendário', href: '/calendario', icon: CalendarDays, stat: stats ? `${stats.yearEvents} evento${stats.yearEvents === 1 ? '' : 's'}` : undefined },
       ],
     },
   ];
