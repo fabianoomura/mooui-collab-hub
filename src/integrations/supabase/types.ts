@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          organization_id: string
+          payload: Json | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          organization_id: string
+          payload?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          organization_id?: string
+          payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       annual_event_etapas: {
         Row: {
           created_at: string
@@ -110,6 +151,112 @@ export type Database = {
             columns: ["instance_id"]
             isOneToOne: false
             referencedRelation: "module_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attachments: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          organization_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          organization_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          organization_id?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          organization_id: string
+          pinned_by: string | null
+          scope: string
+          sector: string | null
+          source_id: string
+          source_type: string
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          organization_id: string
+          pinned_by?: string | null
+          scope?: string
+          sector?: string | null
+          source_id: string
+          source_type: string
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          organization_id?: string
+          pinned_by?: string | null
+          scope?: string
+          sector?: string | null
+          source_id?: string
+          source_type?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -246,6 +393,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      comments: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conteudo_activity: {
         Row: {
@@ -722,6 +910,32 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      entity_code_seq: {
+        Row: {
+          entity_type: string
+          last_value: number
+          organization_id: string
+        }
+        Insert: {
+          entity_type: string
+          last_value?: number
+          organization_id: string
+        }
+        Update: {
+          entity_type?: string
+          last_value?: number
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_code_seq_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       launch_checklist_items: {
         Row: {
@@ -1394,6 +1608,44 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_access: {
+        Row: {
+          created_at: string
+          grantee_id: string
+          grantee_type: string
+          id: string
+          level: string
+          module_key: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          grantee_id: string
+          grantee_type: string
+          id?: string
+          level?: string
+          module_key: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          grantee_id?: string
+          grantee_type?: string
+          id?: string
+          level?: string
+          module_key?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -3660,6 +3912,14 @@ export type Database = {
         Args: { _org_id: string; _other_user_id: string }
         Returns: string
       }
+      has_min_role: {
+        Args: {
+          _min_role: Database["public"]["Enums"]["app_role"]
+          _org_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3687,6 +3947,10 @@ export type Database = {
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
+      }
+      next_entity_code: {
+        Args: { _entity_type: string; _org_id: string }
+        Returns: number
       }
       notify_user: {
         Args: {
