@@ -1,28 +1,67 @@
 import { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2, CornerDownRight, ArrowUp, Archive, Outdent } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2, CornerDownRight, ArrowUp, Archive, Outdent, MessageCircle } from 'lucide-react';
 import { type TaskWithAssignees, type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
 import { type ProjectColumn } from '@/hooks/useProjectColumns';
 import { type LabelOption } from '@/components/table/LabelEditor';
 import { DateRangeCell } from '@/components/table/DateRangeCell';
 import { ColumnCell } from '../columns';
 import { StatusCell, PriorityCell, AssigneePickerCell } from './TableCells';
-import { formatDateShort, type FixedColumnKey } from '../constants';
+import { formatDateShort, fixedColumnLabels, type FixedColumnKey } from '../constants';
+
+function FixedCell({ col, task, onInlineUpdate, profilesMap, projectMembers, onAddAssignee, onRemoveAssignee, statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels }: {
+  col: FixedColumnKey;
+  task: TaskWithAssignees;
+  onInlineUpdate: (taskId: string, updates: Record<string, unknown>) => void;
+  profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
+  projectMembers: { user_id: string; profile: { full_name: string | null } | null }[];
+  onAddAssignee: (taskId: string, userId: string) => void;
+  onRemoveAssignee: (taskId: string, userId: string) => void;
+  statusLabelsConfig?: LabelOption[];
+  priorityLabelsConfig?: LabelOption[];
+  onEditStatusLabels?: () => void;
+  onEditPriorityLabels?: () => void;
+}) {
+  switch (col) {
+    case 'due_date':
+      return (
+        <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
+          <DateRangeCell startDate={(task as any).start_date || null} endDate={task.due_date} onChange={(s, e) => onInlineUpdate(task.id, { start_date: s, due_date: e } as any)} />
+        </div>
+      );
+    case 'priority':
+      return <div className="px-1 py-1" onClick={e => e.stopPropagation()}><PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} customLabels={priorityLabelsConfig} onEditLabels={onEditPriorityLabels} /></div>;
+    case 'status':
+      return <div className="px-1 py-1" onClick={e => e.stopPropagation()}><StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} customLabels={statusLabelsConfig} onEditLabels={onEditStatusLabels} /></div>;
+    case 'assignee':
+      return <div className="px-1 py-1" onClick={e => e.stopPropagation()}><AssigneePickerCell task={task} profilesMap={profilesMap} projectMembers={projectMembers} onAdd={onAddAssignee} onRemove={onRemoveAssignee} /></div>;
+    case 'created_at':
+      return <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.created_at)}</span>;
+    case 'ticket':
+      return <span className="px-2 py-1 text-center text-xs text-muted-foreground">{task.ticket_number || '—'}</span>;
+  }
+}
+
+const subHeaderLabels: Record<FixedColumnKey, string> = {
+  due_date: 'Data', priority: 'Prioridade', status: 'Status',
+  assignee: 'Responsável', created_at: 'Abertura', ticket: 'Ticket',
+};
 
 export function TaskRow({
-  task, parentTask, groupColor, gridCols, visibleColumns, profilesMap, isSubtask,
+  task, parentTask, groupColor, gridCols, orderedColumns, profilesMap, isSubtask,
   expandedTasks, onToggleExpand, onClickTask, onInlineUpdate, onAddSubtask,
   dynamicColumns, customValues, onSetCustomValue,
   statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
   projectMembers, onAddAssignee, onRemoveAssignee,
   allTopLevelTasks, onMoveToParent, onPromoteToTopLevel, onArchiveTask, onDeleteTask,
   draggedTaskId, onDragStartTask, onDragEndTask,
+  commentCounts,
 }: {
   task: TaskWithAssignees;
   parentTask?: TaskWithAssignees;
   groupColor: string;
   gridCols: string;
-  visibleColumns: Set<FixedColumnKey>;
+  orderedColumns: FixedColumnKey[];
   profilesMap: Map<string, { full_name: string | null; avatar_url: string | null }>;
   isSubtask?: boolean;
   expandedTasks: Set<string>;
@@ -48,14 +87,21 @@ export function TaskRow({
   draggedTaskId: string | null;
   onDragStartTask: (id: string) => void;
   onDragEndTask: () => void;
+  commentCounts?: Map<string, number>;
 }) {
   const isExpanded = expandedTasks.has(task.id);
   const subtaskCount = task.subtasks?.length || 0;
   const hasSubtasks = subtaskCount > 0;
   const [isDragOver, setIsDragOver] = useState(false);
+  const commentCount = commentCounts?.get(task.id) || 0;
 
   const taskValues = customValues.get(task.id) || new Map<string, string>();
   const canBeDropTarget = !isSubtask && draggedTaskId !== null && draggedTaskId !== task.id;
+
+  const cellProps = {
+    onInlineUpdate, profilesMap, projectMembers, onAddAssignee, onRemoveAssignee,
+    statusLabelsConfig, priorityLabelsConfig, onEditStatusLabels, onEditPriorityLabels,
+  };
 
   return (
     <>
@@ -92,6 +138,12 @@ export function TaskRow({
             </button>
           )}
           <span className={`font-medium text-foreground truncate ${isSubtask ? 'text-xs' : ''}`}>{task.title}</span>
+          {commentCount > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] text-sky-400 shrink-0" title={`${commentCount} comentário${commentCount > 1 ? 's' : ''}`}>
+              <MessageCircle className="h-3 w-3" />
+              {commentCount}
+            </span>
+          )}
           {!isSubtask && subtaskCount > 0 && (
             <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">{subtaskCount}</span>
           )}
@@ -133,16 +185,9 @@ export function TaskRow({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {visibleColumns.has('due_date') && (
-          <div className="px-1 py-1" onClick={e => e.stopPropagation()}>
-            <DateRangeCell startDate={(task as any).start_date || null} endDate={task.due_date} onChange={(s, e) => onInlineUpdate(task.id, { start_date: s, due_date: e } as any)} />
-          </div>
-        )}
-        {visibleColumns.has('priority') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><PriorityCell value={task.priority} onChange={(v) => onInlineUpdate(task.id, { priority: v })} customLabels={priorityLabelsConfig} onEditLabels={onEditPriorityLabels} /></div>}
-        {visibleColumns.has('status') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><StatusCell value={task.status} onChange={(v) => onInlineUpdate(task.id, { status: v })} customLabels={statusLabelsConfig} onEditLabels={onEditStatusLabels} /></div>}
-        {visibleColumns.has('assignee') && <div className="px-1 py-1" onClick={e => e.stopPropagation()}><AssigneePickerCell task={task} profilesMap={profilesMap} projectMembers={projectMembers} onAdd={onAddAssignee} onRemove={onRemoveAssignee} /></div>}
-        {visibleColumns.has('created_at') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{formatDateShort(task.created_at)}</span>}
-        {visibleColumns.has('ticket') && <span className="px-2 py-1 text-center text-xs text-muted-foreground">{task.ticket_number || '—'}</span>}
+        {orderedColumns.map(col => (
+          <FixedCell key={col} col={col} task={task} {...cellProps} />
+        ))}
         {dynamicColumns.map(col => (
           <div key={col.id} className="px-1 py-1" onClick={e => e.stopPropagation()}>
             <ColumnCell value={taskValues.get(col.id) || ''} column={col} onChange={(v) => onSetCustomValue(task.id, col.id, v)} />
@@ -157,12 +202,9 @@ export function TaskRow({
             <div className="grid items-center bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
               <div />
               <span className="px-3 py-1.5 pl-10">Subelemento</span>
-              {visibleColumns.has('due_date') && <span className="px-2 py-1.5 text-center">Data</span>}
-              {visibleColumns.has('priority') && <span className="px-2 py-1.5 text-center">Prioridade</span>}
-              {visibleColumns.has('status') && <span className="px-2 py-1.5 text-center">Status</span>}
-              {visibleColumns.has('assignee') && <span className="px-2 py-1.5 text-center">Responsável</span>}
-              {visibleColumns.has('created_at') && <span className="px-2 py-1.5 text-center">Abertura</span>}
-              {visibleColumns.has('ticket') && <span className="px-2 py-1.5 text-center">Ticket</span>}
+              {orderedColumns.map(col => (
+                <span key={col} className="px-2 py-1.5 text-center">{subHeaderLabels[col]}</span>
+              ))}
               {dynamicColumns.map(col => <span key={col.id} className="px-2 py-1.5 text-center">{col.name}</span>)}
               <div />
             </div>
@@ -170,7 +212,7 @@ export function TaskRow({
           {task.subtasks?.map(sub => (
             <TaskRow
               key={sub.id} task={sub} parentTask={task} groupColor={groupColor} gridCols={gridCols}
-              visibleColumns={visibleColumns} profilesMap={profilesMap} isSubtask expandedTasks={expandedTasks}
+              orderedColumns={orderedColumns} profilesMap={profilesMap} isSubtask expandedTasks={expandedTasks}
               onToggleExpand={onToggleExpand} onClickTask={onClickTask} onInlineUpdate={onInlineUpdate}
               onAddSubtask={onAddSubtask} dynamicColumns={dynamicColumns} customValues={customValues}
               onSetCustomValue={onSetCustomValue}
@@ -180,6 +222,7 @@ export function TaskRow({
               allTopLevelTasks={allTopLevelTasks} onMoveToParent={onMoveToParent} onPromoteToTopLevel={onPromoteToTopLevel}
               onArchiveTask={onArchiveTask} onDeleteTask={onDeleteTask}
               draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
+              commentCounts={commentCounts}
             />
           ))}
           <button onClick={() => onAddSubtask(task.id)} className="w-full text-left pl-12 pr-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1 border-b border-border">

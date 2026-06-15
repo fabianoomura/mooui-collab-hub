@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, FileStack, Columns3, GanttChart, CalendarDays, Archive } from 'lucide-react';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
@@ -18,12 +18,13 @@ import { PromptDialog } from '@/components/PromptDialog';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { SundayMobileList, ColumnCell } from '@/features/boards';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
+import { useTaskCommentCounts } from '@/hooks/useTaskCommentCounts';
 
 // Extracted components
 import {
   statusLabels, statusCellColors, priorityLabels, priorityCellColors,
   groupColors, statusOrder, priorityOrder,
-  FIXED_COLUMNS, type FixedColumnKey,
+  FIXED_COLUMNS, fixedColumnLabels, type FixedColumnKey,
   type SortField, type SortDir, type GroupBy, type ViewMode,
   getMonthYearKey, getMonthYearLabel, taskMatchesAssignee, taskMatchesSearch,
 } from '@/features/boards/constants';
@@ -65,6 +66,12 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const onDragStartTask = useCallback((id: string) => setDraggedTaskId(id), []);
   const onDragEndTask = useCallback(() => setDraggedTaskId(null), []);
+
+  const [columnOrder, setColumnOrder] = useState<FixedColumnKey[]>(() => {
+    try { const s = localStorage.getItem(`mooui_col_order_${projectFromUrl}`); if (s) return JSON.parse(s); } catch {}
+    return [...FIXED_COLUMNS];
+  });
+  const dragColRef = useRef<string | null>(null);
 
   const [statusLabelsConfig, setStatusLabelsConfig] = useState<LabelOption[]>(() => {
     const saved = localStorage.getItem(`mooui_status_labels_${projectFromUrl}`);
@@ -120,6 +127,18 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   }, [tasks]);
 
   const { data: profilesMap } = useAssigneeProfiles(allAssigneeIds);
+
+  const allTaskIds = useMemo(() => {
+    const ids: string[] = [];
+    tasks.forEach(t => { ids.push(t.id); t.subtasks?.forEach(s => ids.push(s.id)); });
+    return ids;
+  }, [tasks]);
+  const { data: commentCounts } = useTaskCommentCounts(allTaskIds);
+
+  const orderedColumns = useMemo(
+    () => columnOrder.filter(col => visibleColumns.has(col)),
+    [columnOrder, visibleColumns],
+  );
 
   const filteredTasks = useMemo(() => {
     let result = tasks;
@@ -393,19 +412,31 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     });
   };
 
-  // Grid template: color bar + title + fixed columns + dynamic columns + add-column spacer
+  const colWidths: Record<FixedColumnKey, string> = { due_date: '180px', priority: '100px', status: '120px', assignee: '100px', created_at: '100px', ticket: '100px' };
   const gridCols = useMemo(() => {
     const cols = ['3px', '1fr'];
-    if (visibleColumns.has('due_date')) cols.push('180px');
-    if (visibleColumns.has('priority')) cols.push('100px');
-    if (visibleColumns.has('status')) cols.push('120px');
-    if (visibleColumns.has('assignee')) cols.push('100px');
-    if (visibleColumns.has('created_at')) cols.push('100px');
-    if (visibleColumns.has('ticket')) cols.push('100px');
+    orderedColumns.forEach(col => cols.push(colWidths[col]));
     dynamicColumns.forEach(col => cols.push(`${col.width || 150}px`));
     cols.push('40px');
     return cols.join(' ');
-  }, [visibleColumns, dynamicColumns]);
+  }, [orderedColumns, dynamicColumns]);
+
+  const handleColumnDragStart = useCallback((key: string) => { dragColRef.current = key; }, []);
+  const handleColumnDrop = useCallback((targetKey: string) => {
+    const srcKey = dragColRef.current;
+    dragColRef.current = null;
+    if (!srcKey || srcKey === targetKey) return;
+    setColumnOrder(prev => {
+      const next = [...prev];
+      const srcIdx = next.indexOf(srcKey as FixedColumnKey);
+      const tgtIdx = next.indexOf(targetKey as FixedColumnKey);
+      if (srcIdx === -1 || tgtIdx === -1) return prev;
+      next.splice(srcIdx, 1);
+      next.splice(tgtIdx, 0, srcKey as FixedColumnKey);
+      localStorage.setItem(`mooui_col_order_${activeProjectId}`, JSON.stringify(next));
+      return next;
+    });
+  }, [activeProjectId]);
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
@@ -612,12 +643,9 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                     <div className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-2">Elemento</span>
-                      {visibleColumns.has('due_date') && <FixedColHeader label="Data Ação" onHide={() => toggleColumn('due_date')} />}
-                      {visibleColumns.has('priority') && <FixedColHeader label="Prioridade" onHide={() => toggleColumn('priority')} />}
-                      {visibleColumns.has('status') && <FixedColHeader label="Status" onHide={() => toggleColumn('status')} />}
-                      {visibleColumns.has('assignee') && <FixedColHeader label="Responsável" onHide={() => toggleColumn('assignee')} />}
-                      {visibleColumns.has('created_at') && <FixedColHeader label="Abertura" onHide={() => toggleColumn('created_at')} />}
-                      {visibleColumns.has('ticket') && <FixedColHeader label="Nº Ticket" onHide={() => toggleColumn('ticket')} />}
+                      {orderedColumns.map(col => (
+                        <FixedColHeader key={col} label={fixedColumnLabels[col]} colKey={col} onHide={() => toggleColumn(col)} onDragStart={handleColumnDragStart} onDrop={handleColumnDrop} />
+                      ))}
                       {dynamicColumns.map(col => (
                         <span key={col.id} className="px-2 py-2 text-center flex items-center justify-center gap-1 group">
                           {col.name}
@@ -640,7 +668,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                     {group.tasks.map((task) => (
                       <TaskRow
                         key={task.id} task={task} groupColor={group.color} gridCols={gridCols}
-                        visibleColumns={visibleColumns} profilesMap={profilesMap || new Map()}
+                        orderedColumns={orderedColumns} profilesMap={profilesMap || new Map()}
                         expandedTasks={expandedTasks} onToggleExpand={toggleExpand}
                         onClickTask={handleClickTask} onInlineUpdate={handleInlineUpdate}
                         onAddSubtask={(parentId) => handleQuickAdd('todo', parentId)}
@@ -658,6 +686,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                         onArchiveTask={handleArchiveTask}
                         onDeleteTask={handleDeleteTask}
                         draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
+                        commentCounts={commentCounts}
                       />
                     ))}
 
@@ -668,28 +697,27 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                     <div className="grid items-center bg-muted/20" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-1.5" />
-                      {visibleColumns.has('due_date') && <span className="px-2 py-1.5" />}
-                      {visibleColumns.has('priority') && (
-                        <div className="px-1 py-1.5 flex gap-0.5">
-                          {(['critical', 'high', 'medium', 'low'] as TaskPriority[]).map(p => {
-                            const count = group.tasks.filter(t => t.priority === p).length;
-                            if (count === 0) return null;
-                            return <div key={p} className={`h-5 rounded-sm ${priorityCellColors[p]}`} style={{ flex: count }} title={`${priorityLabels[p]}: ${count}`} />;
-                          })}
-                        </div>
-                      )}
-                      {visibleColumns.has('status') && (
-                        <div className="px-1 py-1.5 flex gap-0.5">
-                          {(['done', 'in_progress', 'in_review', 'todo', 'backlog'] as TaskStatus[]).map(s => {
-                            const count = group.tasks.filter(t => t.status === s).length;
-                            if (count === 0) return null;
-                            return <div key={s} className={`h-5 rounded-sm ${statusCellColors[s]}`} style={{ flex: count }} title={`${statusLabels[s]}: ${count}`} />;
-                          })}
-                        </div>
-                      )}
-                      {visibleColumns.has('assignee') && <span className="px-2 py-1.5" />}
-                      {visibleColumns.has('created_at') && <span className="px-2 py-1.5" />}
-                      {visibleColumns.has('ticket') && <span className="px-2 py-1.5" />}
+                      {orderedColumns.map(col => {
+                        if (col === 'priority') return (
+                          <div key={col} className="px-1 py-1.5 flex gap-0.5">
+                            {(['critical', 'high', 'medium', 'low'] as TaskPriority[]).map(p => {
+                              const count = group.tasks.filter(t => t.priority === p).length;
+                              if (count === 0) return null;
+                              return <div key={p} className={`h-5 rounded-sm ${priorityCellColors[p]}`} style={{ flex: count }} title={`${priorityLabels[p]}: ${count}`} />;
+                            })}
+                          </div>
+                        );
+                        if (col === 'status') return (
+                          <div key={col} className="px-1 py-1.5 flex gap-0.5">
+                            {(['done', 'in_progress', 'in_review', 'todo', 'backlog'] as TaskStatus[]).map(s => {
+                              const count = group.tasks.filter(t => t.status === s).length;
+                              if (count === 0) return null;
+                              return <div key={s} className={`h-5 rounded-sm ${statusCellColors[s]}`} style={{ flex: count }} title={`${statusLabels[s]}: ${count}`} />;
+                            })}
+                          </div>
+                        );
+                        return <span key={col} className="px-2 py-1.5" />;
+                      })}
                       {dynamicColumns.map(col => <span key={col.id} className="px-2 py-1.5" />)}
                       <span />
                     </div>

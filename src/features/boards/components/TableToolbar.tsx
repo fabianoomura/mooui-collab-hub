@@ -252,9 +252,18 @@ export function HideColumnsPopover({ visible, onToggle }: { visible: Set<FixedCo
   );
 }
 
-export function FixedColHeader({ label, onHide }: { label: string; onHide: () => void }) {
+export function FixedColHeader({ label, colKey, onHide, onDragStart, onDragOver, onDrop }: {
+  label: string; colKey: string; onHide: () => void;
+  onDragStart?: (key: string) => void; onDragOver?: (e: React.DragEvent, key: string) => void; onDrop?: (key: string) => void;
+}) {
   return (
-    <span className="px-2 py-2 text-center flex items-center justify-center gap-1 group">
+    <span
+      className="px-2 py-2 text-center flex items-center justify-center gap-1 group cursor-grab active:cursor-grabbing"
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/col', colKey); onDragStart?.(colKey); }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onDragOver?.(e, colKey); }}
+      onDrop={(e) => { e.preventDefault(); onDrop?.(colKey); }}
+    >
       {label}
       <button onClick={onHide} title="Ocultar coluna" className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
         <X className="h-3 w-3" />
