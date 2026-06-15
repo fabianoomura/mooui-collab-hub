@@ -13,6 +13,7 @@ export default function MelhoriasPage() {
       title="Melhorias"
       description="Boards Sunday de melhorias de site, Shopify e SEO."
       cards={boards}
+      modulePrefix="Modulo | Melhorias"
     />
   );
 }

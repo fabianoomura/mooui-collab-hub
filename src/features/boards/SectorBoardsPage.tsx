@@ -1,11 +1,15 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useProjectsByOrg } from '@/hooks/useProjectData';
+import { useProjectsByOrg, useCreateProject } from '@/hooks/useProjectData';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import SundayBoard from './SundayBoard';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 function normalizedKey(value: unknown): string {
   return String(value ?? '')
@@ -37,6 +41,8 @@ export interface SectorBoardsPageConfig {
   cards: BoardCard[];
   /** Optional extra content rendered above the board (e.g. pipeline tracker) */
   headerExtra?: ReactNode;
+  /** Prefix for auto-discovering and creating new boards (e.g. 'Modulo | Programacao') */
+  modulePrefix?: string;
 }
 
 function findProject(projects: any[], aliases: string[]): any | null {
@@ -86,46 +92,94 @@ function InlineEditable({ value, onSave, className }: { value: string; onSave: (
   );
 }
 
-export default function SectorBoardsPage({ title, description, cards, headerExtra }: SectorBoardsPageConfig) {
+const BOARD_COLORS = ['#EC4899', '#3B82F6', '#22C55E', '#F59E0B', '#8B5CF6', '#F43F5E', '#06B6D4', '#64748B'];
+
+export default function SectorBoardsPage({ title, description, cards, headerExtra, modulePrefix }: SectorBoardsPageConfig) {
   const { currentOrg } = useOrganization();
   const { data: projects = [], isLoading } = useProjectsByOrg(currentOrg?.id);
+  const createProject = useCreateProject();
   const [activeKey, setActiveKey] = useState(cards[0]?.key || '');
+  const [showNewBoard, setShowNewBoard] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
 
   const TITLE_KEY = `sector-title:${title}`;
   const DESC_KEY = `sector-desc:${title}`;
   const [displayTitle, setDisplayTitle] = useState(() => localStorage.getItem(TITLE_KEY) || title);
   const [displayDesc, setDisplayDesc] = useState(() => localStorage.getItem(DESC_KEY) || description || '');
 
-  const resolvedCards = cards.map((card) => ({
-    ...card,
-    project: findProject(projects, card.aliases),
-  }));
+  const knownProjectIds = new Set<string>();
+  const resolvedCards = cards.map((card) => {
+    const project = findProject(projects, card.aliases);
+    if (project) knownProjectIds.add(project.id);
+    return { ...card, project };
+  });
 
-  const activeCard = resolvedCards.find((c) => c.key === activeKey) || resolvedCards[0];
+  const extraCards = useMemo(() => {
+    if (!modulePrefix) return [];
+    const prefix = normalizedKey(modulePrefix);
+    return projects
+      .filter((p: any) => normalizedKey(p.name).startsWith(prefix) && !knownProjectIds.has(p.id))
+      .map((p: any, i: number) => {
+        const suffix = p.name.replace(/^.*\|\s*/, '').trim();
+        return {
+          key: `extra-${p.id}`,
+          label: suffix || p.name,
+          color: BOARD_COLORS[(resolvedCards.length + i) % BOARD_COLORS.length],
+          aliases: [p.name],
+          project: p,
+        };
+      });
+  }, [projects, modulePrefix, knownProjectIds.size]);
+
+  const allCards = [...resolvedCards, ...extraCards];
+  const activeCard = allCards.find((c) => c.key === activeKey) || allCards[0];
+
+  const handleCreateBoard = () => {
+    if (!newBoardName.trim() || !modulePrefix) return;
+    const fullName = `${modulePrefix} | ${newBoardName.trim()}`;
+    createProject.mutate(
+      { name: fullName, organizationId: currentOrg?.id },
+      {
+        onSuccess: () => {
+          toast.success('Board criado!');
+          setShowNewBoard(false);
+          setNewBoardName('');
+        },
+        onError: () => toast.error('Erro ao criar board'),
+      },
+    );
+  };
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">
-          <InlineEditable
-            value={displayTitle}
-            onSave={(v) => { setDisplayTitle(v); localStorage.setItem(TITLE_KEY, v); }}
-          />
-        </h1>
-        {displayDesc && (
-          <p className="text-sm text-muted-foreground">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">
             <InlineEditable
-              value={displayDesc}
-              onSave={(v) => { setDisplayDesc(v); localStorage.setItem(DESC_KEY, v); }}
-              className="text-sm text-muted-foreground"
+              value={displayTitle}
+              onSave={(v) => { setDisplayTitle(v); localStorage.setItem(TITLE_KEY, v); }}
             />
-          </p>
+          </h1>
+          {displayDesc && (
+            <p className="text-sm text-muted-foreground">
+              <InlineEditable
+                value={displayDesc}
+                onSave={(v) => { setDisplayDesc(v); localStorage.setItem(DESC_KEY, v); }}
+                className="text-sm text-muted-foreground"
+              />
+            </p>
+          )}
+        </div>
+        {modulePrefix && (
+          <Button variant="outline" size="sm" onClick={() => setShowNewBoard(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Novo board
+          </Button>
         )}
       </div>
 
-      {cards.length > 1 && (
+      {allCards.length > 1 && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {resolvedCards.map((card) => (
+          {allCards.map((card) => (
             <button
               key={card.key}
               type="button"
@@ -160,6 +214,30 @@ export default function SectorBoardsPage({ title, description, cards, headerExtr
           {isLoading ? 'Carregando board...' : `Board Sunday de ${activeCard?.label || title} nao encontrado em Projetos.`}
         </Card>
       )}
+
+      <Dialog open={showNewBoard} onOpenChange={setShowNewBoard}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Board</DialogTitle>
+          </DialogHeader>
+          <div className="text-xs text-muted-foreground mb-1">
+            Será criado como: <strong>{modulePrefix} | {newBoardName || '...'}</strong>
+          </div>
+          <Input
+            autoFocus
+            placeholder="Nome do board"
+            value={newBoardName}
+            onChange={(e) => setNewBoardName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateBoard()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewBoard(false)}>Cancelar</Button>
+            <Button onClick={handleCreateBoard} disabled={!newBoardName.trim() || createProject.isPending}>
+              Criar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

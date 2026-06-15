@@ -11,6 +11,7 @@ export default function NewslettersPage() {
       title="Newsletters"
       description="Boards de newsletters Brasil e Barcelona."
       cards={boards}
+      modulePrefix="Modulo | Newsletters"
     />
   );
 }

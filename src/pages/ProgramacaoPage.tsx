@@ -15,6 +15,7 @@ export default function ProgramacaoPage() {
       title="Programacao"
       description="Boards de programacao de conteudo por rede social."
       cards={boards}
+      modulePrefix="Modulo | Programacao"
     />
   );
 }
