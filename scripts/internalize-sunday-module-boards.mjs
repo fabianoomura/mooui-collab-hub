@@ -128,6 +128,24 @@ const BOARD_CLONES = [
     color: '#DC2626',
     aliases: ['Excel | 1 - produção (1780430055)', '1 - producao 1780430055', '1780430055'],
   },
+  {
+    module: 'financeiro',
+    target: 'Modulo | Financeiro',
+    color: '#16A34A',
+    aliases: ['Excel | 3 - financeiro (1780430090)', '3 - financeiro 1780430090', '1780430090'],
+  },
+  {
+    module: 'comercial',
+    target: 'Modulo | Atacado',
+    color: '#84CC16',
+    aliases: ['Excel | 7 - atacado (1780430159)', '7 - atacado 1780430159', '1780430159'],
+  },
+  {
+    module: 'internacional',
+    target: 'Modulo | Internacional',
+    color: '#0284C7',
+    aliases: ['Excel | 9 - internacional (1780430178)', '9 - internacional 1780430178', '1780430178'],
+  },
 ];
 
 function norm(value) {
