@@ -58,7 +58,7 @@ export function useModuleAccess(moduleKey: string): {
         .select('module_key, grantee_type, grantee_id, level')
         .eq('organization_id', orgId)
         .eq('module_key', moduleKey);
-      return (data || []) as ModuleAccessRow[];
+      return (data || []) as unknown as ModuleAccessRow[];
     },
     enabled: !!orgId,
     staleTime: 60_000,
@@ -115,7 +115,7 @@ export function useAllModuleAccess() {
         .select('*')
         .eq('organization_id', orgId)
         .order('module_key');
-      return (data || []) as (ModuleAccessRow & { id: string; organization_id: string })[];
+      return (data || []) as unknown as (ModuleAccessRow & { id: string; organization_id: string })[];
     },
     enabled: !!orgId,
   });

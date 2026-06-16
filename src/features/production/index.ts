@@ -8,7 +8,7 @@ export {
 export { useLaunchActivity, useLogLaunchActivity } from './hooks/useLaunchActivity';
 export { useStageAttachments } from './hooks/useStageAttachments';
 export {
-  useChecklists, useCreateChecklist, useChecklistItems, useCreateChecklistItem,
-  useUpdateChecklistItem, useDeleteChecklistItem, useToggleChecklistItem,
+  useChecklists, useChecklistItems,
+  useUpdateChecklistItem, useDeleteChecklistItem,
   useCreateChecklistFromTemplate, useTemplates, useSaveAsTemplate, useDeleteChecklist,
 } from './hooks/useChecklists';

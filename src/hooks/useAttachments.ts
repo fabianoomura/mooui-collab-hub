@@ -35,7 +35,7 @@ export function useAttachments(entityType: string, entityId: string | undefined)
         .eq('entity_id', entityId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []) as Attachment[];
+      return (data || []) as unknown as Attachment[];
     },
     enabled: !!orgId && !!entityId,
   });
