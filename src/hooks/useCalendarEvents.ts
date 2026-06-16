@@ -52,7 +52,7 @@ export function useCalendarEvents(opts?: {
 
       const { data, error } = await q.order('starts_at');
       if (error) throw error;
-      return (data || []) as CalendarEvent[];
+      return (data || []) as unknown as CalendarEvent[];
     },
     enabled: !!currentOrg,
   });
@@ -97,7 +97,7 @@ export function useSyncCalendarEvent() {
         .select('*')
         .single();
       if (error) throw error;
-      return data as CalendarEvent;
+      return data as unknown as CalendarEvent;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['calendar-events'] }),
   });

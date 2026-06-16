@@ -31,7 +31,7 @@ export function useActivityLog(entityType: string, entityId: string | undefined)
         .eq('entity_id', entityId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []) as ActivityEntry[];
+      return (data || []) as unknown as ActivityEntry[];
     },
     enabled: !!orgId && !!entityId,
   });

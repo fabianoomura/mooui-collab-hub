@@ -7,7 +7,5 @@ export {
   useTicketComments, useAddTicketComment, useIsITSupport, useTicketActivity,
   type Ticket, type TicketStatus, type TicketPriority, type TicketCategory, type TicketActivity,
 } from './hooks/useTickets';
-export {
-  useTicketAttachments, useUploadTicketAttachment, useDeleteTicketAttachment,
-} from './hooks/useTicketAttachments';
+export { useTicketAttachments } from './hooks/useTicketAttachments';
 export { useTicketLabels, useTicketLabelAssignments } from './hooks/useTicketLabels';

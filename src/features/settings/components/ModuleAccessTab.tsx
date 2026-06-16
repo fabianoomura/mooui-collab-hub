@@ -50,7 +50,7 @@ export function ModuleAccessTab({ orgId, canEdit }: { orgId: string; canEdit: bo
   const qc = useQueryClient();
   const { currentOrg } = useOrganization();
 
-  const [addModule, setAddModule] = useState(MODULES[0].key);
+  const [addModule, setAddModule] = useState<string>(MODULES[0].key);
   const [addType, setAddType] = useState<'role' | 'department'>('role');
   const [addGrantee, setAddGrantee] = useState('member');
   const [addLevel, setAddLevel] = useState<ModuleAccessLevel>('view');

@@ -31,7 +31,7 @@ export function useComments(entityType: string, entityId: string | undefined) {
         .eq('entity_id', entityId)
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data || []) as Comment[];
+      return (data || []) as unknown as Comment[];
     },
     enabled: !!orgId && !!entityId,
   });

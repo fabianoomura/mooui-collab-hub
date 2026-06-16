@@ -93,7 +93,7 @@ export function useProjectColumns(projectId: string | undefined) {
     mutationFn: async ({ columnId, updates }: { columnId: string; updates: { name?: string; position?: number; width?: number; column_type?: string; config?: Record<string, unknown> } }) => {
       const { error } = await supabase
         .from('project_columns')
-        .update(updates)
+        .update(updates as any)
         .eq('id', columnId);
       if (error) throw error;
     },

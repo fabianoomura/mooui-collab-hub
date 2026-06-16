@@ -192,7 +192,7 @@ export default function SectorBoardsPage({ title, description, cards, headerExtr
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-sm font-medium">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: card.color }} />
-                  {card.icon}
+                  {(card as any).icon}
                   {card.label}
                 </span>
                 <Badge variant="outline" className="text-[10px]">Sunday</Badge>
