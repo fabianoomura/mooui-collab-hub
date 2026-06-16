@@ -1,5 +1,6 @@
-import { lazy, Suspense } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense, useEffect } from "react";
+import { QueryClient, QueryClientProvider, keepPreviousData } from "@tanstack/react-query";
+import { prefetchHotRoutes } from "@/lib/routePrefetch";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -52,10 +53,19 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       retry: 1,
-      staleTime: 30_000,
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
+      placeholderData: keepPreviousData,
     },
   },
 });
+
+function IdlePrefetcher() {
+  useEffect(() => {
+    prefetchHotRoutes();
+  }, []);
+  return null;
+}
 
 function PageLoader() {
   return (
@@ -102,6 +112,7 @@ const App = () => (
         <AuthProvider>
           <OrganizationProvider>
           <ConfirmProvider>
+          <IdlePrefetcher />
           <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
