@@ -112,6 +112,7 @@ const App = () => (
         <AuthProvider>
           <OrganizationProvider>
           <ConfirmProvider>
+          <IdlePrefetcher />
           <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
