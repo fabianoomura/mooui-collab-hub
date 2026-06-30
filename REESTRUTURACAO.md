@@ -299,6 +299,16 @@ Objetivo: "incluir mais cards" sem escrever página nova.
 - [x] 5.3 Board management: criação de board (já existia), adição de coluna tipada com 11 tipos (já existia + 4 novos), reordenação de colunas (mover esquerda/direita via menu), editor de opções para select/status/tags (prompt multiline). `PromptDialog` expandido com suporte a `multiline`
 - [x] 5.4 Documentar em Papelinho o guia "como criar um board novo" para a equipe
       *(script `seed-board-guide-doc.mjs` criado com conteúdo completo; executar com `--yes`)*
+- [x] 5.5 UX de board estilo Monday: reordenação de colunas fixas por drag-and-drop
+      (MIME type `application/col-key` isolado do drag de tarefas, ordem persistida em
+      localStorage por projeto); indicador de comentários por elemento
+      (`useTaskCommentCounts` via tabela polimórfica `comments`); ícones nos grupos da
+      sidebar com seta de expansão à direita
+      *(jun/2026 — TableViewPage, TaskRow, FixedColHeader, AppSidebar)*
+- [x] 5.6 Script de carga/recarga de dados Excel: `internalize-sunday-module-boards.mjs`
+      com `--force` para deletar e recriar boards preservando colunas e valores por elemento;
+      `--dry-run` para simulação. Todos os membros da org adicionados a `project_members`
+      de todos os boards Modulo (requisito para visibilidade)
 
 **Verificação:** criar um board novo de teste com 5 tipos de coluna sem tocar em código.
 

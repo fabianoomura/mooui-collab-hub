@@ -46,6 +46,10 @@ Regras de ouro:
 ## Mapa do código
 
 ```
+src/features/     # feature folders (boards, calendar, docs, messages, orders, production,
+                  #   rooms, settings, team, tickets) — cada um com components/ hooks/ api/
+src/shared/       # componentes reutilizáveis (UX Kit: PageHeader, FilterBar, EmptyState,
+                  #   ResponsiveDialog, MobileListCard) + hooks/ (useMediaQuery)
 src/pages/        # páginas por rota — ALVO: <150 linhas, só composição
 src/components/   # por domínio (orders/, tickets/, kanban/, table/...) + ui/ (shadcn)
 src/hooks/        # um hook React Query por domínio (useOrders, useTickets...)
@@ -53,10 +57,12 @@ src/contexts/     # AuthContext, OrganizationContext, ThemeContext
 src/integrations/supabase/  # client + types.ts gerado (NÃO editar types.ts à mão)
 src/test/         # vitest; security.test.ts cobre RLS
 scripts/          # imports Monday/Excel e utilitários (node *.mjs)
-supabase/migrations/  # 66+ migrations SQL
+                  #   internalize-sunday-module-boards.mjs: carga de Excel → boards Sunday
+                  #   (--force para recriar, --dry-run para simular)
+supabase/migrations/  # 74+ migrations SQL
 ```
 
-Arquivo legado em desmonte (não estender, só reduzir): `TableViewPage.tsx` (~730 linhas, componentes visuais já extraídos para `features/boards/components/`, falta extrair lógica de estado).
+Arquivo legado em desmonte (não estender, só reduzir): `TableViewPage.tsx` (~790 linhas, componentes visuais extraídos para `features/boards/components/`, inclui drag-and-drop de colunas e indicadores de comentários; falta extrair lógica de estado).
 
 ## Convenções
 
@@ -82,12 +88,12 @@ Arquivo legado em desmonte (não estender, só reduzir): `TableViewPage.tsx` (~7
 ## Fonte da verdade
 
 - `STATUS.md` — estado atual, histórico, pendências (manter atualizado SEMPRE)
-- `docs/REESTRUTURACAO.md` — plano de fases da reestruturação; consultar antes de decisões de schema/estrutura
+- `REESTRUTURACAO.md` — plano de fases da reestruturação; consultar antes de decisões de schema/estrutura
 - Migrations são append-only: nunca editar migration antiga, sempre criar nova
 
 ## Antes de codar (tarefas não-triviais)
 
-1. Ler STATUS.md e a fase atual em docs/REESTRUTURACAO.md
+1. Ler STATUS.md e a fase atual em REESTRUTURACAO.md
 2. Plan mode: explorar, propor plano com critérios de verificação por passo, aguardar aprovação
 3. Declarar premissas explicitamente; se houver mais de uma interpretação, apresentar opções
 4. Mudança mínima e cirúrgica — não "melhorar" código adjacente; toda linha alterada deve rastrear ao pedido
