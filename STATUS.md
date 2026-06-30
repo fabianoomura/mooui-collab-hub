@@ -130,6 +130,7 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | `scripts/reimport-melhorias-conteudo.mjs` | Re-importa melhorias + conteudo com subitems |
 | `scripts/reimport-operational-excel.mjs` | Limpa e recarrega Melhorias, Conteudo e Sessoes a partir dos Excel |
 | `scripts/import-excels-to-sunday.mjs` | Popula Sunday com todas as planilhas Excel, subelementos e responsaveis |
+| `scripts/internalize-sunday-module-boards.mjs` | Clona boards Excel para `Modulo \| ...`; `--force --yes` para deletar e reclonar todos |
 | `scripts/cleanup-old-data.mjs` | Remove dados anteriores a 2026 |
 | `scripts/generate-monday-import-sql.mjs` | Gera SQL a partir dos Excel |
 | `scripts/ensure-test-fixtures.mjs` | Garante profiles/memberships dos usuarios de teste para suites remotas |
@@ -232,6 +233,12 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-12 | Code-splitting: React.lazy para 27 paginas + manualChunks para vendor (react, query, ui, supabase, editor, charts). Chunk inicial de 2.324KB caiu para 269KB (88% reducao); editor e charts carregam sob demanda |
 | 2026-06-12 | Scripts executados: setup-sector-boards (merge Site Unificado 333 tasks, Demandas Design, Atacado, Financeiro, Internacional, Producao) e seed-board-guide-doc (guia Papelinho criado) |
 | 2026-06-12 | TableViewPage refatorada de 1.869 para ~500 linhas: constants.ts (labels/utils), TableCells.tsx (StatusCell/PriorityCell/AssigneeAvatars/AssigneePickerCell), TableToolbar.tsx (7 componentes de toolbar), SundayViews.tsx (MiniCard/Kanban/Timeline/Calendar), TaskRow.tsx (linha recursiva com drag-and-drop) extraidos para `features/boards/components/` |
+| 2026-06-30 | Botao Outdent para promover subelementos a elemento principal; area expandida esconde automaticamente quando ultimo subelemento eh promovido |
+| 2026-06-30 | Sidebar: icones nos grupos com desdobramento (Home, Target, Megaphone, Factory, Monitor); seta de expansao movida para a direita |
+| 2026-06-30 | Reordenacao de colunas fixas por drag-and-drop (ordem persiste em localStorage por projeto); MIME type dedicado evita conflito com drag de tarefas |
+| 2026-06-30 | Indicador de comentarios estilo Monday (balao azul com contagem) nos elementos da tabela via `useTaskCommentCounts` |
+| 2026-06-30 | Recarga completa dos 21 boards Modulo: script `internalize-sunday-module-boards.mjs` ganhou flag `--force` para deletar e reclonar todos os boards independente de quantidade de tasks |
+| 2026-06-30 | Todos os 16 membros da organizacao adicionados como membros de todos os 25 boards Modulo (318 memberships criadas) |
 
 ### Validacao 2026-06-05
 

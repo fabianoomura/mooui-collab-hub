@@ -18,6 +18,7 @@ const BASE_URL = 'https://rckglywohrywurknephc.supabase.co';
 const ORG_ID = '0d32934f-9628-4bd5-b3f4-1bc74f9227de';
 const MARKER = '[module-board:v1]';
 const WRITE = process.argv.includes('--yes');
+const FORCE = process.argv.includes('--force');
 
 const BOARD_CLONES = [
   {
@@ -419,7 +420,7 @@ async function main() {
     }
     if (existing) {
       const tasks = await selectAll('tasks', `select=id&project_id=eq.${existing.id}`);
-      if (tasks.length > 0) {
+      if (tasks.length > 0 && !FORCE) {
         results.push({ target: config.target, status: 'exists', projectId: existing.id, tasks: tasks.length });
         continue;
       }
@@ -429,7 +430,7 @@ async function main() {
         continue;
       }
       const sourceTasks = await selectAll('tasks', `select=id&project_id=eq.${source.id}`);
-      results.push({ target: config.target, status: 'empty_will_recreate', projectId: existing.id, sourceTasks: sourceTasks.length });
+      results.push({ target: config.target, status: FORCE ? 'will_force_recreate' : 'empty_will_recreate', projectId: existing.id, currentTasks: tasks.length, sourceTasks: sourceTasks.length });
       continue;
     }
     if (!WRITE) {
@@ -446,7 +447,7 @@ async function main() {
   }
 
   console.log(JSON.stringify({ write: WRITE, results }, null, 2));
-  if (!WRITE) console.log('\nDry-run only. Re-run with --yes to create missing module boards.');
+  if (!WRITE) console.log('\nDry-run only. Re-run with --yes to create missing module boards.\nUse --force --yes to delete and recreate ALL module boards.');
 }
 
 main().catch((error) => {
