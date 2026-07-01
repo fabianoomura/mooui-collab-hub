@@ -202,6 +202,112 @@ export type Database = {
           },
         ]
       }
+      board_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          preferences: Json
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          preferences?: Json
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          preferences?: Json
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_preferences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_task_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          lead_days: number
+          metadata: Json
+          project_id: string
+          remind_at: string
+          source_column: string
+          status: string
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_days?: number
+          metadata?: Json
+          project_id: string
+          remind_at: string
+          source_column?: string
+          status?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_days?: number
+          metadata?: Json
+          project_id?: string
+          remind_at?: string
+          source_column?: string
+          status?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_task_reminders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_task_reminders_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_task_reminders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           category: string
@@ -2140,32 +2246,133 @@ export type Database = {
       }
       organization_members: {
         Row: {
+          access_expires_at: string | null
+          access_renewed_at: string | null
+          access_renewed_by: string | null
+          auth_block_reason: string | null
+          auth_blocked_at: string | null
+          auth_blocked_by: string | null
           created_at: string
+          first_seen_at: string | null
           id: string
+          invite_accepted_at: string | null
+          invite_expires_at: string | null
+          invite_last_sent_at: string | null
+          invite_last_sent_by: string | null
+          invite_sent_count: number
+          invited_at: string | null
+          last_seen_at: string | null
+          last_seen_ip: string | null
+          last_seen_user_agent: string | null
           organization_id: string
           role: string
+          status: string
+          status_changed_at: string | null
+          status_changed_by: string | null
+          suspended_at: string | null
+          suspended_by: string | null
+          suspension_reason: string | null
           user_id: string
         }
         Insert: {
+          access_expires_at?: string | null
+          access_renewed_at?: string | null
+          access_renewed_by?: string | null
+          auth_block_reason?: string | null
+          auth_blocked_at?: string | null
+          auth_blocked_by?: string | null
           created_at?: string
+          first_seen_at?: string | null
           id?: string
+          invite_accepted_at?: string | null
+          invite_expires_at?: string | null
+          invite_last_sent_at?: string | null
+          invite_last_sent_by?: string | null
+          invite_sent_count?: number
+          invited_at?: string | null
+          last_seen_at?: string | null
+          last_seen_ip?: string | null
+          last_seen_user_agent?: string | null
           organization_id: string
           role?: string
+          status?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           user_id: string
         }
         Update: {
+          access_expires_at?: string | null
+          access_renewed_at?: string | null
+          access_renewed_by?: string | null
+          auth_block_reason?: string | null
+          auth_blocked_at?: string | null
+          auth_blocked_by?: string | null
           created_at?: string
+          first_seen_at?: string | null
           id?: string
+          invite_accepted_at?: string | null
+          invite_expires_at?: string | null
+          invite_last_sent_at?: string | null
+          invite_last_sent_by?: string | null
+          invite_sent_count?: number
+          invited_at?: string | null
+          last_seen_at?: string | null
+          last_seen_ip?: string | null
+          last_seen_user_agent?: string | null
           organization_id?: string
           role?: string
+          status?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_members_access_renewed_by_fkey"
+            columns: ["access_renewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_auth_blocked_by_fkey"
+            columns: ["auth_blocked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_invite_last_sent_by_fkey"
+            columns: ["invite_last_sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organization_members_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_status_changed_by_fkey"
+            columns: ["status_changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_suspended_by_fkey"
+            columns: ["suspended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2367,6 +2574,70 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json
+          organization_id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json
+          organization_id: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json
+          organization_id?: string
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_audit_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_audit_log_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3502,6 +3773,7 @@ export type Database = {
           created_by: string
           description: string | null
           due_date: string | null
+          group_key: string | null
           id: string
           parent_task_id: string | null
           position: number
@@ -3520,6 +3792,7 @@ export type Database = {
           created_by: string
           description?: string | null
           due_date?: string | null
+          group_key?: string | null
           id?: string
           parent_task_id?: string | null
           position?: number
@@ -3538,6 +3811,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           due_date?: string | null
+          group_key?: string | null
           id?: string
           parent_task_id?: string | null
           position?: number
@@ -3962,6 +4236,14 @@ export type Database = {
           _user_id: string
         }
         Returns: string
+      }
+      process_access_governance_alerts: {
+        Args: { _limit?: number }
+        Returns: number
+      }
+      process_board_task_reminders: {
+        Args: { _limit?: number }
+        Returns: number
       }
       unread_count: {
         Args: { _channel_id: string; _user_id: string }
