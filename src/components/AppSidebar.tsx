@@ -41,97 +41,98 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { AvatarUploadDialog } from '@/components/AvatarUploadDialog';
 import { useI18n, type Locale } from '@/i18n';
+import { useModuleAccessResolver } from '@/hooks/useModuleAccess';
 
 
-type NavItem = { title: string; url: string; icon: LucideIcon };
+type NavItem = { title: string; url: string; icon: LucideIcon; moduleKey: string };
 
 const navGroups: { label: string; icon?: LucideIcon; items: NavItem[] }[] = [
   {
     label: 'Geral',
     icon: Home,
     items: [
-      { title: 'Início', url: '/', icon: LayoutDashboard },
-      { title: 'Speaks', url: '/mensagens', icon: MessageSquare },
-      { title: 'Papelinho', url: '/docs', icon: BookOpen },
-      { title: 'Salas', url: '/salas', icon: Calendar },
-      { title: 'Equipe', url: '/equipe', icon: Users },
+      { title: 'Início', url: '/', icon: LayoutDashboard, moduleKey: 'dashboard' },
+      { title: 'Speaks', url: '/mensagens', icon: MessageSquare, moduleKey: 'speaks' },
+      { title: 'Papelinho', url: '/docs', icon: BookOpen, moduleKey: 'docs' },
+      { title: 'Salas', url: '/salas', icon: Calendar, moduleKey: 'salas' },
+      { title: 'Equipe', url: '/equipe', icon: Users, moduleKey: 'equipe' },
     ],
   },
   {
     label: 'Ações Mensais',
     icon: Target,
     items: [
-      { title: 'Board', url: '/acoes-mensais', icon: FolderKanban },
-      { title: 'Calendário', url: '/calendario', icon: CalendarDays },
+      { title: 'Board', url: '/acoes-mensais', icon: FolderKanban, moduleKey: 'acoes_mensais' },
+      { title: 'Calendário', url: '/calendario', icon: CalendarDays, moduleKey: 'calendario' },
     ],
   },
   {
     label: 'Marketing',
     icon: Megaphone,
     items: [
-      { title: 'Board', url: '/marketing', icon: FolderKanban },
-      { title: 'Programação', url: '/programacao', icon: Camera },
-      { title: 'Newsletters', url: '/newsletters', icon: Mail },
-      { title: 'Demandas', url: '/demandas-marketing', icon: FileText },
+      { title: 'Board', url: '/marketing', icon: FolderKanban, moduleKey: 'marketing' },
+      { title: 'Programação', url: '/programacao', icon: Camera, moduleKey: 'programacao' },
+      { title: 'Newsletters', url: '/newsletters', icon: Mail, moduleKey: 'newsletters' },
+      { title: 'Demandas', url: '/demandas-marketing', icon: FileText, moduleKey: 'demandas' },
     ],
   },
   {
     label: 'Estúdio',
     items: [
-      { title: 'Sessões', url: '/sessoes', icon: Camera },
+      { title: 'Sessões', url: '/sessoes', icon: Camera, moduleKey: 'sessoes' },
     ],
   },
   {
     label: 'Design',
     items: [
-      { title: 'Design', url: '/design', icon: Palette },
+      { title: 'Design', url: '/design', icon: Palette, moduleKey: 'design' },
     ],
   },
   {
     label: 'Produto',
     items: [
-      { title: 'Produtos', url: '/produtos', icon: Package },
+      { title: 'Produtos', url: '/produtos', icon: Package, moduleKey: 'produtos' },
     ],
   },
   {
     label: 'Produção',
     icon: Factory,
     items: [
-      { title: 'Lançamentos', url: '/lancamentos', icon: Rocket },
-      { title: 'Checagens', url: '/checagens', icon: ClipboardCheck },
-      { title: 'Boards', url: '/producao-boards', icon: Factory },
+      { title: 'Lançamentos', url: '/lancamentos', icon: Rocket, moduleKey: 'launches' },
+      { title: 'Checagens', url: '/checagens', icon: ClipboardCheck, moduleKey: 'checklists' },
+      { title: 'Boards', url: '/producao-boards', icon: Factory, moduleKey: 'producao' },
     ],
   },
   {
     label: 'Site & TI',
     icon: Monitor,
     items: [
-      { title: 'Melhorias', url: '/melhorias', icon: Monitor },
-      { title: 'Tickets', url: '/tickets', icon: Briefcase },
+      { title: 'Melhorias', url: '/melhorias', icon: Monitor, moduleKey: 'melhorias' },
+      { title: 'Tickets', url: '/tickets', icon: Briefcase, moduleKey: 'tickets' },
     ],
   },
   {
     label: 'Comercial',
     items: [
-      { title: 'Atacado', url: '/comercial', icon: ShoppingCart },
+      { title: 'Atacado', url: '/comercial', icon: ShoppingCart, moduleKey: 'comercial' },
     ],
   },
   {
     label: 'SAC & Expedição',
     items: [
-      { title: 'Pedidos', url: '/pedidos', icon: Package },
+      { title: 'Pedidos', url: '/pedidos', icon: Package, moduleKey: 'orders' },
     ],
   },
   {
     label: 'Financeiro',
     items: [
-      { title: 'Financeiro', url: '/financeiro', icon: DollarSign },
+      { title: 'Financeiro', url: '/financeiro', icon: DollarSign, moduleKey: 'financeiro' },
     ],
   },
   {
     label: 'Internacional',
     items: [
-      { title: 'Internacional', url: '/internacional', icon: Plane },
+      { title: 'Internacional', url: '/internacional', icon: Plane, moduleKey: 'internacional' },
     ],
   },
 ];
@@ -148,12 +149,22 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const confirm = useConfirm();
+  const { getAccess } = useModuleAccessResolver();
   const showProjects = location.pathname.startsWith('/tabela') || location.pathname.startsWith('/projetos');
+  const visibleNavGroups = useMemo(
+    () => navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => getAccess(item.moduleKey).canView),
+      }))
+      .filter((group) => group.items.length > 0),
+    [getAccess],
+  );
 
   // Collapsible nav groups — auto-expand group containing active route
   const STORAGE_KEY = 'sidebar-open-groups';
   const activeGroupLabel = useMemo(() => {
-    for (const group of navGroups) {
+    for (const group of visibleNavGroups) {
       for (const item of group.items) {
         if (item.url === '/' ? location.pathname === '/' : location.pathname.startsWith(item.url)) {
           return group.label;
@@ -161,7 +172,7 @@ export function AppSidebar() {
       }
     }
     return 'Geral';
-  }, [location.pathname]);
+  }, [location.pathname, visibleNavGroups]);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     try {
@@ -265,7 +276,7 @@ export function AppSidebar() {
 
       <SidebarContent className="gap-0">
         {/* Navigation groups — collapsible */}
-        {navGroups.map((group) => {
+        {visibleNavGroups.map((group) => {
           const isOpen = !!openGroups[group.label];
           const isSingleItem = group.items.length === 1;
 

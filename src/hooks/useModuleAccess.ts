@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -11,6 +12,13 @@ type ModuleAccessRow = {
   grantee_type: 'role' | 'department' | 'user';
   grantee_id: string;
   level: ModuleAccessLevel;
+};
+
+export type ModuleAccessResult = {
+  level: ModuleAccessLevel;
+  isLoading: boolean;
+  canView: boolean;
+  canEdit: boolean;
 };
 
 /**
@@ -64,41 +72,60 @@ export function useModuleAccess(moduleKey: string): {
     staleTime: 60_000,
   });
 
-  // Admin always has full access
-  if (isAdmin) return { level: 'edit', isLoading: false, canView: true, canEdit: true };
-
-  // No rules → default full access (current behavior preserved)
-  if (rules.length === 0) return { level: 'edit', isLoading, canView: true, canEdit: true };
-
-  // Resolve: user > department > role
-  const userRule = rules.find((r) => r.grantee_type === 'user' && r.grantee_id === user?.id);
-  if (userRule) {
-    return makeResult(userRule.level, isLoading);
-  }
-
-  const deptRule = rules.find(
-    (r) => r.grantee_type === 'department' && userDeptIds.includes(r.grantee_id),
-  );
-  if (deptRule) {
-    return makeResult(deptRule.level, isLoading);
-  }
-
-  const roleRule = rules.find((r) => r.grantee_type === 'role' && r.grantee_id === role);
-  if (roleRule) {
-    return makeResult(roleRule.level, isLoading);
-  }
-
-  // Rules exist but none match this user → default to hidden (restrictive when rules are defined)
-  return { level: 'hidden', isLoading, canView: false, canEdit: false };
+  return resolveModuleAccess({
+    moduleKey,
+    rules,
+    userId: user?.id,
+    userDeptIds,
+    role,
+    isAdmin,
+    isLoading,
+  });
 }
 
-function makeResult(level: ModuleAccessLevel, isLoading: boolean) {
+function makeResult(level: ModuleAccessLevel, isLoading: boolean): ModuleAccessResult {
   return {
     level,
     isLoading,
     canView: level === 'view' || level === 'edit',
     canEdit: level === 'edit',
   };
+}
+
+function resolveModuleAccess({
+  moduleKey,
+  rules,
+  userId,
+  userDeptIds,
+  role,
+  isAdmin,
+  isLoading,
+}: {
+  moduleKey: string;
+  rules: ModuleAccessRow[];
+  userId: string | undefined;
+  userDeptIds: string[];
+  role: AppRole;
+  isAdmin: boolean;
+  isLoading: boolean;
+}): ModuleAccessResult {
+  if (isAdmin) return { level: 'edit', isLoading: false, canView: true, canEdit: true };
+
+  const moduleRules = rules.filter((rule) => rule.module_key === moduleKey);
+  if (moduleRules.length === 0) return { level: 'edit', isLoading, canView: true, canEdit: true };
+
+  const userRule = moduleRules.find((r) => r.grantee_type === 'user' && r.grantee_id === userId);
+  if (userRule) return makeResult(userRule.level, isLoading);
+
+  const deptRule = moduleRules.find(
+    (r) => r.grantee_type === 'department' && userDeptIds.includes(r.grantee_id),
+  );
+  if (deptRule) return makeResult(deptRule.level, isLoading);
+
+  const roleRule = moduleRules.find((r) => r.grantee_type === 'role' && r.grantee_id === role);
+  if (roleRule) return makeResult(roleRule.level, isLoading);
+
+  return { level: 'hidden', isLoading, canView: false, canEdit: false };
 }
 
 /** All module access rules for the org — used by the settings UI */
@@ -119,4 +146,39 @@ export function useAllModuleAccess() {
     },
     enabled: !!orgId,
   });
+}
+
+export function useModuleAccessResolver() {
+  const { user } = useAuth();
+  const { currentOrg, isAdmin } = useOrganization();
+  const { data: role = 'member' } = useAppRole();
+  const orgId = currentOrg?.id;
+
+  const { data: userDeptIds = [] } = useQuery({
+    queryKey: ['user-departments', user?.id, orgId],
+    queryFn: async () => {
+      if (!user || !orgId) return [];
+      const { data } = await supabase
+        .from('department_members')
+        .select('department_id')
+        .eq('user_id', user.id);
+      return (data || []).map((d: any) => d.department_id);
+    },
+    enabled: !!user && !!orgId,
+    staleTime: 300_000,
+  });
+
+  const { data: rules = [], isLoading } = useAllModuleAccess();
+
+  const getAccess = useCallback((moduleKey: string) => resolveModuleAccess({
+      moduleKey,
+      rules,
+      userId: user?.id,
+      userDeptIds,
+      role,
+      isAdmin,
+      isLoading,
+    }), [rules, user?.id, userDeptIds, role, isAdmin, isLoading]);
+
+  return { isLoading, getAccess };
 }

@@ -27,28 +27,52 @@ function toISO(d: Date): string {
 interface Props {
   startDate: string | null;
   endDate: string | null;
+  completionPercent?: number | null;
   onChange: (start: string | null, end: string | null) => void;
 }
 
-export function DateRangeCell({ startDate, endDate, onChange }: Props) {
+export function DateRangeCell({ startDate, endDate, completionPercent, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const start = toDate(startDate);
   const end = toDate(endDate);
 
-  // Determine color based on proximity to end date
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  let barColor = 'hsl(35, 90%, 55%)'; // default orange
+
+  let barColor = 'hsl(35, 90%, 55%)';
   if (end) {
     const days = Math.ceil((end.getTime() - now.getTime()) / 86400000);
-    if (days < 0) barColor = 'hsl(0, 75%, 55%)'; // overdue
-    else if (days <= 3) barColor = 'hsl(10, 85%, 55%)'; // urgent
-    else if (days <= 14) barColor = 'hsl(35, 90%, 55%)'; // soon orange
-    else barColor = 'hsl(48, 95%, 55%)'; // yellow far
+    if (days < 0) barColor = 'hsl(0, 75%, 55%)';
+    else if (days <= 3) barColor = 'hsl(10, 85%, 55%)';
+    else if (days <= 14) barColor = 'hsl(35, 90%, 55%)';
+    else barColor = 'hsl(48, 95%, 55%)';
   }
 
   const range: DateRange | undefined =
     start || end ? { from: start, to: end } : undefined;
+
+  const totalDays = start && end
+    ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1)
+    : null;
+  const daysRemaining = end ? Math.ceil((end.getTime() - now.getTime()) / 86400000) : null;
+  const timeProgress = start && end
+    ? Math.min(100, Math.max(0, Math.round(((now.getTime() - start.getTime()) / (end.getTime() - start.getTime() || 1)) * 100)))
+    : end && daysRemaining !== null && daysRemaining < 0
+      ? 100
+      : 0;
+  const progressPercent = typeof completionPercent === 'number'
+    ? Math.min(timeProgress || completionPercent, completionPercent)
+    : timeProgress;
+  const tooltip = [
+    start && end ? `Periodo: ${fmt(start)} - ${fmt(end)}` : null,
+    totalDays !== null ? `${totalDays} dia${totalDays === 1 ? '' : 's'} totais` : null,
+    daysRemaining !== null
+      ? daysRemaining < 0
+        ? `${Math.abs(daysRemaining)} dia${Math.abs(daysRemaining) === 1 ? '' : 's'} em atraso`
+        : `${daysRemaining} dia${daysRemaining === 1 ? '' : 's'} restante${daysRemaining === 1 ? '' : 's'}`
+      : null,
+    typeof completionPercent === 'number' ? `${completionPercent}% dos subelementos concluidos` : null,
+  ].filter(Boolean).join(' | ');
 
   const handleSelect = (r: DateRange | undefined) => {
     const s = r?.from ? toISO(r.from) : null;
@@ -67,19 +91,23 @@ export function DateRangeCell({ startDate, endDate, onChange }: Props) {
         >
           {hasAny ? (
             <div
-              className="relative h-5 w-full rounded-sm flex items-center justify-center px-1.5 text-[10px] font-medium text-white shadow-sm"
-              style={{ backgroundColor: barColor }}
+              className="relative h-5 w-full overflow-hidden rounded-sm bg-muted flex items-center justify-center px-1.5 text-[10px] font-medium text-foreground shadow-sm"
+              title={tooltip}
             >
-              <span className="truncate">
+              <div
+                className="absolute inset-y-0 left-0 transition-all"
+                style={{ width: `${progressPercent}%`, backgroundColor: barColor }}
+              />
+              <span className="relative z-10 truncate">
                 {start && end
-                  ? `${fmt(start)} – ${fmt(end)}`
+                  ? `${fmt(start)} - ${fmt(end)}`
                   : start
-                  ? `Início ${fmt(start)}`
-                  : `Até ${fmt(end!)}`}
+                    ? `Inicio ${fmt(start)}`
+                    : `Ate ${fmt(end!)}`}
               </span>
             </div>
           ) : (
-            <span className="text-muted-foreground text-xs">—</span>
+            <span className="text-muted-foreground text-[11px] font-medium">Definir datas</span>
           )}
         </button>
       </PopoverTrigger>

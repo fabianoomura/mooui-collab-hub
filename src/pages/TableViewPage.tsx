@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, FileStack, Columns3, GanttChart, CalendarDays, Archive } from 'lucide-react';
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { Plus, FolderKanban, Loader2, ChevronDown, ChevronRight, Search, LayoutGrid, X, MoreHorizontal, Pencil, Trash2, FileStack, Columns3, GanttChart, CalendarDays, Archive, Copy, Download, CheckSquare, ArrowUp, ArrowDown, Palette, Sparkles } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect, useRef, type CSSProperties, type MutableRefObject, type UIEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TaskSidePanel } from '@/components/kanban/TaskSidePanel';
@@ -19,11 +19,13 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { SundayMobileList, ColumnCell } from '@/features/boards';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { useTaskCommentCounts } from '@/hooks/useTaskCommentCounts';
+import { useBoardPreferences, type BoardPreferences } from '@/hooks/useBoardPreferences';
+import { useDateActionReminders } from '@/hooks/useDateActionReminders';
 
 // Extracted components
 import {
   statusLabels, statusCellColors, priorityLabels, priorityCellColors,
-  groupColors, statusOrder, priorityOrder,
+  groupColors, statusOrder, priorityOrder, columnTypeLabels,
   FIXED_COLUMNS, fixedColumnLabels, type FixedColumnKey,
   type SortField, type SortDir, type GroupBy, type ViewMode,
   getMonthYearKey, getMonthYearLabel, taskMatchesAssignee, taskMatchesSearch,
@@ -37,6 +39,143 @@ type TableViewPageProps = {
   embedded?: boolean;
 };
 
+type BoardGroup = {
+  key: string;
+  label: string;
+  tasks: TaskWithAssignees[];
+  color: string;
+};
+
+type GroupScrollTargets = MutableRefObject<Record<string, HTMLDivElement | null>>;
+
+function StickyGroupScrollbar({
+  groupKey,
+  targetRefs,
+  color,
+  refreshKey,
+}: {
+  groupKey: string;
+  targetRefs: GroupScrollTargets;
+  color: string;
+  refreshKey: string;
+}) {
+  const scrollbarRef = useRef<HTMLDivElement>(null);
+  const [metrics, setMetrics] = useState({ scrollWidth: 0, clientWidth: 0 });
+  const [placement, setPlacement] = useState({ fixed: false, left: 0, width: 0 });
+
+  const getTarget = useCallback(() => targetRefs.current[groupKey] ?? null, [groupKey, targetRefs]);
+
+  const updateMetrics = useCallback(() => {
+    const target = getTarget();
+    if (!target) return;
+
+    const nextMetrics = {
+      scrollWidth: target.scrollWidth,
+      clientWidth: target.clientWidth,
+    };
+    const rect = target.getBoundingClientRect();
+    const viewportPadding = 12;
+    const anchorY = window.innerHeight - 28;
+    const shouldFix = nextMetrics.scrollWidth > nextMetrics.clientWidth + 1
+      && rect.top < anchorY
+      && rect.bottom > anchorY;
+    const left = Math.max(rect.left, viewportPadding);
+    const width = Math.max(0, Math.min(rect.width, window.innerWidth - left - viewportPadding));
+
+    setMetrics((current) => (
+      current.scrollWidth === nextMetrics.scrollWidth && current.clientWidth === nextMetrics.clientWidth
+        ? current
+        : nextMetrics
+    ));
+    setPlacement((current) => (
+      current.fixed === shouldFix && current.left === left && current.width === width
+        ? current
+        : { fixed: shouldFix, left, width }
+    ));
+
+    const scrollbar = scrollbarRef.current;
+    if (scrollbar && scrollbar.scrollLeft !== target.scrollLeft) {
+      scrollbar.scrollLeft = target.scrollLeft;
+    }
+  }, [getTarget]);
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(updateMetrics);
+    const target = getTarget();
+
+    if (!target) {
+      return () => window.cancelAnimationFrame(frameId);
+    }
+
+    const syncFromTable = () => {
+      const scrollbar = scrollbarRef.current;
+      if (scrollbar && scrollbar.scrollLeft !== target.scrollLeft) {
+        scrollbar.scrollLeft = target.scrollLeft;
+      }
+    };
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateMetrics)
+      : null;
+
+    target.addEventListener('scroll', syncFromTable, { passive: true });
+    resizeObserver?.observe(target);
+    if (target.firstElementChild) resizeObserver?.observe(target.firstElementChild);
+    window.addEventListener('scroll', updateMetrics, { passive: true });
+    window.addEventListener('resize', updateMetrics);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      target.removeEventListener('scroll', syncFromTable);
+      resizeObserver?.disconnect();
+      window.removeEventListener('scroll', updateMetrics);
+      window.removeEventListener('resize', updateMetrics);
+    };
+  }, [getTarget, updateMetrics, refreshKey]);
+
+  const handleScrollbarScroll = (event: UIEvent<HTMLDivElement>) => {
+    const target = getTarget();
+    if (!target || target.scrollLeft === event.currentTarget.scrollLeft) return;
+    target.scrollLeft = event.currentTarget.scrollLeft;
+  };
+
+  if (metrics.scrollWidth <= metrics.clientWidth + 1) return null;
+
+  return (
+    <div
+      className={[
+        placement.fixed ? 'fixed z-50 rounded-md border border-border shadow-lg' : 'sticky bottom-0 z-20 border-t border-border',
+        'bg-card/95 px-2 py-1 backdrop-blur supports-[backdrop-filter]:bg-card/85',
+      ].join(' ')}
+      style={{
+        '--group-scrollbar-thumb': color,
+        ...(placement.fixed ? { left: placement.left, width: placement.width, bottom: 12 } : {}),
+      } as CSSProperties}
+    >
+      <div
+        ref={scrollbarRef}
+        className="sunday-group-scrollbar overflow-x-auto overflow-y-hidden"
+        onScroll={handleScrollbarScroll}
+        aria-label="Rolagem horizontal do grupo"
+      >
+        <div style={{ width: metrics.scrollWidth, height: 1 }} />
+      </div>
+    </div>
+  );
+}
+
+function parseNumericValue(value: string | undefined): number | null {
+  if (!value) return null;
+  const normalized = value.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatNumericTotal(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value);
+}
+
 export default function TableViewPage({ projectId, embedded = false }: TableViewPageProps = {}) {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const createProject = useCreateProject();
@@ -48,6 +187,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [sidePanelTask, setSidePanelTask] = useState<{ task: TaskWithAssignees; parent?: TaskWithAssignees } | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -57,11 +197,25 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
+  const [dynamicGroupColumnId, setDynamicGroupColumnId] = useState<string | null>(null);
+  const [dynamicColumnFilters, setDynamicColumnFilters] = useState<Record<string, string>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [visibleColumns, setVisibleColumns] = useState<Set<FixedColumnKey>>(new Set(FIXED_COLUMNS));
   const [editingLabelType, setEditingLabelType] = useState<'status' | 'priority' | null>(null);
   const [groupRenames, setGroupRenames] = useState<Record<string, string>>(() => {
     try { const s = localStorage.getItem(`mooui_group_names_${projectFromUrl}`); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  const [groupColorOverrides, setGroupColorOverrides] = useState<Record<string, string>>(() => {
+    try { const s = localStorage.getItem(`mooui_group_colors_${projectFromUrl}`); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  const [customGroups, setCustomGroups] = useState<{ key: string; label: string; color: string }[]>(() => {
+    try { const s = localStorage.getItem(`mooui_custom_groups_${projectFromUrl}`); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [groupOrder, setGroupOrder] = useState<string[]>(() => {
+    try { const s = localStorage.getItem(`mooui_group_order_${projectFromUrl}`); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [fixedColumnLabelOverrides, setFixedColumnLabelOverrides] = useState<Partial<Record<FixedColumnKey, string>>>(() => {
+    try { const s = localStorage.getItem(`mooui_fixed_col_labels_${projectFromUrl}`); return s ? JSON.parse(s) : {}; } catch { return {}; }
   });
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const onDragStartTask = useCallback((id: string) => setDraggedTaskId(id), []);
@@ -71,7 +225,12 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     try { const s = localStorage.getItem(`mooui_col_order_${projectFromUrl}`); if (s) return JSON.parse(s); } catch {}
     return [...FIXED_COLUMNS];
   });
+  const [hiddenDynamicColumnIds, setHiddenDynamicColumnIds] = useState<Set<string>>(() => {
+    try { const s = localStorage.getItem(`mooui_hidden_dynamic_cols_${projectFromUrl}`); return new Set(s ? JSON.parse(s) : []); } catch {}
+    return new Set();
+  });
   const dragColRef = useRef<string | null>(null);
+  const groupScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [statusLabelsConfig, setStatusLabelsConfig] = useState<LabelOption[]>(() => {
     const saved = localStorage.getItem(`mooui_status_labels_${projectFromUrl}`);
@@ -112,10 +271,91 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   const { tasks, isLoading: loadingTasks, addTask, updateTask, archiveTask, deleteTask } = useProjectTasks(activeProjectId);
   const { columns: dynamicColumns, customValues, addColumn, updateColumn, deleteColumn, setCustomValue } = useProjectColumns(activeProjectId);
   const { members: projectMembers, addAssignee, removeAssignee } = useProjectMembers(activeProjectId);
+  const { preferences: boardPreferences, updatePreferences: updateBoardPreferences } = useBoardPreferences(activeProjectId);
+  const { configureDateActionReminders } = useDateActionReminders(activeProjectId);
   const { data: projectTemplates = [] } = useProjectTemplates();
   const saveAsTemplate = useSaveProjectAsTemplate();
   const applyTemplate = useCreateProjectFromTemplate();
   const deleteTemplate = useDeleteProjectTemplate();
+  const [pinnedTaskIds, setPinnedTaskIds] = useState<Set<string>>(new Set());
+
+  const persistBoardPreferences = useCallback((patch: BoardPreferences) => {
+    if (!activeProjectId) return;
+    updateBoardPreferences.mutate(patch, {
+      onError: (error: any) => {
+        console.warn('Failed to sync board preferences', error);
+      },
+    });
+  }, [activeProjectId, updateBoardPreferences]);
+
+  useEffect(() => {
+    if (!activeProjectId) {
+      setPinnedTaskIds(new Set());
+      setHiddenDynamicColumnIds(new Set());
+      setGroupColorOverrides({});
+      setCustomGroups([]);
+      setGroupOrder([]);
+      setDynamicColumnFilters({});
+      setDynamicGroupColumnId(null);
+      setFixedColumnLabelOverrides({});
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(`mooui_pinned_tasks_${activeProjectId}`);
+      setPinnedTaskIds(new Set(stored ? JSON.parse(stored) : []));
+    } catch {
+      setPinnedTaskIds(new Set());
+    }
+    try {
+      const stored = localStorage.getItem(`mooui_hidden_dynamic_cols_${activeProjectId}`);
+      setHiddenDynamicColumnIds(new Set(stored ? JSON.parse(stored) : []));
+    } catch {
+      setHiddenDynamicColumnIds(new Set());
+    }
+    try {
+      const stored = localStorage.getItem(`mooui_group_colors_${activeProjectId}`);
+      setGroupColorOverrides(stored ? JSON.parse(stored) : {});
+    } catch {
+      setGroupColorOverrides({});
+    }
+    try {
+      const stored = localStorage.getItem(`mooui_custom_groups_${activeProjectId}`);
+      setCustomGroups(stored ? JSON.parse(stored) : []);
+    } catch {
+      setCustomGroups([]);
+    }
+    try {
+      const stored = localStorage.getItem(`mooui_group_order_${activeProjectId}`);
+      setGroupOrder(stored ? JSON.parse(stored) : []);
+    } catch {
+      setGroupOrder([]);
+    }
+    try {
+      const stored = localStorage.getItem(`mooui_fixed_col_labels_${activeProjectId}`);
+      setFixedColumnLabelOverrides(stored ? JSON.parse(stored) : {});
+    } catch {
+      setFixedColumnLabelOverrides({});
+    }
+  }, [activeProjectId]);
+
+  useEffect(() => {
+    if (!boardPreferences) return;
+    if (boardPreferences.pinned_task_ids) setPinnedTaskIds(new Set(boardPreferences.pinned_task_ids));
+    if (boardPreferences.hidden_dynamic_column_ids) setHiddenDynamicColumnIds(new Set(boardPreferences.hidden_dynamic_column_ids));
+    if (boardPreferences.group_names) setGroupRenames(boardPreferences.group_names);
+    if (boardPreferences.group_colors) setGroupColorOverrides(boardPreferences.group_colors);
+    if (boardPreferences.custom_groups) setCustomGroups(boardPreferences.custom_groups);
+    if (boardPreferences.group_order) setGroupOrder(boardPreferences.group_order);
+    if (boardPreferences.fixed_column_labels) setFixedColumnLabelOverrides(boardPreferences.fixed_column_labels);
+    if (boardPreferences.dynamic_column_filters) setDynamicColumnFilters(boardPreferences.dynamic_column_filters);
+    if (boardPreferences.dynamic_group_column_id !== undefined) setDynamicGroupColumnId(boardPreferences.dynamic_group_column_id);
+    if (boardPreferences.fixed_column_order) {
+      const allowed = new Set(FIXED_COLUMNS);
+      const savedOrder = boardPreferences.fixed_column_order.filter((col): col is FixedColumnKey => allowed.has(col as FixedColumnKey));
+      const missing = FIXED_COLUMNS.filter(col => !savedOrder.includes(col));
+      setColumnOrder([...savedOrder, ...missing]);
+    }
+  }, [boardPreferences]);
 
   const allAssigneeIds = useMemo(() => {
     const ids = new Set<string>();
@@ -139,6 +379,10 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     () => columnOrder.filter(col => visibleColumns.has(col)),
     [columnOrder, visibleColumns],
   );
+  const visibleDynamicColumns = useMemo(
+    () => dynamicColumns.filter((col) => !hiddenDynamicColumnIds.has(col.id)),
+    [dynamicColumns, hiddenDynamicColumnIds],
+  );
 
   const filteredTasks = useMemo(() => {
     let result = tasks;
@@ -149,12 +393,20 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     if (filterStatus.size > 0) result = result.filter(t => filterStatus.has(t.status) || t.subtasks?.some(s => filterStatus.has(s.status)));
     if (filterPriority.size > 0) result = result.filter(t => filterPriority.has(t.priority) || t.subtasks?.some(s => filterPriority.has(s.priority)));
     if (filterAssignee.size > 0) result = result.filter(t => taskMatchesAssignee(t, filterAssignee));
+    Object.entries(dynamicColumnFilters).forEach(([columnId, filterValue]) => {
+      const lower = filterValue.trim().toLowerCase();
+      if (!lower) return;
+      result = result.filter(task => {
+        const taskValue = customValues.get(task.id)?.get(columnId) || '';
+        const subtaskMatch = task.subtasks?.some(subtask => (customValues.get(subtask.id)?.get(columnId) || '').toLowerCase().includes(lower));
+        return taskValue.toLowerCase().includes(lower) || !!subtaskMatch;
+      });
+    });
     return result;
-  }, [tasks, searchText, filterStatus, filterPriority, filterAssignee]);
+  }, [tasks, searchText, filterStatus, filterPriority, filterAssignee, dynamicColumnFilters, customValues]);
 
   const sortedTasks = useMemo(() => {
-    if (!sortField) return filteredTasks;
-    return [...filteredTasks].sort((a, b) => {
+    const sorted = !sortField ? [...filteredTasks] : [...filteredTasks].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
         case 'title': cmp = a.title.localeCompare(b.title, 'pt-BR'); break;
@@ -165,44 +417,136 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
       }
       return sortDir === 'desc' ? -cmp : cmp;
     });
-  }, [filteredTasks, sortField, sortDir]);
+    return sorted.sort((a, b) => Number(pinnedTaskIds.has(b.id)) - Number(pinnedTaskIds.has(a.id)));
+  }, [filteredTasks, sortField, sortDir, pinnedTaskIds]);
 
   const groups = useMemo(() => {
     const grouped = new Map<string, TaskWithAssignees[]>();
+    const dynamicGroupColumn = dynamicColumns.find(column => column.id === dynamicGroupColumnId);
+    const customGroupMap = new Map(customGroups.map(group => [group.key, group]));
     sortedTasks.forEach(task => {
       let key: string;
-      switch (groupBy) {
-        case 'month': key = getMonthYearKey(task.due_date || task.created_at); break;
-        case 'status': key = task.status; break;
-        case 'priority': key = task.priority; break;
-        case 'none': key = 'all'; break;
+      const manualGroupKey = (task as any).group_key as string | null | undefined;
+      if (manualGroupKey && customGroupMap.has(manualGroupKey)) {
+        key = manualGroupKey;
+      } else if (dynamicGroupColumn) {
+        const value = customValues.get(task.id)?.get(dynamicGroupColumn.id)?.trim() || 'Sem valor';
+        key = `custom:${dynamicGroupColumn.id}:${value}`;
+      } else {
+        switch (groupBy) {
+          case 'month': key = getMonthYearKey(task.due_date || task.created_at); break;
+          case 'status': key = task.status; break;
+          case 'priority': key = task.priority; break;
+          case 'none': key = 'all'; break;
+        }
       }
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(task);
     });
     const entries = Array.from(grouped.entries()).sort(([a], [b]) => {
+      if (dynamicGroupColumn) return a.localeCompare(b, 'pt-BR', { numeric: true });
       if (groupBy === 'status') return statusOrder[a as TaskStatus] - statusOrder[b as TaskStatus];
       if (groupBy === 'priority') return priorityOrder[a as TaskPriority] - priorityOrder[b as TaskPriority];
       return a.localeCompare(b);
     });
-    return entries.map(([key, tsks], i) => {
+    const computedGroups = entries.map(([key, tsks], i) => {
       let label: string;
-      switch (groupBy) {
-        case 'month': label = getMonthYearLabel(key); break;
-        case 'status': label = statusLabels[key as TaskStatus] || key; break;
-        case 'priority': label = priorityLabels[key as TaskPriority] || key; break;
-        case 'none': label = 'Todos os elementos'; break;
+      const manualGroup = customGroupMap.get(key);
+      if (manualGroup) {
+        label = groupRenames[key] || manualGroup.label;
+      } else if (dynamicGroupColumn) {
+        label = `${dynamicGroupColumn.name}: ${key.split(':').slice(2).join(':')}`;
+      } else {
+        switch (groupBy) {
+          case 'month': label = getMonthYearLabel(key); break;
+          case 'status': label = statusLabels[key as TaskStatus] || key; break;
+          case 'priority': label = priorityLabels[key as TaskPriority] || key; break;
+          case 'none': label = 'Todos os elementos'; break;
+        }
       }
-      return { key, label, tasks: tsks, color: groupColors[i % groupColors.length] };
+      return { key, label, tasks: tsks, color: groupColorOverrides[key] || groupColors[i % groupColors.length] };
     });
-  }, [sortedTasks, groupBy]);
+    const existingKeys = new Set(computedGroups.map(group => group.key));
+    const manualGroups = customGroups
+      .filter(group => !existingKeys.has(group.key))
+      .map(group => ({ ...group, color: groupColorOverrides[group.key] || group.color, tasks: [] as TaskWithAssignees[] }));
+    const allGroups = [...computedGroups, ...manualGroups];
+    if (groupOrder.length === 0) return allGroups;
+    return [...allGroups].sort((a, b) => {
+      const ai = groupOrder.indexOf(a.key);
+      const bi = groupOrder.indexOf(b.key);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [sortedTasks, groupBy, dynamicGroupColumnId, dynamicColumns, customValues, groupColorOverrides, groupRenames, customGroups, groupOrder]);
 
   const toggleGroup = (key: string) => { setCollapsedGroups(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; }); };
+  const expandGroup = (key: string) => setCollapsedGroups(prev => { const next = new Set(prev); next.delete(key); return next; });
+  const collapseGroup = (key: string) => setCollapsedGroups(prev => new Set(prev).add(key));
+  const expandAllGroups = () => setCollapsedGroups(new Set());
+  const collapseAllGroups = () => setCollapsedGroups(new Set(groups.map(group => group.key)));
   const toggleExpand = useCallback((taskId: string) => { setExpandedTasks(prev => { const next = new Set(prev); if (next.has(taskId)) next.delete(taskId); else next.add(taskId); return next; }); }, []);
+  const expandSubtasks = (taskIds: string[]) => setExpandedTasks(prev => new Set([...prev, ...taskIds]));
+  const collapseSubtasks = (taskIds: string[]) => setExpandedTasks(prev => {
+    const next = new Set(prev);
+    taskIds.forEach(id => next.delete(id));
+    return next;
+  });
+  const topLevelIdsWithSubtasks = (group: BoardGroup) => group.tasks.filter(task => (task.subtasks?.length || 0) > 0).map(task => task.id);
+  const allTopLevelIdsWithSubtasks = () => groups.flatMap(group => topLevelIdsWithSubtasks(group));
   const toggleColumn = useCallback((col: FixedColumnKey) => { setVisibleColumns(prev => { const next = new Set(prev); if (next.has(col)) next.delete(col); else next.add(col); return next; }); }, []);
+  const hideDynamicColumn = useCallback((columnId: string) => {
+    setHiddenDynamicColumnIds((prev) => {
+      const next = new Set(prev);
+      next.add(columnId);
+      localStorage.setItem(`mooui_hidden_dynamic_cols_${activeProjectId}`, JSON.stringify(Array.from(next)));
+      persistBoardPreferences({ hidden_dynamic_column_ids: Array.from(next) });
+      return next;
+    });
+    toast.success('Coluna oculta');
+  }, [activeProjectId, persistBoardPreferences]);
+  const toggleDynamicColumn = useCallback((columnId: string) => {
+    setHiddenDynamicColumnIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      localStorage.setItem(`mooui_hidden_dynamic_cols_${activeProjectId}`, JSON.stringify(Array.from(next)));
+      persistBoardPreferences({ hidden_dynamic_column_ids: Array.from(next) });
+      return next;
+    });
+  }, [activeProjectId, persistBoardPreferences]);
   const setSelectedProject = (id: string) => {
     if (!embedded) setSearchParams({ projeto: id });
   };
+
+  const getGroupAggregate = useCallback((group: BoardGroup, column: ProjectColumn): string => {
+    const groupTasks = group.tasks.flatMap(task => [task, ...(task.subtasks || [])]);
+    const values = groupTasks.map(task => customValues.get(task.id)?.get(column.id) || '').filter(Boolean);
+
+    if (column.column_type === 'numeros') {
+      const numbers = values.map(parseNumericValue).filter((value): value is number => value !== null);
+      if (numbers.length === 0) return '';
+      const total = numbers.reduce((sum, value) => sum + value, 0);
+      return `Total ${formatNumericTotal(total)}`;
+    }
+
+    if (column.column_type === 'checkbox') {
+      const checked = values.filter(value => value === 'true' || value === '1').length;
+      if (values.length === 0) return '';
+      return `${checked}/${values.length} marcados`;
+    }
+
+    if (column.column_type === 'rating') {
+      const ratings = values.map(parseNumericValue).filter((value): value is number => value !== null && value > 0);
+      if (ratings.length === 0) return '';
+      const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
+      return `Media ${formatNumericTotal(average)}`;
+    }
+
+    return '';
+  }, [customValues]);
 
   type PromptState = { title: string; label?: string; defaultValue?: string; placeholder?: string; confirmLabel?: string; multiline?: boolean; onSubmit: (v: string) => void } | null;
   const [promptState, setPromptState] = useState<PromptState>(null);
@@ -217,12 +561,12 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     });
   };
 
-  const handleQuickAdd = (status: TaskStatus = 'todo', parentId?: string) => {
+  const handleQuickAdd = (status: TaskStatus = 'todo', parentId?: string, groupKey?: string | null) => {
     setPromptState({
       title: parentId ? 'Novo subelemento' : 'Nova tarefa',
       label: 'Título', placeholder: parentId ? 'Título do subelemento' : 'Título da tarefa', confirmLabel: 'Criar',
       onSubmit: (title) => {
-        addTask.mutate({ title, status, priority: 'medium', parent_task_id: parentId }, { onSuccess: () => toast.success(parentId ? 'Subelemento criado!' : 'Tarefa criada!') });
+        addTask.mutate({ title, status, priority: 'medium', parent_task_id: parentId, group_key: parentId ? null : groupKey }, { onSuccess: () => toast.success(parentId ? 'Subelemento criado!' : 'Tarefa criada!') });
         setPromptState(null);
       },
     });
@@ -240,6 +584,28 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
       title: 'Renomear coluna', label: 'Novo nome', defaultValue: col.name, confirmLabel: 'Salvar',
       onSubmit: (newName) => {
         if (newName !== col.name) updateColumn.mutate({ columnId: col.id, updates: { name: newName } });
+        setPromptState(null);
+      },
+    });
+  };
+
+  const handleRenameFixedColumn = (col: FixedColumnKey) => {
+    setPromptState({
+      title: 'Renomear coluna',
+      label: 'Novo nome',
+      defaultValue: fixedColumnLabelOverrides[col] || fixedColumnLabels[col],
+      confirmLabel: 'Salvar',
+      onSubmit: (newName) => {
+        const trimmed = newName.trim();
+        const next = { ...fixedColumnLabelOverrides };
+        if (!trimmed || trimmed === fixedColumnLabels[col]) delete next[col];
+        else next[col] = trimmed;
+        setFixedColumnLabelOverrides(next);
+        if (activeProjectId) {
+          localStorage.setItem(`mooui_fixed_col_labels_${activeProjectId}`, JSON.stringify(next));
+          persistBoardPreferences({ fixed_column_labels: next });
+        }
+        toast.success('Coluna renomeada');
         setPromptState(null);
       },
     });
@@ -298,8 +664,220 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     });
   };
 
+  const handleDuplicateColumn = async (col: ProjectColumn) => {
+    try {
+      const created = await addColumn.mutateAsync({
+        name: `${col.name} copia`,
+        columnType: col.column_type,
+        config: { ...col.config },
+      });
+      const entries = Array.from(customValues.entries())
+        .map(([taskId, values]) => ({ taskId, value: values.get(col.id) }))
+        .filter((entry): entry is { taskId: string; value: string } => !!entry.value);
+      await Promise.all(entries.map(entry => setCustomValue.mutateAsync({
+        taskId: entry.taskId,
+        columnId: created.id,
+        value: entry.value,
+      })));
+      toast.success('Coluna duplicada com valores');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao duplicar coluna');
+    }
+  };
+
+  const handleChangeColumnType = (col: ProjectColumn) => {
+    const validTypes: ColumnType[] = ['status', 'texto', 'pessoas', 'cronograma', 'data', 'tags', 'numeros', 'checkbox', 'link', 'rating', 'select'];
+    setPromptState({
+      title: 'Alterar tipo da coluna',
+      label: `Tipo (${validTypes.join(', ')})`,
+      defaultValue: col.column_type,
+      confirmLabel: 'Alterar',
+      onSubmit: (type) => {
+        const nextType = type.trim() as ColumnType;
+        if (!validTypes.includes(nextType)) {
+          toast.error('Tipo de coluna invalido');
+          return;
+        }
+        updateColumn.mutate({
+          columnId: col.id,
+          updates: { column_type: nextType },
+        }, {
+          onSuccess: () => toast.success(`Tipo alterado para ${columnTypeLabels[nextType]}`),
+        });
+        setPromptState(null);
+      },
+    });
+  };
+
+  const handleFilterDynamicColumn = (col: ProjectColumn) => {
+    setPromptState({
+      title: `Filtrar "${col.name}"`,
+      label: 'Valor contem',
+      defaultValue: dynamicColumnFilters[col.id] || '',
+      confirmLabel: 'Aplicar',
+      onSubmit: (value) => {
+        const trimmed = value.trim();
+        const next = { ...dynamicColumnFilters };
+        if (trimmed) next[col.id] = trimmed;
+        else delete next[col.id];
+        setDynamicColumnFilters(next);
+        persistBoardPreferences({ dynamic_column_filters: next });
+        toast.success(trimmed ? 'Filtro aplicado' : 'Filtro removido');
+        setPromptState(null);
+      },
+    });
+  };
+
+  const handleClearDynamicColumnFilter = (columnId: string) => {
+    const next = { ...dynamicColumnFilters };
+    delete next[columnId];
+    setDynamicColumnFilters(next);
+    persistBoardPreferences({ dynamic_column_filters: next });
+    toast.success('Filtro removido');
+  };
+
+  const handleToggleDynamicGroup = (columnId: string) => {
+    const next = dynamicGroupColumnId === columnId ? null : columnId;
+    setDynamicGroupColumnId(next);
+    if (next) setGroupBy('none');
+    persistBoardPreferences({ dynamic_group_column_id: next });
+    toast.success(next ? 'Agrupamento por coluna aplicado' : 'Agrupamento por coluna removido');
+  };
+
+  const handleToggleColumnAutomation = (col: ProjectColumn) => {
+    const enabled = !col.config?.automation_enabled;
+    updateColumn.mutate({
+      columnId: col.id,
+      updates: { config: { ...col.config, automation_enabled: enabled } },
+    }, {
+      onSuccess: () => toast.success(enabled ? 'Automacao da coluna ativada' : 'Automacao da coluna desativada'),
+    });
+  };
+
+  const handleMoveTaskToGroup = (taskId: string, groupKey: string | null) => {
+    updateTask.mutate({
+      taskId,
+      updates: { group_key: groupKey } as any,
+    }, {
+      onSuccess: () => toast.success(groupKey ? 'Elemento movido para o grupo' : 'Elemento voltou para agrupamento automatico'),
+    });
+  };
+
   const handleSetCustomValue = (taskId: string, columnId: string, value: string) => {
     setCustomValue.mutate({ taskId, columnId, value });
+  };
+
+  const handleTogglePinTask = (taskId: string) => {
+    if (!activeProjectId) return;
+    setPinnedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+        toast.success('Elemento desafixado');
+      } else {
+        next.add(taskId);
+        toast.success('Elemento fixado');
+      }
+      localStorage.setItem(`mooui_pinned_tasks_${activeProjectId}`, JSON.stringify(Array.from(next)));
+      persistBoardPreferences({ pinned_task_ids: Array.from(next) });
+      return next;
+    });
+  };
+
+  const handleConfigureDateReminder = () => {
+    if (!activeProjectId) return;
+    const key = `mooui_date_reminders_${activeProjectId}`;
+    const current = String(boardPreferences?.date_reminder_days ?? localStorage.getItem(key) ?? '3');
+    setPromptState({
+      title: 'Lembretes da Data Acao',
+      label: 'Dias antes do prazo',
+      defaultValue: current,
+      placeholder: 'Ex.: 3',
+      confirmLabel: 'Salvar',
+      onSubmit: async (value) => {
+        const days = Math.max(0, Number(value.trim() || '0'));
+        localStorage.setItem(key, String(days));
+        persistBoardPreferences({ date_reminder_days: days });
+        try {
+          const count = await configureDateActionReminders.mutateAsync({ leadDays: days, tasks });
+          toast.success(`Lembrete configurado para ${days} dia${days === 1 ? '' : 's'} antes do prazo`, {
+            description: `${count} lembrete${count === 1 ? '' : 's'} pendente${count === 1 ? '' : 's'} criado${count === 1 ? '' : 's'} para tarefas com Data Acao.`,
+          });
+        } catch (error: any) {
+          toast.error(error.message || 'Erro ao criar lembretes');
+        }
+        setPromptState(null);
+      },
+    });
+  };
+
+  const handleAddGroup = () => {
+    if (!activeProjectId) return;
+    setPromptState({
+      title: 'Adicionar grupo',
+      label: 'Nome do grupo',
+      placeholder: 'Ex.: Novo topico',
+      confirmLabel: 'Criar',
+      onSubmit: (name) => {
+        const label = name.trim();
+        if (!label) return;
+        const group = {
+          key: `custom-${Date.now()}`,
+          label,
+          color: groupColors[customGroups.length % groupColors.length],
+        };
+        const nextGroups = [...customGroups, group];
+        setCustomGroups(nextGroups);
+        localStorage.setItem(`mooui_custom_groups_${activeProjectId}`, JSON.stringify(nextGroups));
+        const nextOrder = [...groupOrder.filter(Boolean), group.key];
+        setGroupOrder(nextOrder);
+        localStorage.setItem(`mooui_group_order_${activeProjectId}`, JSON.stringify(nextOrder));
+        persistBoardPreferences({ custom_groups: nextGroups, group_order: nextOrder });
+        toast.success('Grupo criado');
+        setPromptState(null);
+      },
+    });
+  };
+
+  const handleMoveGroup = (groupKey: string, direction: 'up' | 'down') => {
+    if (!activeProjectId) return;
+    const current = groupOrder.length > 0 ? groupOrder : groups.map(group => group.key);
+    const next = [...current];
+    const index = next.indexOf(groupKey);
+    if (index === -1) next.push(groupKey);
+    const from = next.indexOf(groupKey);
+    const to = direction === 'up' ? from - 1 : from + 1;
+    if (to < 0 || to >= next.length) return;
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setGroupOrder(next);
+    localStorage.setItem(`mooui_group_order_${activeProjectId}`, JSON.stringify(next));
+    persistBoardPreferences({ group_order: next });
+  };
+
+  const handleChangeGroupColor = (group: BoardGroup) => {
+    if (!activeProjectId) return;
+    setPromptState({
+      title: 'Alterar cor do grupo',
+      label: 'Cor em HEX ou CSS',
+      defaultValue: groupColorOverrides[group.key] || group.color,
+      placeholder: '#D6336C',
+      confirmLabel: 'Salvar',
+      onSubmit: (color) => {
+        const next = { ...groupColorOverrides, [group.key]: color.trim() || group.color };
+        setGroupColorOverrides(next);
+        localStorage.setItem(`mooui_group_colors_${activeProjectId}`, JSON.stringify(next));
+        persistBoardPreferences({ group_colors: next });
+        toast.success('Cor do grupo atualizada');
+        setPromptState(null);
+      },
+    });
+  };
+
+  const handleOpenGroupApps = () => {
+    toast('Apps e automacoes', {
+      description: 'Base criada no menu. Proximo passo: persistir automacoes e lembretes no Supabase.',
+    });
   };
 
   const activeProject = projects?.find((project) => project.id === activeProjectId);
@@ -375,6 +953,73 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
     }
   };
 
+  const handleSelectGroup = (group: BoardGroup) => {
+    const ids = group.tasks.flatMap((task) => [task.id, ...(task.subtasks || []).map((subtask) => subtask.id)]);
+    setSelectedTaskIds(new Set(ids));
+    toast.success(`${ids.length} item${ids.length === 1 ? '' : 's'} selecionado${ids.length === 1 ? '' : 's'}`);
+  };
+
+  const handleDuplicateGroup = async (group: BoardGroup) => {
+    if (group.tasks.length === 0) return;
+    const ok = await confirm({
+      title: `Duplicar grupo "${group.label}"?`,
+      description: `Isto cria uma copia dos ${group.tasks.length} elementos visiveis e seus subelementos no mesmo board.`,
+      confirmText: 'Duplicar grupo',
+    });
+    if (!ok) return;
+
+    try {
+      for (const task of group.tasks) {
+        const parent = await addTask.mutateAsync({
+          title: `${task.title} (copia)`,
+          status: task.status,
+          priority: task.priority,
+          group_key: group.key.startsWith('custom-') ? group.key : ((task as any).group_key || null),
+        });
+        const parentId = (parent as { id?: string } | null)?.id;
+        if (!parentId) continue;
+        for (const subtask of task.subtasks || []) {
+          await addTask.mutateAsync({
+            title: subtask.title,
+            status: subtask.status,
+            priority: subtask.priority,
+            parent_task_id: parentId,
+          });
+        }
+      }
+      toast.success(`Grupo "${group.label}" duplicado`);
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao duplicar grupo');
+    }
+  };
+
+  const handleExportGroup = (group: BoardGroup) => {
+    const headers = ['Elemento', 'Tipo', 'Status', 'Prioridade', 'Data inicio', 'Data fim', 'Ticket', ...dynamicColumns.map((col) => col.name)];
+    const rows = group.tasks.flatMap((task) => {
+      const toRow = (item: TaskWithAssignees, type: string) => [
+        item.title,
+        type,
+        statusLabels[item.status],
+        priorityLabels[item.priority],
+        item.start_date || '',
+        item.due_date || '',
+        item.ticket_number || '',
+        ...dynamicColumns.map((col) => customValues.get(item.id)?.get(col.id) || ''),
+      ];
+      return [toRow(task, 'Elemento'), ...(task.subtasks || []).map((subtask) => toRow(subtask, 'Subelemento'))];
+    });
+    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(';')).join('\r\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(groupRenames[group.key] || group.label).replace(/[\\/:*?"<>|]+/g, '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Grupo exportado');
+  };
+
   const handleDeleteGroup = async (group: { label: string; tasks: TaskWithAssignees[] }) => {
     if (group.tasks.length === 0) return;
     const subtaskCount = group.tasks.reduce((sum, task) => sum + (task.subtasks?.length || 0), 0);
@@ -404,6 +1049,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
         setGroupRenames((prev) => {
           const next = { ...prev, [group.key]: trimmed };
           localStorage.setItem(`mooui_group_names_${activeProjectId}`, JSON.stringify(next));
+          persistBoardPreferences({ group_names: next });
           return next;
         });
         toast.success('Grupo renomeado');
@@ -416,10 +1062,10 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
   const gridCols = useMemo(() => {
     const cols = ['3px', '1fr'];
     orderedColumns.forEach(col => cols.push(colWidths[col]));
-    dynamicColumns.forEach(col => cols.push(`${col.width || 150}px`));
+    visibleDynamicColumns.forEach(col => cols.push(`${col.width || 150}px`));
     cols.push('40px');
     return cols.join(' ');
-  }, [orderedColumns, dynamicColumns]);
+  }, [orderedColumns, visibleDynamicColumns]);
 
   const handleColumnDragStart = useCallback((key: string) => { dragColRef.current = key; }, []);
   const handleColumnDrop = useCallback((targetKey: string) => {
@@ -434,9 +1080,10 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
       next.splice(srcIdx, 1);
       next.splice(tgtIdx, 0, srcKey as FixedColumnKey);
       localStorage.setItem(`mooui_col_order_${activeProjectId}`, JSON.stringify(next));
+      persistBoardPreferences({ fixed_column_order: next });
       return next;
     });
-  }, [activeProjectId]);
+  }, [activeProjectId, persistBoardPreferences]);
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
@@ -496,13 +1143,34 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
             </Button>
           </div>
           <div className="h-5 w-px bg-border mx-1" />
+          {selectedTaskIds.size > 0 && (
+            <>
+              <span className="text-xs text-muted-foreground px-1">
+                {selectedTaskIds.size} selecionado{selectedTaskIds.size === 1 ? '' : 's'}
+              </span>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs h-8" onClick={() => setSelectedTaskIds(new Set())}>
+                <X className="h-3.5 w-3.5" /> Limpar selecao
+              </Button>
+              <div className="h-5 w-px bg-border mx-1" />
+            </>
+          )}
           <Button variant="ghost" size="sm" className={`gap-1.5 text-xs h-8 ${searchOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchText(''); }}>
             <Search className="h-3.5 w-3.5" /> Pesquisar
           </Button>
           <FilterPopover filterStatus={filterStatus} setFilterStatus={setFilterStatus} filterPriority={filterPriority} setFilterPriority={setFilterPriority} filterAssignee={filterAssignee} setFilterAssignee={setFilterAssignee} members={projectMembers} profilesMap={profilesMap || new Map()} />
           <SortPopover sortField={sortField} sortDir={sortDir} onSort={(f, d) => { setSortField(f); setSortDir(d); }} />
-          <HideColumnsPopover visible={visibleColumns} onToggle={toggleColumn} />
-          <GroupByPopover groupBy={groupBy} onGroupBy={setGroupBy} />
+          <HideColumnsPopover
+            visible={visibleColumns}
+            onToggle={toggleColumn}
+            dynamicColumns={dynamicColumns}
+            hiddenDynamic={hiddenDynamicColumnIds}
+            onToggleDynamic={toggleDynamicColumn}
+          />
+          <GroupByPopover groupBy={dynamicGroupColumnId ? 'none' : groupBy} onGroupBy={(nextGroupBy) => {
+            setDynamicGroupColumnId(null);
+            persistBoardPreferences({ dynamic_group_column_id: null });
+            setGroupBy(nextGroupBy);
+          }} />
           <div className="h-5 w-px bg-border mx-1" />
           <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 text-xs h-8" onClick={handleRenameProject}>
             <Pencil className="h-3.5 w-3.5" /> Renomear
@@ -607,6 +1275,20 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
         <div className="sunday-table-scroll space-y-5 pb-4 min-w-0 max-w-full">
           {groups.map((group) => {
             const isCollapsed = collapsedGroups.has(group.key);
+            const groupSubtaskIds = topLevelIdsWithSubtasks(group);
+            const subtaskCount = group.tasks.reduce((sum, task) => sum + (task.subtasks?.length || 0), 0);
+            const doneSubtaskCount = group.tasks.reduce((sum, task) => sum + (task.subtasks?.filter(sub => sub.status === 'done').length || 0), 0);
+            const doneTaskCount = group.tasks.filter(task => task.status === 'done').length;
+            const groupCommentCount = group.tasks.reduce((sum, task) => {
+              const taskCount = commentCounts?.get(task.id) || 0;
+              const subtaskComments = task.subtasks?.reduce((subSum, subtask) => subSum + (commentCounts?.get(subtask.id) || 0), 0) || 0;
+              return sum + taskCount + subtaskComments;
+            }, 0);
+            const groupProgress = subtaskCount > 0
+              ? Math.round((doneSubtaskCount / subtaskCount) * 100)
+              : group.tasks.length > 0
+                ? Math.round((doneTaskCount / group.tasks.length) * 100)
+                : 0;
             return (
               <div key={group.key}>
                 <div className="mb-1 flex items-center gap-2">
@@ -621,7 +1303,59 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                         <MoreHorizontal className="h-3.5 w-3.5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
+                    <DropdownMenuContent align="start" className="w-64">
+                      <DropdownMenuItem onClick={() => expandGroup(group.key)}>
+                        <ChevronDown className="h-4 w-4 mr-2" /> Expandir este grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => expandAllGroups()}>
+                        <ChevronDown className="h-4 w-4 mr-2" /> Expandir todos os grupos
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => collapseGroup(group.key)}>
+                        <ChevronRight className="h-4 w-4 mr-2" /> Recolher este grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => collapseAllGroups()}>
+                        <ChevronRight className="h-4 w-4 mr-2" /> Recolher todos os grupos
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem disabled={groupSubtaskIds.length === 0} onClick={() => expandSubtasks(groupSubtaskIds)}>
+                        <ChevronDown className="h-4 w-4 mr-2" /> Expandir subelementos deste grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={allTopLevelIdsWithSubtasks().length === 0} onClick={() => expandSubtasks(allTopLevelIdsWithSubtasks())}>
+                        <ChevronDown className="h-4 w-4 mr-2" /> Expandir todos os subelementos
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={groupSubtaskIds.length === 0} onClick={() => collapseSubtasks(groupSubtaskIds)}>
+                        <ChevronRight className="h-4 w-4 mr-2" /> Recolher subelementos deste grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => collapseSubtasks(allTopLevelIdsWithSubtasks())}>
+                        <ChevronRight className="h-4 w-4 mr-2" /> Recolher todos os subelementos
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleSelectGroup(group)}>
+                        <CheckSquare className="h-4 w-4 mr-2" /> Selecionar todos os elementos
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleAddGroup}>
+                        <Plus className="h-4 w-4 mr-2" /> Adicionar grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDuplicateGroup(group)}>
+                        <Copy className="h-4 w-4 mr-2" /> Duplicar grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExportGroup(group)}>
+                        <Download className="h-4 w-4 mr-2" /> Exportar para Excel
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleMoveGroup(group.key, 'up')}>
+                        <ArrowUp className="h-4 w-4 mr-2" /> Mover grupo para cima
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleMoveGroup(group.key, 'down')}>
+                        <ArrowDown className="h-4 w-4 mr-2" /> Mover grupo para baixo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleChangeGroupColor(group)}>
+                        <Palette className="h-4 w-4 mr-2" /> Alterar cor do grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleOpenGroupApps}>
+                        <Sparkles className="h-4 w-4 mr-2" /> Apps e automacoes
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleRenameGroup(group)}>
                         <Pencil className="h-4 w-4 mr-2" /> Renomear grupo
                       </DropdownMenuItem>
@@ -637,16 +1371,50 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                   </DropdownMenu>
                 </div>
 
+                {isCollapsed && (
+                  <div className="rounded-lg border border-border bg-card/40 px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span>{group.tasks.length} elemento{group.tasks.length === 1 ? '' : 's'}</span>
+                      <span>{subtaskCount} subelemento{subtaskCount === 1 ? '' : 's'}</span>
+                      <span>{groupProgress}% concluido</span>
+                      {groupCommentCount > 0 && (
+                        <span>{groupCommentCount} comentario{groupCommentCount === 1 ? '' : 's'}</span>
+                      )}
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${groupProgress}%`, backgroundColor: group.color }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {!isCollapsed && (
-                  <div className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
+                  <div className="rounded-lg border border-border bg-card/20">
+                    <div
+                      ref={(node) => { groupScrollRefs.current[group.key] = node; }}
+                      className="sunday-table-scroll overflow-x-auto overscroll-x-contain"
+                    >
                     <div className="min-w-full w-max">
                     <div className="grid items-center bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border" style={{ gridTemplateColumns: gridCols }}>
                       <div style={{ backgroundColor: group.color }} className="h-full" />
                       <span className="px-3 py-2">Elemento</span>
                       {orderedColumns.map(col => (
-                        <FixedColHeader key={col} label={fixedColumnLabels[col]} colKey={col} onHide={() => toggleColumn(col)} onDragStart={handleColumnDragStart} onDrop={handleColumnDrop} />
+                        <FixedColHeader
+                          key={col}
+                          label={fixedColumnLabelOverrides[col] || fixedColumnLabels[col]}
+                          colKey={col}
+                          onHide={() => toggleColumn(col)}
+                          onRename={() => handleRenameFixedColumn(col)}
+                          onDragStart={handleColumnDragStart}
+                          onDrop={handleColumnDrop}
+                          onSortAsc={() => { setSortField(col === 'assignee' || col === 'ticket' ? 'title' : col); setSortDir('asc'); }}
+                          onSortDesc={() => { setSortField(col === 'assignee' || col === 'ticket' ? 'title' : col); setSortDir('desc'); }}
+                          onConfigureReminder={col === 'due_date' ? handleConfigureDateReminder : undefined}
+                        />
                       ))}
-                      {dynamicColumns.map(col => (
+                      {visibleDynamicColumns.map(col => (
                         <span key={col.id} className="px-2 py-2 text-center flex items-center justify-center gap-1 group">
                           {col.name}
                           <ColumnHeaderMenu
@@ -654,11 +1422,20 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                             onRename={() => handleRenameColumn(col)}
                             onDelete={() => handleDeleteColumn(col)}
                             onToggleCardVisibility={() => handleToggleCardVisibility(col)}
+                            onHide={() => hideDynamicColumn(col.id)}
                             onMoveLeft={() => handleMoveColumn(col, 'left')}
                             onMoveRight={() => handleMoveColumn(col, 'right')}
                             onEditOptions={() => handleEditColumnOptions(col)}
-                            isFirst={dynamicColumns.indexOf(col) === 0}
-                            isLast={dynamicColumns.indexOf(col) === dynamicColumns.length - 1}
+                            onDuplicate={() => handleDuplicateColumn(col)}
+                            onChangeType={() => handleChangeColumnType(col)}
+                            onFilter={() => handleFilterDynamicColumn(col)}
+                            onClearFilter={() => handleClearDynamicColumnFilter(col.id)}
+                            onGroupByColumn={() => handleToggleDynamicGroup(col.id)}
+                            onAutomation={() => handleToggleColumnAutomation(col)}
+                            isFiltered={!!dynamicColumnFilters[col.id]}
+                            isGrouped={dynamicGroupColumnId === col.id}
+                            isFirst={visibleDynamicColumns.indexOf(col) === 0}
+                            isLast={visibleDynamicColumns.indexOf(col) === visibleDynamicColumns.length - 1}
                           />
                         </span>
                       ))}
@@ -672,7 +1449,7 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                         expandedTasks={expandedTasks} onToggleExpand={toggleExpand}
                         onClickTask={handleClickTask} onInlineUpdate={handleInlineUpdate}
                         onAddSubtask={(parentId) => handleQuickAdd('todo', parentId)}
-                        dynamicColumns={dynamicColumns} customValues={customValues}
+                        dynamicColumns={visibleDynamicColumns} customValues={customValues}
                         onSetCustomValue={handleSetCustomValue}
                         statusLabelsConfig={statusLabelsConfig} priorityLabelsConfig={priorityLabelsConfig}
                         onEditStatusLabels={() => setEditingLabelType('status')}
@@ -687,10 +1464,14 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                         onDeleteTask={handleDeleteTask}
                         draggedTaskId={draggedTaskId} onDragStartTask={onDragStartTask} onDragEndTask={onDragEndTask}
                         commentCounts={commentCounts}
+                        isPinned={pinnedTaskIds.has(task.id)}
+                        onTogglePin={handleTogglePinTask}
+                        availableGroups={customGroups.map(customGroup => ({ key: customGroup.key, label: groupRenames[customGroup.key] || customGroup.label }))}
+                        onMoveToGroup={handleMoveTaskToGroup}
                       />
                     ))}
 
-                    <button onClick={() => handleQuickAdd('todo')} className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5 border-b border-border">
+                    <button onClick={() => handleQuickAdd('todo', undefined, group.key.startsWith('custom-') ? group.key : null)} className="w-full text-left px-6 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-colors flex items-center gap-1.5 border-b border-border">
                       <Plus className="h-3.5 w-3.5" /> Adicionar elemento
                     </button>
 
@@ -718,10 +1499,24 @@ export default function TableViewPage({ projectId, embedded = false }: TableView
                         );
                         return <span key={col} className="px-2 py-1.5" />;
                       })}
-                      {dynamicColumns.map(col => <span key={col.id} className="px-2 py-1.5" />)}
+                      {visibleDynamicColumns.map(col => {
+                        const aggregate = getGroupAggregate(group, col);
+                        return (
+                          <span key={col.id} className="px-2 py-1.5 text-center text-[11px] font-medium text-muted-foreground">
+                            {aggregate}
+                          </span>
+                        );
+                      })}
                       <span />
                     </div>
-                  </div>
+                    </div>
+                    </div>
+                    <StickyGroupScrollbar
+                      groupKey={group.key}
+                      targetRefs={groupScrollRefs}
+                      color={group.color}
+                      refreshKey={`${gridCols}:${orderedColumns.join(',')}:${visibleDynamicColumns.map((column) => column.id).join(',')}:${group.tasks.length}`}
+                    />
                   </div>
                 )}
               </div>

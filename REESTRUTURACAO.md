@@ -148,6 +148,78 @@ membro tira da vista, manager decide o destino. Delete real é exceção, não r
       em task/order/ticket/anexo → negado; manager → ok; arquivar como member → ok)
       *(4 testes adicionados: task DELETE negado para member, archive permitido, comment/attachment own-only; 3/4 passam pre-migration, 4/4 passarão após push)*
 
+- [x] 2.5.8 Liberacoes alinhadas com a navegacao viva: catalogo da aba Liberacoes
+      passou a incluir todos os modulos/setores atuais, Speaks foi padronizado em
+      `speaks` na sidebar/rotas/liberacoes/busca global e regras agora podem ser
+      dadas tambem para usuarios individuais, alem de papeis e setores.
+- [x] 2.5.9 Auditoria de governanca: migration `permission_audit_log`, hook
+      `usePermissionAudit`, historico recente na aba Liberacoes e registro de
+      criacao/edicao/remocao em regras de modulo, usuarios, papeis de org/app,
+      camadas de setor, Suporte TI, reset de senha e exclusao/remocao de usuario.
+- [x] 2.5.10 Ciclo de vida de usuarios: `organization_members.status`
+      (`active`, `invited`, `suspended`), funcoes `is_org_member`, `is_org_admin`,
+      `has_min_role` e `get_dept_member_ids` passam a considerar apenas membros
+      ativos; tela de Usuarios ganhou status, suspender/reativar com auditoria e
+      protecao contra suspender o proprio usuario ou o ultimo admin ativo.
+- [x] 2.5.11 Painel de governanca: auditoria recente ganhou busca, filtros por tipo
+      e acao, exportacao CSV; aba Liberacoes ganhou matriz visivel de acoes
+      criticas por area com nivel esperado e protecao atual.
+- [x] 2.5.12 Convites e bloqueio forte: wizard de usuarios ganhou convite real por
+      e-mail via Supabase Auth, suspensao agora exige motivo no banco/UI, e a
+      Edge Function `admin-set-member-status` permite suspender/reativar com
+      bloqueio/desbloqueio global de login quando necessario.
+- [x] 2.5.13 Convites e acesso temporario: usuarios ganharam reenvio de convite,
+      rastreio de expiracao de convite, validade opcional de acesso e renovacao/
+      limpeza dessa validade pela tela de Usuarios; funcoes RLS agora consideram
+      `access_expires_at`, protegendo tambem o ultimo admin valido.
+- [x] 2.5.14 Aceite e telemetria de acesso: criada migration de `invite_accepted_at`,
+      `first_seen_at` e `last_seen_at`, Edge Function `record-member-access` registra
+      primeiro acesso/aceite de convite com auditoria, tela de Usuarios mostra aceite/
+      ultimo acesso, reenvio em lote de convites pendentes e alertas de acessos vencidos
+      ou perto de vencer.
+- [x] 2.5.15 Presets e simulador de acesso: aba Liberacoes ganhou presets aplicaveis
+      por `upsert` em `module_access`, auditoria de preset aplicado, simulador de acesso
+      por usuario seguindo a ordem usuario > setor > papel > padrao, e revisao visual das
+      camadas/liberacoes para leitura operacional.
+- [x] 2.5.16 Alertas operacionais de governanca: criada RPC
+      `process_access_governance_alerts` e Edge Function
+      `process-access-governance-alerts` para notificar admins sobre convites vencidos,
+      acessos vencidos e acessos perto de vencer, com deduplicacao diaria; STATUS ganhou
+      checklist de publicacao das migrations/functions/secrets.
+- [x] 2.5.17 Pacote de publicacao Supabase: criado script
+      `npm run check:governance-release` para validar migrations/functions locais,
+      listar comandos de deploy, secrets obrigatorias e payloads de smoke das rotinas
+      administrativas; check local confirmou 10/10 migrations e 6/6 functions.
+- [x] 2.5.18 Deploy remoto de governanca: SQL aplicado no Supabase SQL Editor pelo
+      usuario em 2026-07-01; Lovable publicou o frontend em
+      `https://mooui-collab-hub.lovable.app`; 6 Edge Functions publicadas
+      (`admin-set-member-status`, `admin-renew-member-access`, `record-member-access`,
+      `admin-resend-invite`, `process-board-reminders`, `process-access-governance-alerts`);
+      crons ativos para lembretes a cada 15 min e alertas de governanca diariamente
+      08:00 UTC. Sem Resend nesta rodada: `RESEND_API_KEY`, `EMAIL_FROM` e
+      `ALLOWED_ORIGIN` ficaram pendentes/controlados; `admin-resend-invite` opera sem
+      envio externo automatico e pode expor magic link/manual conforme retorno da funcao.
+- [x] 2.5.19 Ferramentas locais de governanca: aba Liberacoes ganhou exportacao e
+      importacao JSON de regras, auditoria de importacao, diagnostico de regras orfas/
+      ineficazes, modulo sensivel liberado, modulo sem editor operacional, setor sem
+      pessoas e usuario sem camada.
+- [x] 2.5.20 Checklist de usuarios: aba Usuarios ganhou painel de riscos por pessoa,
+      destacando convite pendente/vencido, acesso expirado ou perto de vencer, usuario
+      sem camada/setor e suspensao sem bloqueio global; painel inclui acoes rapidas para
+      reenviar convite e ajustar validade de acesso.
+- [x] 2.5.21 Proxima rodada local de governanca: tabela de Usuarios ganhou busca,
+      filtros por status, papel, setor e risco, ordenacao por risco/status/papel/setor/
+      ultimo acesso/validade/nome, contador filtrado e exibicao do papel de permissao
+      junto do papel organizacional.
+- [ ] 2.5.22 Smoke pos-publicacao: testar no app publicado suspender usuario, reativar,
+      renovar validade de acesso, filtros de Usuarios, presets/simulador de Liberacoes,
+      cron/manual de lembretes e cron/manual de alertas de governanca. Nao bloqueia uso
+      inicial, mas deve ser concluido antes da liberacao ampla para toda a equipe.
+- [ ] 2.5.23 Hardening pos-publicacao: restringir `ALLOWED_ORIGIN` para
+      `https://mooui-collab-hub.lovable.app`, configurar Resend/Email quando a operacao
+      quiser envio automatico de convites e revisar os 8 warnings/info de seguranca
+      remanescentes reportados pelo Lovable.
+
 **Verificação:** security.test.ts estendido verde; teste manual com usuário member real;
 relatório de policies sem nenhum DELETE permissivo remanescente.
 **Rollback:** policies antigas versionadas na migration; revert restaura.
@@ -309,6 +381,61 @@ Objetivo: "incluir mais cards" sem escrever página nova.
       com `--force` para deletar e recriar boards preservando colunas e valores por elemento;
       `--dry-run` para simulação. Todos os membros da org adicionados a `project_members`
       de todos os boards Modulo (requisito para visibilidade)
+- [x] 5.7 Motor de grupos no SundayBoard: menu dos 3 pontinhos passou a ter expandir/recolher
+      este grupo, expandir/recolher todos os grupos, expandir/recolher subelementos deste
+      grupo e expandir/recolher todos os subelementos. Grupos comprimidos exibem resumo
+      visual com elementos, subelementos, progresso e comentarios.
+- [x] 5.8 Motor de subelementos: subelementos ganharam checkbox inline na tabela; marcar
+      como concluido grava `status = done`, desmarcar volta para `todo`, reaproveitando o
+      status existente para alimentar progresso e resumos sem schema novo.
+- [x] 5.9 Agregacoes por grupo: linha final do grupo passou a calcular totais para colunas
+      dinamicas de `numeros`, contagem marcada/total para `checkbox` e media para `rating`,
+      considerando elementos e subelementos.
+- [x] 5.10 Barra de progresso em Data Acao: `DateRangeCell` passou a renderizar progresso
+      real do periodo, tooltip com dias totais/restantes/atraso e limitador por percentual
+      de subelementos concluidos quando o elemento possui subelementos.
+- [x] 5.11 Usabilidade de elementos e colunas: elementos ganharam fixar/desafixar no menu
+      da linha (persistido localmente por projeto e ordenado no topo do grupo), atalho
+      inline para adicionar subelemento com expansao automatica, placeholder "Definir datas"
+      abrindo calendario, e menus nos cabecalhos fixos com ordenar/ocultar. Data Acao ganhou
+      configuracao inicial de lembrete por projeto, preparada para evoluir para scheduler.
+- [x] 5.12 Menu de grupo e colunas: grupos ganharam selecionar todos os elementos, duplicar
+      grupo (incluindo subelementos) e exportar CSV compativel com Excel. Colunas dinamicas
+      podem ser ocultadas pelo menu da coluna e reexibidas no controle Ocultar da toolbar.
+- [x] 5.13 Menu de grupo visual: grupos ganharam adicionar grupo visual, mover para cima/baixo,
+      alterar cor do grupo e entrada Apps/automacoes. Configuracoes ainda persistem localmente
+      por projeto; proximo passo eh levar isso para Supabase e evoluir para modelo real de grupos.
+- [x] 5.14 Preferencias persistentes de board: criada migration `board_preferences` com RLS
+      por membro do projeto e hook `useBoardPreferences`. Fixados, colunas dinamicas ocultas,
+      nomes/cores/ordem de grupos, grupos visuais, ordem das colunas fixas e dias de lembrete
+      da Data Acao sincronizam no Supabase, mantendo `localStorage` como fallback.
+- [x] 5.15 Menu avancado de colunas dinamicas: colunas podem ser duplicadas com configuracao
+      e valores, ter tipo alterado, receber filtro por valor, agrupar o board por uma coluna
+      customizada e ativar/desativar automacao registrada no `config` da coluna.
+- [x] 5.16 Lembretes reais de Data Acao: criada migration `board_task_reminders` com fila
+      persistente por tarefa/usuario e hook `useDateActionReminders`. A configuracao de
+      lembrete da Data Acao agora gera lembretes pendentes para tarefas com prazo; envio
+      automatico fica preparado para worker/cron posterior.
+- [x] 5.17 Atualizacoes na linha: menu de cada elemento/subelemento ganhou acao explicita
+      "Adicionar atualizacao", abrindo o painel lateral do item para comentarios, arquivos
+      e historico, alem do indicador de comentarios ja exibido na linha.
+- [x] 5.18 Processamento de lembretes: criada RPC `process_board_task_reminders`
+      para transformar lembretes pendentes em notificacoes e Edge Function
+      `process-board-reminders` para execucao por cron/scheduler com service role.
+- [x] 5.19 Acesso por modulo aplicado na estrutura: sidebar agora filtra itens por
+      `module_access` via resolvedor unico e rotas internas ganharam `ModuleRoute`,
+      impedindo acesso direto por URL a modulos ocultos.
+- [x] 5.20 Grupos customizados reais: criada coluna `tasks.group_key`, motor de grupos
+      passou a respeitar atribuicao manual, elementos podem ser criados dentro de grupos
+      customizados e movidos entre grupos pelo menu da linha.
+- [x] 5.21 Renomeacao de colunas fixas: cabecalhos fixos ganharam acao "Renomear coluna",
+      com nomes persistidos em `board_preferences.fixed_column_labels` e fallback local.
+      Isso permite trocar "Status" para "Fotos/Acao" por board sem alterar schema.
+
+- [x] 5.22 Rolagem fixa por topico: cada grupo expandido do SundayBoard ganhou barra
+      horizontal sincronizada com a tabela do grupo; quando o grupo cruza o rodape do
+      viewport, a barra fica fixa/visivel para navegar colunas sem precisar chegar ao
+      final do bloco.
 
 **Verificação:** criar um board novo de teste com 5 tipos de coluna sem tocar em código.
 

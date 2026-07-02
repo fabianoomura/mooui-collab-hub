@@ -103,9 +103,24 @@ export function useDeletePosition() {
 }
 
 // Members + profiles + roles
+export type OrgMemberStatus = 'active' | 'invited' | 'suspended';
+
 export interface MemberRow {
   user_id: string;
   org_role: 'admin' | 'member';
+  status: OrgMemberStatus;
+  suspended_at: string | null;
+  suspension_reason: string | null;
+  invited_at: string | null;
+  invite_last_sent_at: string | null;
+  invite_expires_at: string | null;
+  invite_accepted_at: string | null;
+  invite_sent_count: number;
+  auth_blocked_at: string | null;
+  auth_block_reason: string | null;
+  access_expires_at: string | null;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
   full_name: string | null;
   avatar_url: string | null;
   department: string | null;
@@ -121,7 +136,7 @@ export function useOrgMembersFull(orgId?: string) {
     queryFn: async () => {
       const { data: members, error: e1 } = await supabase
         .from('organization_members')
-        .select('user_id, role')
+        .select('user_id, role, status, suspended_at, suspension_reason, invited_at, invite_last_sent_at, invite_expires_at, invite_accepted_at, invite_sent_count, auth_blocked_at, auth_block_reason, access_expires_at, first_seen_at, last_seen_at')
         .eq('organization_id', orgId!);
       if (e1) throw e1;
       const ids = (members ?? []).map((m: any) => m.user_id);
@@ -145,6 +160,19 @@ export function useOrgMembersFull(orgId?: string) {
         return {
           user_id: m.user_id,
           org_role: m.role,
+          status: (m.status ?? 'active') as OrgMemberStatus,
+          suspended_at: m.suspended_at ?? null,
+          suspension_reason: m.suspension_reason ?? null,
+          invited_at: m.invited_at ?? null,
+          invite_last_sent_at: m.invite_last_sent_at ?? null,
+          invite_expires_at: m.invite_expires_at ?? null,
+          invite_accepted_at: m.invite_accepted_at ?? null,
+          invite_sent_count: m.invite_sent_count ?? 0,
+          auth_blocked_at: m.auth_blocked_at ?? null,
+          auth_block_reason: m.auth_block_reason ?? null,
+          access_expires_at: m.access_expires_at ?? null,
+          first_seen_at: m.first_seen_at ?? null,
+          last_seen_at: m.last_seen_at ?? null,
           full_name: p.full_name ?? null,
           avatar_url: p.avatar_url ?? null,
           department: p.department ?? null,
@@ -201,6 +229,32 @@ export function useUpdateOrgRole() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['org-members-full'] }),
+  });
+}
+
+export function useUpdateOrgMemberStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      organization_id: string;
+      user_id: string;
+      status: OrgMemberStatus;
+      reason?: string | null;
+      block_auth?: boolean;
+      unblock_auth?: boolean;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('admin-set-member-status', { body: input });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { ok: true; status: OrgMemberStatus; auth_blocked?: boolean; auth_unblocked?: boolean };
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+      qc.invalidateQueries({ queryKey: ['department-members', vars.organization_id] });
+      qc.invalidateQueries({ queryKey: ['module-access'] });
+      qc.invalidateQueries({ queryKey: ['project-members'] });
+      qc.invalidateQueries({ queryKey: ['assignee-profiles'] });
+    },
   });
 }
 
@@ -267,6 +321,41 @@ export function useResetUserPassword() {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       return data as { ok: true };
+    },
+  });
+}
+
+export function useResendOrgInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { organization_id: string; user_id: string; redirect_to?: string }) => {
+      const { data, error } = await supabase.functions.invoke('admin-resend-invite', { body: input });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { ok: true; method: string; invite_expires_at: string };
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+      qc.invalidateQueries({ queryKey: ['department-members', vars.organization_id] });
+    },
+  });
+}
+
+export function useUpdateOrgMemberAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { organization_id: string; user_id: string; access_expires_at?: string | null }) => {
+      const { data, error } = await supabase.functions.invoke('admin-renew-member-access', { body: input });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { ok: true; access_expires_at: string | null };
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['org-members-full'] });
+      qc.invalidateQueries({ queryKey: ['module-access'] });
+      qc.invalidateQueries({ queryKey: ['project-members'] });
+      qc.invalidateQueries({ queryKey: ['assignee-profiles'] });
+      qc.invalidateQueries({ queryKey: ['department-members', vars.organization_id] });
     },
   });
 }
@@ -398,13 +487,16 @@ export function useCreateOrgUser() {
   return useMutation({
     mutationFn: async (input: {
       email: string;
-      password: string;
+      password?: string;
       full_name: string;
       organization_id: string;
       org_role: 'admin' | 'member';
       department?: string;
       position?: string;
-      app_role?: 'admin' | 'manager' | 'member';
+      app_role?: 'admin' | 'director' | 'manager' | 'operator' | 'member';
+      send_invite?: boolean;
+      redirect_to?: string;
+      access_expires_at?: string | null;
     }) => {
       const { data, error } = await supabase.functions.invoke('admin-create-user', { body: input });
       if (error) throw error;

@@ -7,6 +7,7 @@ import {
   useOrgMembersFull,
   useUpdateMemberProfile,
   useUpdateOrgRole,
+  useUpdateOrgMemberStatus,
   useUpdateAppRole,
   useRemoveOrgMember,
   useDeleteOrgUser,
@@ -18,10 +19,13 @@ import {
   useItSupportMembers,
   useToggleItSupport,
   useResetUserPassword,
+  useResendOrgInvite,
+  useUpdateOrgMemberAccess,
 } from '@/hooks/useOrgSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +36,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown, Mail, ArrowLeft, ArrowRight, KeyRound, Wrench, Pencil, Lock } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Shield, Users as UsersIcon, Building2, Settings as SettingsIcon, User as UserIcon, Check, ChevronDown, Mail, ArrowLeft, ArrowRight, KeyRound, Wrench, Pencil, Lock, UserCheck, UserX, Send, CalendarClock } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 
@@ -43,6 +47,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { writePermissionAudit } from '@/hooks/usePermissionAudit';
 
 function OrgLogoUploader() {
   const { currentOrg } = useOrganization();
@@ -137,9 +142,25 @@ function OrgLogoUploader() {
 }
 
 type AppRole = 'admin' | 'manager' | 'member' | 'director' | 'operator';
+type UserStatusFilter = 'all' | 'active' | 'pending_invite' | 'invite_expired' | 'access_expiring' | 'access_expired' | 'suspended' | 'with_risk';
+type UserRoleFilter = 'all' | 'admin' | 'director' | 'manager' | 'operator' | 'member';
+type UserRiskFilter = 'all' | 'danger' | 'warning' | 'info' | 'none';
+type UserSortKey = 'risk' | 'name' | 'status' | 'role' | 'department' | 'last_seen' | 'access';
+
+const APP_ROLE_LABELS: Record<AppRole, string> = {
+  admin: 'Admin',
+  director: 'Diretor',
+  manager: 'Manager',
+  operator: 'Operador',
+  member: 'Membro',
+};
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
+
+const auditPermissionChange = (input: Parameters<typeof writePermissionAudit>[0]) => {
+  void writePermissionAudit(input).catch((error) => console.warn('Permission audit write failed', error));
+};
 
 export default function SettingsPage() {
   const { currentOrg, isAdmin } = useOrganization();
@@ -224,29 +245,449 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
   const removeDeptMember = useRemoveDepartmentMember();
   const updateProfile = useUpdateMemberProfile();
   const updateOrgRole = useUpdateOrgRole();
+  const updateMemberStatus = useUpdateOrgMemberStatus();
   const removeMember = useRemoveOrgMember();
   const deleteUser = useDeleteOrgUser();
   const resetPassword = useResetUserPassword();
+  const resendInvite = useResendOrgInvite();
+  const updateAccess = useUpdateOrgMemberAccess();
   const confirm = useConfirm();
 
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<{ userId: string; name: string } | null>(null);
   const [editTarget, setEditTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<{
+    userId: string;
+    name: string;
+    orgRole: string;
+    appRole: string;
+    status: string;
+  } | null>(null);
+  const [accessTarget, setAccessTarget] = useState<{
+    userId: string;
+    name: string;
+    currentExpiresAt: string | null;
+  } | null>(null);
   const [editName, setEditName] = useState('');
   const [newPwd, setNewPwd] = useState('');
+  const [suspendReason, setSuspendReason] = useState('');
+  const [blockAuth, setBlockAuth] = useState(false);
+  const [accessDate, setAccessDate] = useState('');
+  const [bulkResending, setBulkResending] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<UserStatusFilter>('all');
+  const [roleFilter, setRoleFilter] = useState<UserRoleFilter>('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [riskFilter, setRiskFilter] = useState<UserRiskFilter>('all');
+  const [sortBy, setSortBy] = useState<UserSortKey>('risk');
 
   const openEditUser = (userId: string, fullName: string | null) => {
     setEditTarget({ userId, name: fullName || '' });
     setEditName(fullName || '');
   };
 
+  const dateInputValue = (value: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+  };
+
+  const nowMs = Date.now();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const activeAdminCount = members.filter((member) => {
+    if (member.org_role !== 'admin' || member.status !== 'active') return false;
+    return !member.access_expires_at || new Date(member.access_expires_at).getTime() > nowMs;
+  }).length;
+  const pendingInviteMembers = members.filter((member) =>
+    member.status !== 'suspended' && !!member.invited_at && !member.invite_accepted_at,
+  );
+  const expiredInviteMembers = pendingInviteMembers.filter((member) =>
+    !!member.invite_expires_at && new Date(member.invite_expires_at).getTime() < nowMs,
+  );
+  const accessExpiredMembers = members.filter((member) =>
+    member.status === 'active' && !!member.access_expires_at && new Date(member.access_expires_at).getTime() <= nowMs,
+  );
+  const accessExpiringSoonMembers = members.filter((member) => {
+    if (member.status !== 'active' || !member.access_expires_at) return false;
+    const expiresAt = new Date(member.access_expires_at).getTime();
+    return expiresAt > nowMs && expiresAt <= nowMs + weekMs;
+  });
+  const deptCountByUser = new Map<string, number>();
+  deptMembers.forEach((deptMember) => {
+    deptCountByUser.set(deptMember.user_id, (deptCountByUser.get(deptMember.user_id) || 0) + 1);
+  });
+  const getTime = (value: string | null) => {
+    if (!value) return null;
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? null : time;
+  };
+  const getMemberDeptIds = (userId: string) =>
+    deptMembers.filter((deptMember) => deptMember.user_id === userId).map((deptMember) => deptMember.department_id);
+  const getMemberDeptNames = (userId: string) => {
+    const userDeptIds = getMemberDeptIds(userId);
+    return departments.filter((department) => userDeptIds.includes(department.id)).map((department) => department.name);
+  };
+  const getMemberStatusKey = (member: (typeof members)[number]): Exclude<UserStatusFilter, 'all' | 'with_risk'> => {
+    const accessMs = getTime(member.access_expires_at);
+    const inviteMs = getTime(member.invite_expires_at);
+    const hasPendingInvite = member.status !== 'suspended' && !!member.invited_at && !member.invite_accepted_at;
+
+    if (member.status === 'suspended') return 'suspended';
+    if (accessMs !== null && accessMs <= nowMs) return 'access_expired';
+    if (hasPendingInvite && inviteMs !== null && inviteMs < nowMs) return 'invite_expired';
+    if (hasPendingInvite) return 'pending_invite';
+    if (accessMs !== null && accessMs > nowMs && accessMs <= nowMs + weekMs) return 'access_expiring';
+    return 'active';
+  };
+  const allUserRiskRows = members.map((member) => {
+    const risks: Array<{ label: string; tone: 'danger' | 'warning' | 'info' }> = [];
+    const memberAccessMs = getTime(member.access_expires_at);
+    const memberInviteExpired = getTime(member.invite_expires_at) !== null && getTime(member.invite_expires_at)! < nowMs;
+    const memberAccessExpired = memberAccessMs !== null && memberAccessMs <= nowMs;
+    const memberAccessSoon = memberAccessMs !== null && memberAccessMs > nowMs && memberAccessMs <= nowMs + weekMs;
+    const memberPendingInvite = member.status !== 'suspended' && !!member.invited_at && !member.invite_accepted_at;
+
+    if (memberPendingInvite) risks.push({ label: memberInviteExpired ? 'convite vencido' : 'convite pendente', tone: memberInviteExpired ? 'danger' : 'warning' });
+    if (memberAccessExpired) risks.push({ label: 'acesso expirado', tone: 'danger' });
+    else if (memberAccessSoon) risks.push({ label: 'acesso vence em breve', tone: 'warning' });
+    if (member.status === 'active' && member.org_role !== 'admin' && (deptCountByUser.get(member.user_id) || 0) === 0) {
+      risks.push({ label: 'sem camada/setor', tone: 'warning' });
+    }
+    if (member.status === 'suspended' && !member.auth_blocked_at) risks.push({ label: 'suspenso sem bloqueio global', tone: 'info' });
+
+    return { member, risks };
+  });
+  const riskByUser = new Map(allUserRiskRows.map((row) => [row.member.user_id, row.risks]));
+  const riskToneRank = { danger: 3, warning: 2, info: 1 } as const;
+  const getRiskScore = (userId: string) =>
+    Math.max(0, ...(riskByUser.get(userId) ?? []).map((risk) => riskToneRank[risk.tone]));
+  const getDisplayName = (member: (typeof members)[number]) =>
+    (member.full_name || member.email || 'Usuario').toLocaleLowerCase('pt-BR');
+  const statusSortRank: Record<Exclude<UserStatusFilter, 'all' | 'with_risk'>, number> = {
+    access_expired: 0,
+    invite_expired: 1,
+    pending_invite: 2,
+    access_expiring: 3,
+    suspended: 4,
+    active: 5,
+  };
+  const roleSortRank: Record<UserRoleFilter, number> = {
+    admin: 0,
+    director: 1,
+    manager: 2,
+    operator: 3,
+    member: 4,
+    all: 5,
+  };
+  const visibleMembers = members
+    .filter((member) => {
+      const risks = riskByUser.get(member.user_id) ?? [];
+      const statusKey = getMemberStatusKey(member);
+      const search = userSearch.trim().toLocaleLowerCase('pt-BR');
+      const deptIds = getMemberDeptIds(member.user_id);
+      const deptNames = getMemberDeptNames(member.user_id);
+      const matchesSearch = !search || [
+        member.full_name,
+        member.email,
+        member.department,
+        member.org_role,
+        member.app_role,
+        ...deptNames,
+      ].some((value) => (value || '').toLocaleLowerCase('pt-BR').includes(search));
+      const matchesStatus =
+        statusFilter === 'all'
+        || (statusFilter === 'with_risk' ? risks.length > 0 : statusKey === statusFilter);
+      const matchesRole =
+        roleFilter === 'all' || member.org_role === roleFilter || member.app_role === roleFilter;
+      const matchesDepartment =
+        departmentFilter === 'all'
+        || (departmentFilter === 'none' ? deptIds.length === 0 : deptIds.includes(departmentFilter));
+      const matchesRisk =
+        riskFilter === 'all'
+        || (riskFilter === 'none' ? risks.length === 0 : risks.some((risk) => risk.tone === riskFilter));
+      return matchesSearch && matchesStatus && matchesRole && matchesDepartment && matchesRisk;
+    })
+    .sort((a, b) => {
+      const nameCompare = getDisplayName(a).localeCompare(getDisplayName(b), 'pt-BR');
+      if (sortBy === 'risk') return getRiskScore(b.user_id) - getRiskScore(a.user_id) || statusSortRank[getMemberStatusKey(a)] - statusSortRank[getMemberStatusKey(b)] || nameCompare;
+      if (sortBy === 'status') return statusSortRank[getMemberStatusKey(a)] - statusSortRank[getMemberStatusKey(b)] || getRiskScore(b.user_id) - getRiskScore(a.user_id) || nameCompare;
+      if (sortBy === 'role') return roleSortRank[a.app_role] - roleSortRank[b.app_role] || nameCompare;
+      if (sortBy === 'department') return getMemberDeptNames(a.user_id).join(', ').localeCompare(getMemberDeptNames(b.user_id).join(', '), 'pt-BR') || nameCompare;
+      if (sortBy === 'last_seen') return (getTime(b.last_seen_at) || 0) - (getTime(a.last_seen_at) || 0) || nameCompare;
+      if (sortBy === 'access') return (getTime(a.access_expires_at) || Number.MAX_SAFE_INTEGER) - (getTime(b.access_expires_at) || Number.MAX_SAFE_INTEGER) || nameCompare;
+      return nameCompare;
+    });
+  const userRiskRows = allUserRiskRows.filter((row) => row.risks.length > 0);
+  const hasActiveUserFilters =
+    !!userSearch.trim()
+    || statusFilter !== 'all'
+    || roleFilter !== 'all'
+    || departmentFilter !== 'all'
+    || riskFilter !== 'all'
+    || sortBy !== 'risk';
+  const resetUserFilters = () => {
+    setUserSearch('');
+    setStatusFilter('all');
+    setRoleFilter('all');
+    setDepartmentFilter('all');
+    setRiskFilter('all');
+    setSortBy('risk');
+  };
+
+  const handleBulkResendInvites = async () => {
+    if (pendingInviteMembers.length === 0) return;
+    setBulkResending(true);
+    let sent = 0;
+    let failed = 0;
+    try {
+      for (const member of pendingInviteMembers) {
+        try {
+          const result = await resendInvite.mutateAsync({
+            organization_id: orgId,
+            user_id: member.user_id,
+            redirect_to: `${window.location.origin}/login`,
+          });
+          sent += 1;
+          auditPermissionChange({
+            organization_id: orgId,
+            target_user_id: member.user_id,
+            entity_type: 'organization_user',
+            entity_id: member.user_id,
+            action: 'resend_invite_bulk',
+            before_state: { invite_last_sent_at: member.invite_last_sent_at, invite_expires_at: member.invite_expires_at },
+            after_state: { invite_expires_at: result.invite_expires_at },
+            metadata: { method: result.method },
+          });
+        } catch (error) {
+          failed += 1;
+          console.warn('Bulk invite resend failed', error);
+        }
+      }
+      if (sent) toast.success(`${sent} convite${sent > 1 ? 's' : ''} reenviado${sent > 1 ? 's' : ''}`);
+      if (failed) toast.error(`${failed} convite${failed > 1 ? 's' : ''} nao foi${failed > 1 ? 'ram' : ''} reenviado${failed > 1 ? 's' : ''}`);
+    } finally {
+      setBulkResending(false);
+    }
+  };
+
   return (
     <div>
-      {canEdit && (
-        <div className="flex justify-end mb-4">
-          <Button onClick={() => setShowCreate(true)}><UserPlus className="h-4 w-4 mr-2" />Novo usuário</Button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2 text-xs">
+          {expiredInviteMembers.length > 0 && (
+            <Badge variant="outline" className="border-destructive/40 text-destructive">
+              {expiredInviteMembers.length} convite{expiredInviteMembers.length > 1 ? 's' : ''} vencido{expiredInviteMembers.length > 1 ? 's' : ''}
+            </Badge>
+          )}
+          {accessExpiringSoonMembers.length > 0 && (
+            <Badge variant="outline" className="border-amber-500/60 text-amber-700">
+              {accessExpiringSoonMembers.length} acesso{accessExpiringSoonMembers.length > 1 ? 's' : ''} vence{accessExpiringSoonMembers.length > 1 ? 'm' : ''} em 7 dias
+            </Badge>
+          )}
+          {accessExpiredMembers.length > 0 && (
+            <Badge variant="destructive">
+              {accessExpiredMembers.length} acesso{accessExpiredMembers.length > 1 ? 's' : ''} expirado{accessExpiredMembers.length > 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
+        {canEdit && (
+          <div className="flex flex-wrap justify-end gap-2">
+            {pendingInviteMembers.length > 0 && (
+              <Button
+                variant="outline"
+                disabled={bulkResending || resendInvite.isPending}
+                onClick={handleBulkResendInvites}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Reenviar pendentes ({pendingInviteMembers.length})
+              </Button>
+            )}
+            <Button onClick={() => setShowCreate(true)}><UserPlus className="h-4 w-4 mr-2" />Novo usuário</Button>
+          </div>
+        )}
+      </div>
+
+      {userRiskRows.length > 0 && (
+        <div className="mb-4 rounded-lg border bg-card p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold">Checklist de usuarios</p>
+              <p className="text-xs text-muted-foreground">Pontos que merecem ajuste em convite, validade, camada ou bloqueio.</p>
+            </div>
+            <Badge variant="outline" className="text-[10px]">
+              {userRiskRows.length} pessoa{userRiskRows.length === 1 ? '' : 's'}
+            </Badge>
+          </div>
+          <div className="divide-y rounded-md border">
+            {userRiskRows.slice(0, 6).map(({ member, risks }) => {
+              const memberPendingInvite = member.status !== 'suspended' && !!member.invited_at && !member.invite_accepted_at;
+              return (
+                <div key={member.user_id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                  <span className="min-w-[160px] flex-1 font-medium">{member.full_name || member.email || 'Usuario'}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {risks.map((risk) => (
+                      <Badge
+                        key={risk.label}
+                        variant={risk.tone === 'danger' ? 'destructive' : 'outline'}
+                        className={`text-[10px] ${risk.tone === 'warning' ? 'border-amber-500/60 text-amber-700' : ''}`}
+                      >
+                        {risk.label}
+                      </Badge>
+                    ))}
+                  </div>
+                  {canEdit && (
+                    <div className="ml-auto flex items-center gap-1">
+                      {memberPendingInvite && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1.5"
+                          disabled={resendInvite.isPending}
+                          onClick={() => {
+                            resendInvite.mutate(
+                              { organization_id: orgId, user_id: member.user_id, redirect_to: `${window.location.origin}/login` },
+                              {
+                                onSuccess: (result) => {
+                                  auditPermissionChange({
+                                    organization_id: orgId,
+                                    target_user_id: member.user_id,
+                                    entity_type: 'organization_user',
+                                    entity_id: member.user_id,
+                                    action: 'resend_invite',
+                                    before_state: { invite_last_sent_at: member.invite_last_sent_at, invite_expires_at: member.invite_expires_at },
+                                    after_state: { invite_expires_at: result.invite_expires_at },
+                                    metadata: { method: result.method, source: 'user_checklist' },
+                                  });
+                                  toast.success('Convite reenviado');
+                                },
+                                onError: (e: unknown) => toast.error(getErrorMessage(e, 'Erro ao reenviar convite')),
+                              },
+                            );
+                          }}
+                        >
+                          <Send className="h-3.5 w-3.5" /> Reenviar
+                        </Button>
+                      )}
+                      {member.status !== 'suspended' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1.5"
+                          disabled={updateAccess.isPending}
+                          onClick={() => {
+                            setAccessTarget({
+                              userId: member.user_id,
+                              name: member.full_name || member.email || 'Usuario',
+                              currentExpiresAt: member.access_expires_at,
+                            });
+                            setAccessDate(dateInputValue(member.access_expires_at));
+                          }}
+                        >
+                          <CalendarClock className="h-3.5 w-3.5" /> Validade
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
+
+      <div className="mb-4 rounded-lg border bg-card p-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold">Operacao de usuarios</p>
+            <p className="text-xs text-muted-foreground">Filtre por risco, status, papel e setor para revisar acessos.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px]">
+              {visibleMembers.length}/{members.length} usuario{members.length === 1 ? '' : 's'}
+            </Badge>
+            {hasActiveUserFilters && (
+              <Button variant="ghost" size="sm" className="h-8" onClick={resetUserFilters}>
+                Limpar
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
+          <Input
+            value={userSearch}
+            onChange={(event) => setUserSearch(event.target.value)}
+            placeholder="Buscar nome, email ou setor"
+            className="h-9 xl:col-span-2"
+          />
+          <Select value={statusFilter} onValueChange={(value: UserStatusFilter) => setStatusFilter(value)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="with_risk">Com risco</SelectItem>
+              <SelectItem value="active">Ativo regular</SelectItem>
+              <SelectItem value="pending_invite">Convite pendente</SelectItem>
+              <SelectItem value="invite_expired">Convite vencido</SelectItem>
+              <SelectItem value="access_expiring">Acesso vence em breve</SelectItem>
+              <SelectItem value="access_expired">Acesso vencido</SelectItem>
+              <SelectItem value="suspended">Suspenso</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={roleFilter} onValueChange={(value: UserRoleFilter) => setRoleFilter(value)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Papel" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os papeis</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="director">Diretor</SelectItem>
+              <SelectItem value="manager">Manager</SelectItem>
+              <SelectItem value="operator">Operador</SelectItem>
+              <SelectItem value="member">Membro</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Setor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os setores</SelectItem>
+              <SelectItem value="none">Sem setor</SelectItem>
+              {departments.map((department) => (
+                <SelectItem key={department.id} value={department.id}>{department.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={riskFilter} onValueChange={(value: UserRiskFilter) => setRiskFilter(value)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Risco" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os riscos</SelectItem>
+              <SelectItem value="danger">Critico</SelectItem>
+              <SelectItem value="warning">Atencao</SelectItem>
+              <SelectItem value="info">Informativo</SelectItem>
+              <SelectItem value="none">Sem risco</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(value: UserSortKey) => setSortBy(value)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="risk">Ordenar por risco</SelectItem>
+              <SelectItem value="status">Ordenar por status</SelectItem>
+              <SelectItem value="role">Ordenar por papel</SelectItem>
+              <SelectItem value="department">Ordenar por setor</SelectItem>
+              <SelectItem value="last_seen">Ordenar por ultimo acesso</SelectItem>
+              <SelectItem value="access">Ordenar por validade</SelectItem>
+              <SelectItem value="name">Ordenar por nome</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -255,17 +696,27 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
               <th className="px-4 py-2 font-medium">Usuário</th>
               <th className="px-4 py-2 font-medium">Setores</th>
               <th className="px-4 py-2 font-medium">Papel na org</th>
+              <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
-            {members.map((m) => {
+            {visibleMembers.map((m) => {
               const initials = (m.full_name ?? '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
               const isCurrentUser = m.user_id === user?.id;
-              const isLastAdmin = m.org_role === 'admin' && members.filter((member) => member.org_role === 'admin').length <= 1;
+              const isLastAdmin = m.org_role === 'admin' && m.status === 'active' && activeAdminCount <= 1;
               const canDeleteUser = canEdit && !isCurrentUser && !isLastAdmin;
+              const isSuspended = m.status === 'suspended';
+              const hasPendingInvite = !isSuspended && !!m.invited_at && !m.invite_accepted_at;
+              const inviteAccepted = !isSuspended && !!m.invite_accepted_at;
+              const inviteExpired = !!m.invite_expires_at && new Date(m.invite_expires_at).getTime() < nowMs;
+              const accessExpiresAtMs = m.access_expires_at ? new Date(m.access_expires_at).getTime() : null;
+              const accessExpired = !!accessExpiresAtMs && accessExpiresAtMs <= nowMs;
+              const accessExpiringSoon = !!accessExpiresAtMs && accessExpiresAtMs > nowMs && accessExpiresAtMs <= nowMs + weekMs;
+              const accessDaysLeft = accessExpiresAtMs ? Math.max(0, Math.ceil((accessExpiresAtMs - nowMs) / (24 * 60 * 60 * 1000))) : null;
+              const canChangeStatus = canEdit && !isCurrentUser && !isLastAdmin;
               return (
-                <tr key={m.user_id} className="border-t">
+                <tr key={m.user_id} className={`border-t ${isSuspended ? 'bg-muted/30 text-muted-foreground' : ''}`}>
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-7 w-7">
@@ -304,12 +755,32 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                       const toggle = async (deptId: string, deptName: string, on: boolean) => {
                         if (on) {
                           await addDeptMember.mutateAsync({ department_id: deptId, user_id: m.user_id, role: 'operator' });
+                          auditPermissionChange({
+                            organization_id: orgId,
+                            target_user_id: m.user_id,
+                            entity_type: 'department_member',
+                            entity_id: `${deptId}:${m.user_id}`,
+                            action: 'add_department_member',
+                            before_state: null,
+                            after_state: { department_id: deptId, department_name: deptName, user_id: m.user_id, role: 'operator' },
+                          });
                           if (userDeptIds.length === 0) {
                             updateProfile.mutate({ user_id: m.user_id, department: deptName });
                           }
                         } else {
                           const row = deptMembers.find((dm) => dm.user_id === m.user_id && dm.department_id === deptId);
-                          if (row) await removeDeptMember.mutateAsync(row.id);
+                          if (row) {
+                            await removeDeptMember.mutateAsync(row.id);
+                            auditPermissionChange({
+                              organization_id: orgId,
+                              target_user_id: m.user_id,
+                              entity_type: 'department_member',
+                              entity_id: row.id,
+                              action: 'remove_department_member',
+                              before_state: { department_id: deptId, department_name: deptName, user_id: m.user_id, role: row.role },
+                              after_state: null,
+                            });
+                          }
                           if (m.department === deptName) {
                             const remaining = userDepts.filter((d) => d.id !== deptId);
                             updateProfile.mutate({ user_id: m.user_id, department: remaining[0]?.name ?? null });
@@ -378,7 +849,20 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                     <Select
                       disabled={!canEdit}
                       value={m.org_role}
-                      onValueChange={(v: 'admin' | 'member') => updateOrgRole.mutate({ organization_id: orgId, user_id: m.user_id, role: v })}
+                      onValueChange={(v: 'admin' | 'member') => updateOrgRole.mutate(
+                        { organization_id: orgId, user_id: m.user_id, role: v },
+                        {
+                          onSuccess: () => auditPermissionChange({
+                            organization_id: orgId,
+                            target_user_id: m.user_id,
+                            entity_type: 'organization_member',
+                            entity_id: `${orgId}:${m.user_id}`,
+                            action: 'update_org_role',
+                            before_state: { user_id: m.user_id, org_role: m.org_role },
+                            after_state: { user_id: m.user_id, org_role: v },
+                          }),
+                        },
+                      )}
                     >
                       <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -386,6 +870,66 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                         <SelectItem value="member">Membro</SelectItem>
                       </SelectContent>
                     </Select>
+                    <div className="mt-1 text-[10px] text-muted-foreground">
+                      Permissao: {APP_ROLE_LABELS[m.app_role]}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex flex-col gap-1">
+                      <Badge
+                        variant={isSuspended || accessExpired ? 'destructive' : hasPendingInvite ? 'outline' : 'secondary'}
+                        className="w-fit text-[10px]"
+                      >
+                        {isSuspended ? 'Suspenso' : accessExpired ? 'Acesso vencido' : hasPendingInvite ? 'Convite pendente' : 'Ativo'}
+                      </Badge>
+                      {hasPendingInvite && m.invite_expires_at && (
+                        <span className={`text-[10px] ${inviteExpired ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          convite {inviteExpired ? 'expirou' : 'expira'} em {new Date(m.invite_expires_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                      {inviteAccepted && (
+                        <span className="text-[10px] text-muted-foreground">
+                          convite aceito em {new Date(m.invite_accepted_at!).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                      {m.first_seen_at && (
+                        <span className="text-[10px] text-muted-foreground">
+                          primeiro acesso {new Date(m.first_seen_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                      {m.last_seen_at && (
+                        <span className="text-[10px] text-muted-foreground">
+                          ultimo acesso {new Date(m.last_seen_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                      {m.access_expires_at && (
+                        <Badge
+                          variant={accessExpired ? 'destructive' : 'outline'}
+                          className={`w-fit text-[10px] ${accessExpiringSoon ? 'border-amber-500/60 text-amber-700' : ''}`}
+                        >
+                          {accessExpired
+                            ? 'acesso expirado'
+                            : accessExpiringSoon
+                              ? `vence em ${accessDaysLeft} dia${accessDaysLeft === 1 ? '' : 's'}`
+                              : `acesso ate ${new Date(m.access_expires_at).toLocaleDateString('pt-BR')}`}
+                        </Badge>
+                      )}
+                      {isSuspended && m.suspended_at && (
+                        <span className="text-[10px] text-muted-foreground">
+                          desde {new Date(m.suspended_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                      {m.auth_blocked_at && (
+                        <Badge variant="outline" className="w-fit text-[10px] border-destructive/40 text-destructive">
+                          login bloqueado
+                        </Badge>
+                      )}
+                      {isSuspended && m.suspension_reason && (
+                        <span className="max-w-[180px] truncate text-[10px] text-muted-foreground" title={m.suspension_reason}>
+                          {m.suspension_reason}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2">
                     {canEdit && (
@@ -408,6 +952,108 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                             setResetTarget({ userId: m.user_id, name: m.full_name || 'Usuário' });
                           }}
                         ><KeyRound className="h-4 w-4" /></Button>
+                        {hasPendingInvite && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Reenviar convite"
+                            disabled={resendInvite.isPending}
+                            onClick={() => {
+                              resendInvite.mutate(
+                                { organization_id: orgId, user_id: m.user_id, redirect_to: `${window.location.origin}/login` },
+                                {
+                                  onSuccess: (result) => {
+                                    auditPermissionChange({
+                                      organization_id: orgId,
+                                      target_user_id: m.user_id,
+                                      entity_type: 'organization_user',
+                                      entity_id: m.user_id,
+                                      action: 'resend_invite',
+                                      before_state: { invite_last_sent_at: m.invite_last_sent_at, invite_expires_at: m.invite_expires_at },
+                                      after_state: { invite_expires_at: result.invite_expires_at },
+                                      metadata: { method: result.method },
+                                    });
+                                    toast.success('Convite reenviado');
+                                  },
+                                  onError: (e: unknown) => toast.error(getErrorMessage(e, 'Erro ao reenviar convite')),
+                                },
+                              );
+                            }}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant={accessExpired || accessExpiringSoon ? 'outline' : 'ghost'}
+                          size="icon"
+                          className="h-8 w-8"
+                          title={accessExpired ? 'Renovar acesso' : accessExpiringSoon ? 'Acesso perto de vencer' : 'Configurar validade do acesso'}
+                          disabled={updateAccess.isPending || isSuspended}
+                          onClick={() => {
+                            setAccessTarget({
+                              userId: m.user_id,
+                              name: m.full_name || m.email || 'Usuario',
+                              currentExpiresAt: m.access_expires_at,
+                            });
+                            setAccessDate(dateInputValue(m.access_expires_at));
+                          }}
+                        >
+                          <CalendarClock className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant={isSuspended ? 'outline' : 'ghost'}
+                          size="sm"
+                          className="h-8 gap-1.5"
+                          disabled={!canChangeStatus || updateMemberStatus.isPending}
+                          title={isCurrentUser ? 'Voce nao pode alterar seu proprio usuario' : isLastAdmin ? 'Nao e possivel suspender o ultimo admin ativo' : isSuspended ? 'Reativar usuario' : 'Suspender usuario'}
+                          onClick={() => {
+                            if (!isSuspended) {
+                              setSuspendReason('');
+                              setBlockAuth(false);
+                              setSuspendTarget({
+                                userId: m.user_id,
+                                name: m.full_name || m.email || 'Usuario',
+                                orgRole: m.org_role,
+                                appRole: m.app_role,
+                                status: m.status,
+                              });
+                              return;
+                            }
+                            updateMemberStatus.mutate(
+                              { organization_id: orgId, user_id: m.user_id, status: 'active', unblock_auth: true },
+                              {
+                                onSuccess: (result) => {
+                                  auditPermissionChange({
+                                    organization_id: orgId,
+                                    target_user_id: m.user_id,
+                                    entity_type: 'organization_member',
+                                    entity_id: `${orgId}:${m.user_id}`,
+                                    action: 'reactivate_user',
+                                    before_state: {
+                                      user_id: m.user_id,
+                                      status: m.status,
+                                      org_role: m.org_role,
+                                      app_role: m.app_role,
+                                    },
+                                    after_state: {
+                                      user_id: m.user_id,
+                                      status: 'active',
+                                      org_role: m.org_role,
+                                      app_role: m.app_role,
+                                    },
+                                    metadata: { auth_unblocked: !!result?.auth_unblocked },
+                                  });
+                                  toast.success(result?.auth_unblocked ? 'Usuario reativado e login desbloqueado' : 'Usuario reativado');
+                                },
+                                onError: (e: unknown) => toast.error(getErrorMessage(e, 'Erro ao alterar status')),
+                              },
+                            );
+                          }}
+                        >
+                          {isSuspended ? <UserCheck className="h-3.5 w-3.5" /> : <UserX className="h-3.5 w-3.5" />}
+                          {isSuspended ? 'Reativar' : 'Suspender'}
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -423,10 +1069,45 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                             });
                             if (!ok) return;
                             deleteUser.mutate({ organization_id: orgId, user_id: m.user_id }, {
-                              onSuccess: () => toast.success('Usuario excluido'),
+                              onSuccess: (result: any) => {
+                                auditPermissionChange({
+                                  organization_id: orgId,
+                                  target_user_id: m.user_id,
+                                  entity_type: 'organization_user',
+                                  entity_id: m.user_id,
+                                  action: 'delete_user',
+                                  before_state: {
+                                    user_id: m.user_id,
+                                    full_name: m.full_name,
+                                    email: m.email,
+                                    org_role: m.org_role,
+                                    app_role: m.app_role,
+                                  },
+                                  after_state: null,
+                                  metadata: { deleted_auth_user: !!result?.deleted_auth_user },
+                                });
+                                toast.success('Usuario excluido');
+                              },
                               onError: () => {
                                 removeMember.mutate({ organization_id: orgId, user_id: m.user_id }, {
-                                  onSuccess: () => toast.success('Usuario removido da organizacao'),
+                                  onSuccess: () => {
+                                    auditPermissionChange({
+                                      organization_id: orgId,
+                                      target_user_id: m.user_id,
+                                      entity_type: 'organization_member',
+                                      entity_id: `${orgId}:${m.user_id}`,
+                                      action: 'remove_org_member',
+                                      before_state: {
+                                        user_id: m.user_id,
+                                        full_name: m.full_name,
+                                        email: m.email,
+                                        org_role: m.org_role,
+                                        app_role: m.app_role,
+                                      },
+                                      after_state: null,
+                                    });
+                                    toast.success('Usuario removido da organizacao');
+                                  },
                                   onError: () => toast.error('Erro ao excluir usuario'),
                                 });
                               },
@@ -440,7 +1121,10 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
               );
             })}
             {members.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">Nenhum membro</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Nenhum membro</td></tr>
+            )}
+            {members.length > 0 && visibleMembers.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Nenhum usuario encontrado com os filtros atuais</td></tr>
             )}
           </tbody>
         </table>
@@ -494,6 +1178,171 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!suspendTarget} onOpenChange={(o) => {
+        if (!o) {
+          setSuspendTarget(null);
+          setSuspendReason('');
+          setBlockAuth(false);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Suspender usuario</DialogTitle>
+            <DialogDescription>
+              A pessoa perde acesso a esta organizacao. O motivo fica registrado na auditoria.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">{suspendTarget?.name}</p>
+              <p className="text-xs text-muted-foreground">Papel org: {suspendTarget?.orgRole} · Permissao: {suspendTarget?.appRole}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Motivo da suspensao</Label>
+              <Textarea
+                value={suspendReason}
+                onChange={(event) => setSuspendReason(event.target.value)}
+                placeholder="Ex.: desligamento, acesso temporariamente revogado, revisao de permissao..."
+                rows={4}
+              />
+            </div>
+            <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+              <Checkbox checked={blockAuth} onCheckedChange={(v) => setBlockAuth(v === true)} />
+              <span>
+                <span className="block font-medium">Bloquear login global desta conta</span>
+                <span className="block text-xs text-muted-foreground">
+                  Use quando a pessoa nao deve acessar nenhuma organizacao ate ser reativada.
+                </span>
+              </span>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuspendTarget(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={!suspendTarget || suspendReason.trim().length < 3 || updateMemberStatus.isPending}
+              onClick={() => {
+                if (!suspendTarget) return;
+                updateMemberStatus.mutate(
+                  {
+                    organization_id: orgId,
+                    user_id: suspendTarget.userId,
+                    status: 'suspended',
+                    reason: suspendReason.trim(),
+                    block_auth: blockAuth,
+                  },
+                  {
+                    onSuccess: (result) => {
+                      auditPermissionChange({
+                        organization_id: orgId,
+                        target_user_id: suspendTarget.userId,
+                        entity_type: 'organization_member',
+                        entity_id: `${orgId}:${suspendTarget.userId}`,
+                        action: 'suspend_user',
+                        before_state: {
+                          user_id: suspendTarget.userId,
+                          status: suspendTarget.status,
+                          org_role: suspendTarget.orgRole,
+                          app_role: suspendTarget.appRole,
+                        },
+                        after_state: {
+                          user_id: suspendTarget.userId,
+                          status: 'suspended',
+                          org_role: suspendTarget.orgRole,
+                          app_role: suspendTarget.appRole,
+                          suspension_reason: suspendReason.trim(),
+                        },
+                        metadata: { auth_blocked: !!result?.auth_blocked },
+                      });
+                      toast.success(result?.auth_blocked ? 'Usuario suspenso e login bloqueado' : 'Usuario suspenso');
+                      setSuspendTarget(null);
+                      setSuspendReason('');
+                      setBlockAuth(false);
+                    },
+                    onError: (e: unknown) => toast.error(getErrorMessage(e, 'Erro ao suspender usuario')),
+                  },
+                );
+              }}
+            >
+              Suspender
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!accessTarget} onOpenChange={(o) => {
+        if (!o) {
+          setAccessTarget(null);
+          setAccessDate('');
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Validade do acesso</DialogTitle>
+            <DialogDescription>
+              Defina uma data limite para acesso temporario ou deixe em branco para acesso sem expiracao.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">{accessTarget?.name}</p>
+              <p className="text-xs text-muted-foreground">
+                Atual: {accessTarget?.currentExpiresAt ? new Date(accessTarget.currentExpiresAt).toLocaleDateString('pt-BR') : 'sem expiracao'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Expira em</Label>
+              <Input
+                type="date"
+                value={accessDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(event) => setAccessDate(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Limpar a data remove a expiracao de acesso.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAccessTarget(null)}>Cancelar</Button>
+            <Button
+              variant="secondary"
+              disabled={!accessTarget || updateAccess.isPending}
+              onClick={() => setAccessDate('')}
+            >
+              Sem expiracao
+            </Button>
+            <Button
+              disabled={!accessTarget || updateAccess.isPending}
+              onClick={() => {
+                if (!accessTarget) return;
+                const nextExpiry = accessDate ? new Date(`${accessDate}T23:59:59`).toISOString() : null;
+                updateAccess.mutate(
+                  { organization_id: orgId, user_id: accessTarget.userId, access_expires_at: nextExpiry },
+                  {
+                    onSuccess: (result) => {
+                      auditPermissionChange({
+                        organization_id: orgId,
+                        target_user_id: accessTarget.userId,
+                        entity_type: 'organization_member',
+                        entity_id: `${orgId}:${accessTarget.userId}`,
+                        action: 'update_access_expiration',
+                        before_state: { access_expires_at: accessTarget.currentExpiresAt },
+                        after_state: { access_expires_at: result.access_expires_at },
+                      });
+                      toast.success(result.access_expires_at ? 'Validade do acesso atualizada' : 'Acesso sem expiracao');
+                      setAccessTarget(null);
+                      setAccessDate('');
+                    },
+                    onError: (e: unknown) => toast.error(getErrorMessage(e, 'Erro ao renovar acesso')),
+                  },
+                );
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -523,6 +1372,15 @@ function UsersTab({ orgId, canEdit }: { orgId: string; canEdit: boolean }) {
                     user_id: resetTarget.userId,
                     organization_id: orgId,
                     new_password: newPwd.trim(),
+                  });
+                  auditPermissionChange({
+                    organization_id: orgId,
+                    target_user_id: resetTarget.userId,
+                    entity_type: 'organization_user',
+                    entity_id: resetTarget.userId,
+                    action: 'reset_password',
+                    before_state: null,
+                    after_state: { password_reset: true },
                   });
                   toast.success('Senha resetada com sucesso');
                   setResetTarget(null);
@@ -556,8 +1414,10 @@ function CreateUserWizard({
     full_name: '',
     email: '',
     password: '',
+    send_invite: true,
     org_role: 'member' as 'admin' | 'member',
     app_role: 'member' as AppRole,
+    access_expires_at: '',
     selectedDeptIds: [] as string[],
     primaryDeptId: '' as string,
   });
@@ -566,14 +1426,16 @@ function CreateUserWizard({
     setStep(1);
     setData({
       full_name: '', email: '', password: '',
+      send_invite: true,
       org_role: 'member', app_role: 'member',
+      access_expires_at: '',
       selectedDeptIds: [], primaryDeptId: '',
     });
   };
 
   const close = () => { reset(); onClose(); };
 
-  const canNext1 = data.email.trim() && data.password.trim();
+  const canNext1 = data.email.trim() && (data.send_invite || data.password.trim().length >= 6);
 
   const toggleDept = (id: string) => {
     setData((d) => {
@@ -587,16 +1449,19 @@ function CreateUserWizard({
   };
 
   const handleFinish = async () => {
-    if (!data.email || !data.password) { toast.error('Email e senha obrigatórios'); return; }
+    if (!data.email || (!data.send_invite && !data.password)) { toast.error('Email e senha obrigatórios'); return; }
     const primaryName = departments.find((d) => d.id === data.primaryDeptId)?.name;
     try {
       const res: any = await createUser.mutateAsync({
         email: data.email,
-        password: data.password,
+        password: data.send_invite ? undefined : data.password,
         full_name: data.full_name,
         organization_id: orgId,
         org_role: data.org_role,
         department: primaryName,
+        send_invite: data.send_invite,
+        redirect_to: `${window.location.origin}/login`,
+        access_expires_at: data.access_expires_at ? new Date(`${data.access_expires_at}T23:59:59`).toISOString() : null,
       });
       const newUserId = res?.user_id as string | undefined;
       if (newUserId) {
@@ -611,7 +1476,27 @@ function CreateUserWizard({
           try { await updateAppRole.mutateAsync({ user_id: newUserId, role: data.app_role }); } catch { /* ignore */ }
         }
       }
-      toast.success('Usuário criado!');
+      toast.success(res?.invited ? 'Convite enviado!' : 'Usuário criado!');
+      auditPermissionChange({
+        organization_id: orgId,
+        target_user_id: newUserId ?? null,
+        entity_type: 'organization_user',
+        entity_id: newUserId ?? data.email,
+        action: 'create_user',
+        before_state: null,
+        after_state: {
+          user_id: newUserId ?? null,
+          email: data.email,
+          full_name: data.full_name,
+          org_role: data.org_role,
+          app_role: data.app_role,
+          status: 'active',
+          access_expires_at: data.access_expires_at || null,
+          department_ids: data.selectedDeptIds,
+          primary_department_id: data.primaryDeptId || null,
+        },
+        metadata: { primary_department: primaryName ?? null, invited: !!res?.invited },
+      });
       close();
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Erro ao criar usuário'));
@@ -639,8 +1524,22 @@ function CreateUserWizard({
           <div className="space-y-3">
             <div><Label>Nome completo</Label><Input value={data.full_name} onChange={(e) => setData({ ...data, full_name: e.target.value })} placeholder="Ex.: Maria Silva" /></div>
             <div><Label>Email</Label><Input type="email" value={data.email} onChange={(e) => setData({ ...data, email: e.target.value })} placeholder="maria@empresa.com" /></div>
-            <div><Label>Senha temporária</Label><Input type="text" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} placeholder="Mínimo 6 caracteres" /></div>
-            <p className="text-xs text-muted-foreground">A pessoa poderá alterar a senha depois pelo login.</p>
+            <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+              <Checkbox
+                checked={data.send_invite}
+                onCheckedChange={(v) => setData({ ...data, send_invite: v === true, password: v === true ? '' : data.password })}
+              />
+              <span>
+                <span className="block font-medium">Enviar convite por e-mail</span>
+                <span className="block text-xs text-muted-foreground">A pessoa define a senha ao aceitar o convite.</span>
+              </span>
+            </label>
+            {!data.send_invite && (
+              <>
+                <div><Label>Senha temporária</Label><Input type="text" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} placeholder="Mínimo 6 caracteres" /></div>
+                <p className="text-xs text-muted-foreground">A pessoa poderá alterar a senha depois pelo login.</p>
+              </>
+            )}
           </div>
         )}
 
@@ -700,6 +1599,16 @@ function CreateUserWizard({
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground mt-1">Define o que a pessoa pode acessar dentro do sistema.</p>
+            </div>
+            <div>
+              <Label>Validade do acesso</Label>
+              <Input
+                type="date"
+                value={data.access_expires_at}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setData({ ...data, access_expires_at: e.target.value })}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Opcional. Em branco deixa o acesso sem expiracao.</p>
             </div>
           </div>
         )}
@@ -829,7 +1738,18 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
                       disabled={!canEdit}
                       value={m.app_role}
                       onValueChange={(role: AppRole) => updateAppRole.mutate({ user_id: m.user_id, role }, {
-                        onSuccess: () => toast.success('Permissão atualizada'),
+                        onSuccess: () => {
+                          auditPermissionChange({
+                            organization_id: orgId,
+                            target_user_id: m.user_id,
+                            entity_type: 'user_role',
+                            entity_id: m.user_id,
+                            action: 'update_app_role',
+                            before_state: { user_id: m.user_id, app_role: m.app_role },
+                            after_state: { user_id: m.user_id, app_role: role },
+                          });
+                          toast.success('Permissão atualizada');
+                        },
                         onError: () => toast.error('Erro — apenas admins do sistema podem alterar'),
                       })}
                     >
@@ -849,7 +1769,18 @@ function PermissionsTab({ orgId, canEdit }: { orgId: string; canEdit: boolean })
                         checked={isIT}
                         disabled={!canEdit || toggleIT.isPending}
                         onCheckedChange={(v) => toggleIT.mutate({ user_id: m.user_id, enable: v }, {
-                          onSuccess: () => toast.success(v ? 'Adicionado ao Suporte TI' : 'Removido do Suporte TI'),
+                          onSuccess: () => {
+                            auditPermissionChange({
+                              organization_id: orgId,
+                              target_user_id: m.user_id,
+                              entity_type: 'user_role',
+                              entity_id: `${m.user_id}:it_support`,
+                              action: v ? 'enable_it_support' : 'disable_it_support',
+                              before_state: { user_id: m.user_id, it_support: !v },
+                              after_state: { user_id: m.user_id, it_support: v },
+                            });
+                            toast.success(v ? 'Adicionado ao Suporte TI' : 'Removido do Suporte TI');
+                          },
                           onError: (e: unknown) => toast.error(getErrorMessage(e, 'Erro')),
                         })}
                       />
@@ -1091,8 +2022,29 @@ function DepartmentTeamsTab({ orgId, canEdit }: { orgId: string; canEdit: boolea
                     addMember.mutate(
                       { department_id: activeDept, user_id: addUser, role: addRole },
                       {
-                        onSuccess: () => { toast.success('Adicionado'); setAddUser(''); },
-                          onError: (error: unknown) => toast.error(getErrorMessage(error, 'Erro')),
+                        onSuccess: () => {
+                          const dept = departments.find((d) => d.id === activeDept);
+                          const member = memberMap.get(addUser);
+                          auditPermissionChange({
+                            organization_id: orgId,
+                            target_user_id: addUser,
+                            entity_type: 'department_member',
+                            entity_id: `${activeDept}:${addUser}`,
+                            action: 'add_department_member',
+                            before_state: null,
+                            after_state: {
+                              department_id: activeDept,
+                              department_name: dept?.name ?? null,
+                              user_id: addUser,
+                              full_name: member?.full_name ?? null,
+                              role: addRole,
+                            },
+                            metadata: { source: 'department_teams' },
+                          });
+                          toast.success('Adicionado');
+                          setAddUser('');
+                        },
+                        onError: (error: unknown) => toast.error(getErrorMessage(error, 'Erro')),
                       },
                     );
                   }}
@@ -1131,7 +2083,30 @@ function DepartmentTeamsTab({ orgId, canEdit }: { orgId: string; canEdit: boolea
                             disabled={!canEdit}
                             value={r.role}
                             onValueChange={(v: 'manager' | 'operator') => updateRole.mutate({ id: r.id, role: v }, {
-                              onSuccess: () => toast.success('Atualizado'),
+                              onSuccess: () => {
+                                const dept = departments.find((d) => d.id === r.department_id);
+                                auditPermissionChange({
+                                  organization_id: orgId,
+                                  target_user_id: r.user_id,
+                                  entity_type: 'department_member',
+                                  entity_id: r.id,
+                                  action: 'update_department_role',
+                                  before_state: {
+                                    department_id: r.department_id,
+                                    department_name: dept?.name ?? null,
+                                    user_id: r.user_id,
+                                    role: r.role,
+                                  },
+                                  after_state: {
+                                    department_id: r.department_id,
+                                    department_name: dept?.name ?? null,
+                                    user_id: r.user_id,
+                                    role: v,
+                                  },
+                                  metadata: { source: 'department_teams' },
+                                });
+                                toast.success('Atualizado');
+                              },
                               onError: () => toast.error('Erro'),
                             })}
                           >
@@ -1146,7 +2121,25 @@ function DepartmentTeamsTab({ orgId, canEdit }: { orgId: string; canEdit: boolea
                           {canEdit && (
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
                               onClick={() => removeMember.mutate(r.id, {
-                                onSuccess: () => toast.success('Removido'),
+                                onSuccess: () => {
+                                  const dept = departments.find((d) => d.id === r.department_id);
+                                  auditPermissionChange({
+                                    organization_id: orgId,
+                                    target_user_id: r.user_id,
+                                    entity_type: 'department_member',
+                                    entity_id: r.id,
+                                    action: 'remove_department_member',
+                                    before_state: {
+                                      department_id: r.department_id,
+                                      department_name: dept?.name ?? null,
+                                      user_id: r.user_id,
+                                      role: r.role,
+                                    },
+                                    after_state: null,
+                                    metadata: { source: 'department_teams' },
+                                  });
+                                  toast.success('Removido');
+                                },
                                 onError: () => toast.error('Erro'),
                               })}>
                               <Trash2 className="h-4 w-4" />

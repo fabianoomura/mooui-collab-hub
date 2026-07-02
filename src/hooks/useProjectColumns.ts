@@ -78,13 +78,16 @@ export function useProjectColumns(projectId: string | undefined) {
   };
 
   const addColumn = useMutation({
-    mutationFn: async ({ name, columnType }: { name: string; columnType: ColumnType }) => {
+    mutationFn: async ({ name, columnType, config }: { name: string; columnType: ColumnType; config?: Record<string, unknown> }) => {
       if (!projectId) throw new Error('No project');
       const maxPos = (columnsQuery.data || []).reduce((max, c) => Math.max(max, c.position), -1);
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('project_columns')
-        .insert({ project_id: projectId, name, column_type: columnType, position: maxPos + 1 });
+        .insert({ project_id: projectId, name, column_type: columnType, position: maxPos + 1, config: config || {} })
+        .select()
+        .single();
       if (error) throw error;
+      return data as unknown as ProjectColumn;
     },
     onSuccess: invalidate,
   });

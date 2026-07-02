@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { I18nProvider } from "@/i18n";
 import { AppLayout } from "@/components/AppLayout";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 // Lazy-loaded pages — each becomes its own chunk
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -101,6 +102,13 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ModuleRoute({ moduleKey, children }: { moduleKey: string; children: React.ReactNode }) {
+  const { canView, isLoading } = useModuleAccess(moduleKey);
+  if (isLoading) return <PageLoader />;
+  if (!canView) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -122,33 +130,33 @@ const App = () => (
 
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/tabela" element={<TableViewPage />} />
-              <Route path="/projetos" element={<ProjectsPage />} />
-              <Route path="/equipe" element={<TeamPage />} />
-              <Route path="/mensagens" element={<MessagesPage />} />
-              <Route path="/docs" element={<DocsPage />} />
-              <Route path="/salas" element={<RoomsPage />} />
-              <Route path="/calendario" element={<CalendarPage />} />
-              <Route path="/lancamentos" element={<LaunchesPage />} />
-              <Route path="/tickets" element={<TicketsPage />} />
-              <Route path="/pedidos" element={<OrdersPage />} />
-              <Route path="/checagens" element={<ChecklistPage />} />
-              <Route path="/timeline" element={<TimelinePage />} />
-              <Route path="/melhorias" element={<MelhoriasPage />} />
-              <Route path="/conteudo" element={<ConteudoPage />} />
-              <Route path="/programacao" element={<ProgramacaoPage />} />
-              <Route path="/newsletters" element={<NewslettersPage />} />
-              <Route path="/demandas-marketing" element={<DemandasMarketingPage />} />
-              <Route path="/sessoes" element={<SessoesPage />} />
-              <Route path="/produtos" element={<ProdutoPage />} />
-              <Route path="/design" element={<DesignPage />} />
-              <Route path="/comercial" element={<ComercialPage />} />
-              <Route path="/financeiro" element={<FinanceiroPage />} />
-              <Route path="/internacional" element={<InternacionalPage />} />
-              <Route path="/producao-boards" element={<ProducaoBoardsPage />} />
-              <Route path="/acoes-mensais" element={<AcoesMensaisPage />} />
-              <Route path="/marketing" element={<MarketingPage />} />
-              <Route path="/configuracoes" element={<SettingsPage />} />
+              <Route path="/tabela" element={<ModuleRoute moduleKey="boards"><TableViewPage /></ModuleRoute>} />
+              <Route path="/projetos" element={<ModuleRoute moduleKey="boards"><ProjectsPage /></ModuleRoute>} />
+              <Route path="/equipe" element={<ModuleRoute moduleKey="equipe"><TeamPage /></ModuleRoute>} />
+              <Route path="/mensagens" element={<ModuleRoute moduleKey="speaks"><MessagesPage /></ModuleRoute>} />
+              <Route path="/docs" element={<ModuleRoute moduleKey="docs"><DocsPage /></ModuleRoute>} />
+              <Route path="/salas" element={<ModuleRoute moduleKey="salas"><RoomsPage /></ModuleRoute>} />
+              <Route path="/calendario" element={<ModuleRoute moduleKey="calendario"><CalendarPage /></ModuleRoute>} />
+              <Route path="/lancamentos" element={<ModuleRoute moduleKey="launches"><LaunchesPage /></ModuleRoute>} />
+              <Route path="/tickets" element={<ModuleRoute moduleKey="tickets"><TicketsPage /></ModuleRoute>} />
+              <Route path="/pedidos" element={<ModuleRoute moduleKey="orders"><OrdersPage /></ModuleRoute>} />
+              <Route path="/checagens" element={<ModuleRoute moduleKey="checklists"><ChecklistPage /></ModuleRoute>} />
+              <Route path="/timeline" element={<ModuleRoute moduleKey="boards"><TimelinePage /></ModuleRoute>} />
+              <Route path="/melhorias" element={<ModuleRoute moduleKey="melhorias"><MelhoriasPage /></ModuleRoute>} />
+              <Route path="/conteudo" element={<ModuleRoute moduleKey="conteudo"><ConteudoPage /></ModuleRoute>} />
+              <Route path="/programacao" element={<ModuleRoute moduleKey="programacao"><ProgramacaoPage /></ModuleRoute>} />
+              <Route path="/newsletters" element={<ModuleRoute moduleKey="newsletters"><NewslettersPage /></ModuleRoute>} />
+              <Route path="/demandas-marketing" element={<ModuleRoute moduleKey="demandas"><DemandasMarketingPage /></ModuleRoute>} />
+              <Route path="/sessoes" element={<ModuleRoute moduleKey="sessoes"><SessoesPage /></ModuleRoute>} />
+              <Route path="/produtos" element={<ModuleRoute moduleKey="produtos"><ProdutoPage /></ModuleRoute>} />
+              <Route path="/design" element={<ModuleRoute moduleKey="design"><DesignPage /></ModuleRoute>} />
+              <Route path="/comercial" element={<ModuleRoute moduleKey="comercial"><ComercialPage /></ModuleRoute>} />
+              <Route path="/financeiro" element={<ModuleRoute moduleKey="financeiro"><FinanceiroPage /></ModuleRoute>} />
+              <Route path="/internacional" element={<ModuleRoute moduleKey="internacional"><InternacionalPage /></ModuleRoute>} />
+              <Route path="/producao-boards" element={<ModuleRoute moduleKey="producao"><ProducaoBoardsPage /></ModuleRoute>} />
+              <Route path="/acoes-mensais" element={<ModuleRoute moduleKey="acoes_mensais"><AcoesMensaisPage /></ModuleRoute>} />
+              <Route path="/marketing" element={<ModuleRoute moduleKey="marketing"><MarketingPage /></ModuleRoute>} />
+              <Route path="/configuracoes" element={<ModuleRoute moduleKey="configuracoes"><SettingsPage /></ModuleRoute>} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

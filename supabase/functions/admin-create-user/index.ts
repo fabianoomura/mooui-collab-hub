@@ -39,18 +39,24 @@ Deno.serve(async (req) => {
       department,
       position,
       app_role,
+      send_invite = false,
+      redirect_to,
+      access_expires_at,
     } = body as {
       email: string;
-      password: string;
+      password?: string;
       full_name?: string;
       organization_id: string;
       org_role?: "admin" | "member";
       department?: string;
       position?: string;
-      app_role?: "admin" | "manager" | "member";
+      app_role?: "admin" | "director" | "manager" | "operator" | "member";
+      send_invite?: boolean;
+      redirect_to?: string;
+      access_expires_at?: string | null;
     };
 
-    if (!email || !password || !organization_id) {
+    if (!email || !organization_id || (!send_invite && !password)) {
       return new Response(JSON.stringify({ error: "Campos obrigatórios faltando" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -71,13 +77,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // create user
-    const { data: created, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: full_name ?? "" },
-    });
+    const metadata = { full_name: full_name ?? "", organization_id };
+    const { data: created, error: createErr } = send_invite
+      ? await admin.auth.admin.inviteUserByEmail(email, {
+          data: metadata,
+          redirectTo: redirect_to,
+        })
+      : await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: metadata,
+        });
     if (createErr || !created.user) {
       return new Response(JSON.stringify({ error: createErr?.message ?? "Erro ao criar usuário" }), {
         status: 400,
@@ -86,6 +97,8 @@ Deno.serve(async (req) => {
     }
 
     const newId = created.user.id;
+    const now = new Date();
+    const inviteExpiresAt = send_invite ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : null;
 
     // ensure profile row exists with extras (handle_new_user trigger inserts basics)
     await admin
@@ -95,14 +108,25 @@ Deno.serve(async (req) => {
     // add to organization
     await admin
       .from("organization_members")
-      .insert({ organization_id, user_id: newId, role: org_role });
+      .insert({
+        organization_id,
+        user_id: newId,
+        role: org_role,
+        status: "active",
+        invited_at: send_invite ? now.toISOString() : null,
+        invite_last_sent_at: send_invite ? now.toISOString() : null,
+        invite_expires_at: inviteExpiresAt,
+        invite_sent_count: send_invite ? 1 : 0,
+        invite_last_sent_by: send_invite ? callerId : null,
+        access_expires_at: access_expires_at || null,
+      });
 
     // app role override
     if (app_role && app_role !== "member") {
       await admin.from("user_roles").insert({ user_id: newId, role: app_role });
     }
 
-    return new Response(JSON.stringify({ ok: true, user_id: newId }), {
+    return new Response(JSON.stringify({ ok: true, user_id: newId, invited: send_invite, invite_expires_at: inviteExpiresAt }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

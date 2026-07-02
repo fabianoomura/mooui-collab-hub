@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
     const { data: targetMember, error: memberErr } = await admin
       .from("organization_members")
-      .select("user_id, role")
+      .select("user_id, role, status")
       .eq("organization_id", organization_id)
       .eq("user_id", user_id)
       .maybeSingle();
@@ -72,14 +72,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (targetMember.role === "admin") {
-      const { count, error: adminCountErr } = await admin
+    if (targetMember.role === "admin" && (targetMember.status ?? "active") === "active") {
+      const { data: admins, error: adminCountErr } = await admin
         .from("organization_members")
-        .select("user_id", { count: "exact", head: true })
+        .select("user_id, access_expires_at")
         .eq("organization_id", organization_id)
-        .eq("role", "admin");
+        .eq("role", "admin")
+        .eq("status", "active");
       if (adminCountErr) throw adminCountErr;
-      if ((count ?? 0) <= 1) {
+      const activeAdminCount = (admins || []).filter((row: any) => {
+        return !row.access_expires_at || new Date(row.access_expires_at).getTime() > Date.now();
+      }).length;
+      if (activeAdminCount <= 1) {
         return new Response(JSON.stringify({ error: "Nao e possivel excluir o ultimo admin" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

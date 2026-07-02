@@ -197,6 +197,26 @@
   .sunday-table-scroll::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--primary));
   }
+  .sunday-group-scrollbar {
+    height: 14px;
+    scrollbar-color: var(--group-scrollbar-thumb, hsl(var(--primary) / 0.75)) hsl(var(--muted) / 0.8);
+    scrollbar-width: thin;
+  }
+  .sunday-group-scrollbar::-webkit-scrollbar {
+    height: 12px;
+  }
+  .sunday-group-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.8);
+    border-radius: 999px;
+  }
+  .sunday-group-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--group-scrollbar-thumb, hsl(var(--primary) / 0.75));
+    border: 3px solid hsl(var(--muted) / 0.8);
+    border-radius: 999px;
+  }
+  .sunday-group-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--group-scrollbar-thumb, hsl(var(--primary)));
+  }
   .kanban-card {
     @apply bg-card rounded-lg border shadow-sm hover:shadow-md transition-shadow duration-200;
   }

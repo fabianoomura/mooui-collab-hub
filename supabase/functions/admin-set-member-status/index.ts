@@ -7,7 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type Status = "active" | "suspended";
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -21,60 +25,122 @@ Deno.serve(async (req) => {
     const userClient = createClient(SUPABASE_URL, ANON, {
       global: { headers: { Authorization: authHeader } },
     });
+
     const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData.user) {
-      return json({ error: "Não autenticado" }, 401);
-    }
+    if (userErr || !userData.user) return json({ error: "Nao autenticado" }, 401);
     const callerId = userData.user.id;
 
-    const body = await req.json() as {
-      user_id: string; organization_id: string; status: Status; reason?: string;
+    const {
+      organization_id,
+      user_id,
+      status,
+      reason,
+      block_auth = false,
+      unblock_auth = true,
+    } = await req.json() as {
+      organization_id: string;
+      user_id: string;
+      status: "active" | "invited" | "suspended";
+      reason?: string | null;
+      block_auth?: boolean;
+      unblock_auth?: boolean;
     };
-    if (!body.user_id || !body.organization_id || !["active", "suspended"].includes(body.status)) {
-      return json({ error: "Campos obrigatórios inválidos" }, 400);
+
+    if (!organization_id || !user_id || !status) {
+      return json({ error: "Campos obrigatorios faltando" }, 400);
+    }
+    if (status === "suspended" && (!reason || reason.trim().length < 3)) {
+      return json({ error: "Informe o motivo da suspensao" }, 400);
+    }
+    if (user_id === callerId && status !== "active") {
+      return json({ error: "Voce nao pode suspender seu proprio usuario" }, 400);
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const { data: isAdminRes } = await admin.rpc("is_org_admin", {
-      _user_id: callerId, _org_id: body.organization_id,
+    const { data: isAdminRes, error: roleErr } = await admin.rpc("is_org_admin", {
+      _user_id: callerId,
+      _org_id: organization_id,
     });
-    if (!isAdminRes) return json({ error: "Permissão negada" }, 403);
+    if (roleErr || !isAdminRes) return json({ error: "Permissao negada" }, 403);
 
-    if (callerId === body.user_id && body.status === "suspended") {
-      return json({ error: "Não é possível suspender a si mesmo" }, 400);
+    const { data: targetMember, error: memberErr } = await admin
+      .from("organization_members")
+      .select("user_id, role, status, auth_blocked_at")
+      .eq("organization_id", organization_id)
+      .eq("user_id", user_id)
+      .maybeSingle();
+    if (memberErr || !targetMember) {
+      return json({ error: "Usuario nao pertence a organizacao" }, 404);
     }
 
+    if (targetMember.role === "admin" && (targetMember.status ?? "active") === "active" && status !== "active") {
+      const { data: admins, error: adminCountErr } = await admin
+        .from("organization_members")
+        .select("user_id, access_expires_at")
+        .eq("organization_id", organization_id)
+        .eq("role", "admin")
+        .eq("status", "active");
+      if (adminCountErr) throw adminCountErr;
+      const activeAdminCount = (admins || []).filter((row: any) => {
+        return !row.access_expires_at || new Date(row.access_expires_at).getTime() > Date.now();
+      }).length;
+      if (activeAdminCount <= 1) return json({ error: "Nao e possivel suspender o ultimo admin ativo" }, 400);
+    }
+
+    const now = new Date().toISOString();
     const patch: Record<string, unknown> = {
-      status: body.status,
-      status_changed_at: new Date().toISOString(),
+      status,
+      status_changed_at: now,
       status_changed_by: callerId,
     };
-    if (body.status === "suspended") {
-      patch.suspended_at = new Date().toISOString();
+
+    let authBlocked = false;
+    let authUnblocked = false;
+
+    if (status === "suspended") {
+      patch.suspended_at = now;
       patch.suspended_by = callerId;
-      patch.suspension_reason = body.reason ?? null;
+      patch.suspension_reason = reason?.trim();
+      if (block_auth) {
+        const { error: banErr } = await admin.auth.admin.updateUserById(user_id, {
+          ban_duration: "876000h",
+        });
+        if (banErr) throw banErr;
+        patch.auth_blocked_at = now;
+        patch.auth_blocked_by = callerId;
+        patch.auth_block_reason = reason?.trim();
+        authBlocked = true;
+      } else {
+        patch.auth_blocked_at = null;
+        patch.auth_blocked_by = null;
+        patch.auth_block_reason = null;
+      }
     } else {
       patch.suspended_at = null;
       patch.suspended_by = null;
       patch.suspension_reason = null;
+      if (status === "invited") patch.invited_at = now;
+      if (unblock_auth && targetMember.auth_blocked_at) {
+        const { error: unbanErr } = await admin.auth.admin.updateUserById(user_id, {
+          ban_duration: "none",
+        });
+        if (unbanErr) throw unbanErr;
+        authUnblocked = true;
+      }
+      patch.auth_blocked_at = null;
+      patch.auth_blocked_by = null;
+      patch.auth_block_reason = null;
     }
 
-    const { error: upErr } = await admin
+    const { error: updateErr } = await admin
       .from("organization_members")
       .update(patch)
-      .eq("user_id", body.user_id)
-      .eq("organization_id", body.organization_id);
-    if (upErr) return json({ error: upErr.message }, 400);
+      .eq("organization_id", organization_id)
+      .eq("user_id", user_id);
+    if (updateErr) throw updateErr;
 
-    return json({ ok: true, status: body.status });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+    return json({ ok: true, status, auth_blocked: authBlocked, auth_unblocked: authUnblocked });
+  } catch (error) {
+    return json({ error: (error as Error).message }, 500);
   }
 });
-
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}

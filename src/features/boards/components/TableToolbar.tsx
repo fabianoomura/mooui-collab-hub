@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { SlidersHorizontal, ArrowUpDown, Eye, X, MoreHorizontal, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, ListFilter } from 'lucide-react';
+import { SlidersHorizontal, ArrowUpDown, Eye, X, MoreHorizontal, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, ListFilter, Bell, EyeOff, Copy, Settings2, Type } from 'lucide-react';
 import { type TaskStatus, type TaskPriority } from '@/hooks/useProjectData';
 import { type ColumnType, type ProjectColumn } from '@/hooks/useProjectColumns';
 import {
@@ -14,10 +14,12 @@ import {
 } from '../constants';
 import { getInitials } from '../constants';
 
-export function ColumnHeaderMenu({ column, onRename, onDelete, onToggleCardVisibility, onMoveLeft, onMoveRight, onEditOptions, isFirst, isLast }: {
+export function ColumnHeaderMenu({ column, onRename, onDelete, onToggleCardVisibility, onHide, onMoveLeft, onMoveRight, onEditOptions, onDuplicate, onChangeType, onFilter, onClearFilter, onGroupByColumn, onAutomation, isFiltered, isGrouped, isFirst, isLast }: {
   column: ProjectColumn; onRename: () => void; onDelete: () => void;
-  onToggleCardVisibility: () => void; onMoveLeft?: () => void; onMoveRight?: () => void;
-  onEditOptions?: () => void; isFirst?: boolean; isLast?: boolean;
+  onToggleCardVisibility: () => void; onHide?: () => void; onMoveLeft?: () => void; onMoveRight?: () => void;
+  onEditOptions?: () => void; onDuplicate?: () => void; onChangeType?: () => void; onFilter?: () => void;
+  onClearFilter?: () => void; onGroupByColumn?: () => void; onAutomation?: () => void;
+  isFiltered?: boolean; isGrouped?: boolean; isFirst?: boolean; isLast?: boolean;
 }) {
   const showOnCard = !!column.config?.show_on_card;
   const hasOptions = column.column_type === 'select' || column.column_type === 'status' || column.column_type === 'tags';
@@ -32,15 +34,51 @@ export function ColumnHeaderMenu({ column, onRename, onDelete, onToggleCardVisib
         <DropdownMenuItem onClick={onRename}>
           <Pencil className="h-3.5 w-3.5 mr-2" /> Renomear
         </DropdownMenuItem>
+        {onDuplicate && (
+          <DropdownMenuItem onClick={onDuplicate}>
+            <Copy className="h-3.5 w-3.5 mr-2" /> Duplicar coluna
+          </DropdownMenuItem>
+        )}
+        {onChangeType && (
+          <DropdownMenuItem onClick={onChangeType}>
+            <Type className="h-3.5 w-3.5 mr-2" /> Alterar tipo
+          </DropdownMenuItem>
+        )}
         {hasOptions && onEditOptions && (
           <DropdownMenuItem onClick={onEditOptions}>
             <ListFilter className="h-3.5 w-3.5 mr-2" /> Editar opções
+          </DropdownMenuItem>
+        )}
+        {(onFilter || onGroupByColumn || onAutomation) && <DropdownMenuSeparator />}
+        {onFilter && (
+          <DropdownMenuItem onClick={onFilter}>
+            <ListFilter className="h-3.5 w-3.5 mr-2" /> {isFiltered ? 'Alterar filtro' : 'Filtrar por esta coluna'}
+          </DropdownMenuItem>
+        )}
+        {isFiltered && onClearFilter && (
+          <DropdownMenuItem onClick={onClearFilter}>
+            <X className="h-3.5 w-3.5 mr-2" /> Limpar filtro da coluna
+          </DropdownMenuItem>
+        )}
+        {onGroupByColumn && (
+          <DropdownMenuItem onClick={onGroupByColumn}>
+            <SlidersHorizontal className="h-3.5 w-3.5 mr-2" /> {isGrouped ? 'Remover agrupamento' : 'Agrupar por esta coluna'}
+          </DropdownMenuItem>
+        )}
+        {onAutomation && (
+          <DropdownMenuItem onClick={onAutomation}>
+            <Settings2 className="h-3.5 w-3.5 mr-2" /> Automacoes da coluna
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={onToggleCardVisibility}>
           {showOnCard ? <Eye className="h-3.5 w-3.5 mr-2" /> : <Eye className="h-3.5 w-3.5 mr-2 opacity-40" />}
           {showOnCard ? 'Ocultar do card' : 'Mostrar no card'}
         </DropdownMenuItem>
+        {onHide && (
+          <DropdownMenuItem onClick={onHide}>
+            <EyeOff className="h-3.5 w-3.5 mr-2" /> Ocultar coluna
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         {!isFirst && onMoveLeft && (
           <DropdownMenuItem onClick={onMoveLeft}>
@@ -231,7 +269,13 @@ export function GroupByPopover({ groupBy, onGroupBy }: { groupBy: GroupBy; onGro
   );
 }
 
-export function HideColumnsPopover({ visible, onToggle }: { visible: Set<FixedColumnKey>; onToggle: (col: FixedColumnKey) => void }) {
+export function HideColumnsPopover({ visible, onToggle, dynamicColumns = [], hiddenDynamic = new Set(), onToggleDynamic }: {
+  visible: Set<FixedColumnKey>;
+  onToggle: (col: FixedColumnKey) => void;
+  dynamicColumns?: ProjectColumn[];
+  hiddenDynamic?: Set<string>;
+  onToggleDynamic?: (columnId: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -241,20 +285,35 @@ export function HideColumnsPopover({ visible, onToggle }: { visible: Set<FixedCo
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-48 p-2" align="start">
+        <p className="px-2 pb-1 text-[10px] font-semibold uppercase text-muted-foreground">Fixas</p>
         {FIXED_COLUMNS.map(col => (
           <label key={col} className="flex items-center gap-2 py-1 cursor-pointer px-2">
             <Checkbox checked={visible.has(col)} onCheckedChange={() => onToggle(col)} />
             <span className="text-xs">{fixedColumnLabels[col]}</span>
           </label>
         ))}
+        {dynamicColumns.length > 0 && (
+          <>
+            <div className="my-1.5 border-t border-border" />
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase text-muted-foreground">Dinamicas</p>
+            {dynamicColumns.map(col => (
+              <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer px-2">
+                <Checkbox checked={!hiddenDynamic.has(col.id)} onCheckedChange={() => onToggleDynamic?.(col.id)} />
+                <span className="text-xs truncate">{col.name}</span>
+              </label>
+            ))}
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );
 }
 
-export function FixedColHeader({ label, colKey, onHide, onDragStart, onDrop }: {
+export function FixedColHeader({ label, colKey, onHide, onRename, onDragStart, onDrop, onSortAsc, onSortDesc, onConfigureReminder }: {
   label: string; colKey: string; onHide: () => void;
+  onRename?: () => void;
   onDragStart?: (key: string) => void; onDrop?: (key: string) => void;
+  onSortAsc?: () => void; onSortDesc?: () => void; onConfigureReminder?: () => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
   return (
@@ -275,9 +334,46 @@ export function FixedColHeader({ label, colKey, onHide, onDragStart, onDrop }: {
       onDragEnd={() => setDragOver(false)}
     >
       {label}
-      <button onClick={onHide} title="Ocultar coluna" className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
-        <X className="h-3 w-3" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            onClick={(e) => e.stopPropagation()}
+            title="Opcoes da coluna"
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+          >
+            <MoreHorizontal className="h-3 w-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          {onRename && (
+            <DropdownMenuItem onClick={onRename}>
+              <Pencil className="h-3.5 w-3.5 mr-2" /> Renomear coluna
+            </DropdownMenuItem>
+          )}
+          {colKey === 'due_date' && onConfigureReminder && (
+            <>
+              <DropdownMenuItem onClick={onConfigureReminder}>
+                <Bell className="h-3.5 w-3.5 mr-2" /> Lembretes da Data Acao
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {onSortAsc && (
+            <DropdownMenuItem onClick={onSortAsc}>
+              <ArrowUpDown className="h-3.5 w-3.5 mr-2" /> Ordenar crescente
+            </DropdownMenuItem>
+          )}
+          {onSortDesc && (
+            <DropdownMenuItem onClick={onSortDesc}>
+              <ArrowUpDown className="h-3.5 w-3.5 mr-2" /> Ordenar decrescente
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onHide}>
+            <EyeOff className="h-3.5 w-3.5 mr-2" /> Ocultar coluna
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </span>
   );
 }

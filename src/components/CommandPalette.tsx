@@ -12,32 +12,33 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useModuleAccessResolver } from '@/hooks/useModuleAccess';
 
 const ROUTES = [
   { label: 'Início', href: '/', icon: Home, kw: 'home dashboard inicio' },
-  { label: 'Sunday', href: '/projetos', icon: Table2, kw: 'monday projetos tarefas' },
-  { label: 'Speaks', href: '/mensagens', icon: MessageSquare, kw: 'slack chat mensagens' },
-  { label: 'Papelinho', href: '/docs', icon: BookOpen, kw: 'notinha notion docs documentação' },
-  { label: 'Salas', href: '/salas', icon: Calendar, kw: 'reserva reuniao' },
-  { label: 'Calendário de Ações Mensais', href: '/calendario', icon: CalendarDays, kw: 'acoes mensais calendario eventos ano' },
-  { label: 'Produção', href: '/lancamentos', icon: Rocket, kw: 'launches etapas lancamentos producao' },
-  { label: 'Check Lançamentos', href: '/checagens', icon: ClipboardCheck, kw: 'checklist checagem site' },
-  { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado' },
-  { label: 'Pedidos', href: '/pedidos', icon: Package, kw: 'orders sac expedição' },
-  { label: 'Melhorias', href: '/melhorias', icon: Wrench, kw: 'site shopify seo melhorias' },
-  { label: 'Programacao', href: '/programacao', icon: Camera, kw: 'programacao conteudo posts redes sociais calendario kanban' },
-  { label: 'Newsletters', href: '/newsletters', icon: FileText, kw: 'newsletter email brasil barcelona' },
-  { label: 'Demandas Marketing', href: '/demandas-marketing', icon: FileText, kw: 'demandas marketing pautas subelementos' },
-  { label: 'Sessões', href: '/sessoes', icon: Camera, kw: 'sessoes fotos videos shots' },
-  { label: 'Produtos', href: '/produtos', icon: ShoppingBag, kw: 'produtos pipeline design novos' },
-  { label: 'Design', href: '/design', icon: ShoppingBag, kw: 'design colecao demandas' },
-  { label: 'Comercial', href: '/comercial', icon: Package, kw: 'atacado feiras b2b comercial' },
-  { label: 'Financeiro', href: '/financeiro', icon: Package, kw: 'financeiro caixa fluxo' },
-  { label: 'Internacional', href: '/internacional', icon: Layers, kw: 'internacional expansao global' },
-  { label: 'Produção Boards', href: '/producao-boards', icon: Rocket, kw: 'producao folders compras boards' },
-  { label: 'Timeline', href: '/timeline', icon: Layers, kw: 'timeline visao unificada panorama' },
-  { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios' },
-  { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings' },
+  { label: 'Sunday', href: '/projetos', icon: Table2, kw: 'monday projetos tarefas', moduleKey: 'boards' },
+  { label: 'Speaks', href: '/mensagens', icon: MessageSquare, kw: 'slack chat mensagens', moduleKey: 'speaks' },
+  { label: 'Papelinho', href: '/docs', icon: BookOpen, kw: 'notinha notion docs documentação', moduleKey: 'docs' },
+  { label: 'Salas', href: '/salas', icon: Calendar, kw: 'reserva reuniao', moduleKey: 'salas' },
+  { label: 'Calendário de Ações Mensais', href: '/calendario', icon: CalendarDays, kw: 'acoes mensais calendario eventos ano', moduleKey: 'calendario' },
+  { label: 'Produção', href: '/lancamentos', icon: Rocket, kw: 'launches etapas lancamentos producao', moduleKey: 'launches' },
+  { label: 'Check Lançamentos', href: '/checagens', icon: ClipboardCheck, kw: 'checklist checagem site', moduleKey: 'checklists' },
+  { label: 'Tickets de TI', href: '/tickets', icon: Briefcase, kw: 'suporte bug ti chamado', moduleKey: 'tickets' },
+  { label: 'Pedidos', href: '/pedidos', icon: Package, kw: 'orders sac expedição', moduleKey: 'orders' },
+  { label: 'Melhorias', href: '/melhorias', icon: Wrench, kw: 'site shopify seo melhorias', moduleKey: 'melhorias' },
+  { label: 'Programacao', href: '/programacao', icon: Camera, kw: 'programacao conteudo posts redes sociais calendario kanban', moduleKey: 'programacao' },
+  { label: 'Newsletters', href: '/newsletters', icon: FileText, kw: 'newsletter email brasil barcelona', moduleKey: 'newsletters' },
+  { label: 'Demandas Marketing', href: '/demandas-marketing', icon: FileText, kw: 'demandas marketing pautas subelementos', moduleKey: 'demandas' },
+  { label: 'Sessões', href: '/sessoes', icon: Camera, kw: 'sessoes fotos videos shots', moduleKey: 'sessoes' },
+  { label: 'Produtos', href: '/produtos', icon: ShoppingBag, kw: 'produtos pipeline design novos', moduleKey: 'produtos' },
+  { label: 'Design', href: '/design', icon: ShoppingBag, kw: 'design colecao demandas', moduleKey: 'design' },
+  { label: 'Comercial', href: '/comercial', icon: Package, kw: 'atacado feiras b2b comercial', moduleKey: 'comercial' },
+  { label: 'Financeiro', href: '/financeiro', icon: Package, kw: 'financeiro caixa fluxo', moduleKey: 'financeiro' },
+  { label: 'Internacional', href: '/internacional', icon: Layers, kw: 'internacional expansao global', moduleKey: 'internacional' },
+  { label: 'Produção Boards', href: '/producao-boards', icon: Rocket, kw: 'producao folders compras boards', moduleKey: 'producao' },
+  { label: 'Timeline', href: '/timeline', icon: Layers, kw: 'timeline visao unificada panorama', moduleKey: 'boards' },
+  { label: 'Equipe', href: '/equipe', icon: Users, kw: 'team usuarios', moduleKey: 'equipe' },
+  { label: 'Configurações', href: '/configuracoes', icon: Settings, kw: 'settings', moduleKey: 'configuracoes' },
 ];
 
 function useDebounce(value: string, ms = 300) {
@@ -54,9 +55,22 @@ export function CommandPalette() {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { currentOrg } = useOrganization();
+  const { getAccess } = useModuleAccessResolver();
 
   const debouncedSearch = useDebounce(search, 300);
   const hasSearch = debouncedSearch.length >= 2;
+  const canViewModule = (moduleKey?: string) => !moduleKey || getAccess(moduleKey).canView;
+  const visibleRoutes = ROUTES.filter((route) => canViewModule(route.moduleKey));
+  const canBoards = canViewModule('boards');
+  const canTickets = canViewModule('tickets');
+  const canOrders = canViewModule('orders');
+  const canDocs = canViewModule('docs');
+  const canLaunches = canViewModule('launches');
+  const canMelhorias = canViewModule('melhorias');
+  const canConteudos = canViewModule('programacao') || canViewModule('newsletters') || canViewModule('demandas');
+  const canSessoes = canViewModule('sessoes');
+  const canProdutos = canViewModule('produtos');
+  const canSearchModules = canMelhorias || canConteudos || canSessoes || canProdutos;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -80,7 +94,7 @@ export function CommandPalette() {
         .eq('organization_id', currentOrg.id).limit(20);
       return data ?? [];
     },
-    enabled: !!currentOrg && open,
+    enabled: !!currentOrg && open && canLaunches,
   });
 
   // Global search queries — only fire with 2+ chars, debounced
@@ -94,7 +108,7 @@ export function CommandPalette() {
         .limit(8);
       return data ?? [];
     },
-    enabled: !!currentOrg && open && hasSearch,
+    enabled: !!currentOrg && open && hasSearch && canBoards,
   });
 
   const { data: tickets = [] } = useQuery({
@@ -108,7 +122,7 @@ export function CommandPalette() {
         .limit(8);
       return data ?? [];
     },
-    enabled: !!currentOrg && open && hasSearch,
+    enabled: !!currentOrg && open && hasSearch && canTickets,
   });
 
   const { data: orders = [] } = useQuery({
@@ -122,7 +136,7 @@ export function CommandPalette() {
         .limit(8);
       return (data ?? []) as any[];
     },
-    enabled: !!currentOrg && open && hasSearch,
+    enabled: !!currentOrg && open && hasSearch && canOrders,
   });
 
   const { data: docs = [] } = useQuery({
@@ -136,7 +150,7 @@ export function CommandPalette() {
         .limit(8);
       return data ?? [];
     },
-    enabled: !!currentOrg && open && hasSearch,
+    enabled: !!currentOrg && open && hasSearch && canDocs,
   });
 
   // Module search — query tasks from Sunday "Modulo | ..." boards
@@ -148,7 +162,7 @@ export function CommandPalette() {
         .eq('organization_id', currentOrg.id).ilike('name', 'Modulo | %');
       return data ?? [];
     },
-    enabled: !!currentOrg && open,
+    enabled: !!currentOrg && open && canSearchModules,
     staleTime: 300_000,
   });
 
@@ -168,7 +182,7 @@ export function CommandPalette() {
         .limit(24);
       return (data ?? []).map((t) => ({ ...t, projectName: projectNameById[t.project_id] || '' }));
     },
-    enabled: !!currentOrg && open && hasSearch && moduleProjectIds.length > 0,
+    enabled: !!currentOrg && open && hasSearch && canSearchModules && moduleProjectIds.length > 0,
   });
 
   const categorize = (projectName: string) => {
@@ -182,10 +196,10 @@ export function CommandPalette() {
     return 'other';
   };
 
-  const melhorias = moduleSearchResults.filter((t) => categorize(t.projectName) === 'melhorias');
-  const conteudos = moduleSearchResults.filter((t) => categorize(t.projectName) === 'conteudos');
-  const sessoes = moduleSearchResults.filter((t) => categorize(t.projectName) === 'sessoes');
-  const produtos = moduleSearchResults.filter((t) => categorize(t.projectName) === 'produtos');
+  const melhorias = canMelhorias ? moduleSearchResults.filter((t) => categorize(t.projectName) === 'melhorias') : [];
+  const conteudos = canConteudos ? moduleSearchResults.filter((t) => categorize(t.projectName) === 'conteudos') : [];
+  const sessoes = canSessoes ? moduleSearchResults.filter((t) => categorize(t.projectName) === 'sessoes') : [];
+  const produtos = canProdutos ? moduleSearchResults.filter((t) => categorize(t.projectName) === 'produtos') : [];
 
   const go = (path: string) => { setOpen(false); navigate(path); };
 
@@ -290,7 +304,7 @@ export function CommandPalette() {
         )}
 
         <CommandGroup heading="Navegar">
-          {ROUTES.map((r) => (
+          {visibleRoutes.map((r) => (
             <CommandItem key={r.href} value={`${r.label} ${r.kw}`} onSelect={() => go(r.href)}>
               <r.icon className="h-4 w-4 mr-2 text-muted-foreground" />
               {r.label}

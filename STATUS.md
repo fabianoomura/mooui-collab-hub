@@ -1,6 +1,6 @@
 # MOOUI Collab Hub — Status do Projeto
 
-Atualizado em: 2026-06-12
+Atualizado em: 2026-07-01
 
 ---
 
@@ -12,6 +12,12 @@ Atualizado em: 2026-06-12
 - **Deploy/Hosting:** Lovable
 - **Multi-tenant:** Organizacoes com hierarquia de 5 niveis (admin, director, manager, operator, member)
 - **i18n:** PT-BR + ES (Barcelona)
+
+### Publicacao
+
+- **Lovable:** publica o frontend/app React.
+- **Supabase SQL Editor:** aplica migrations/RPC/tabelas/policies quando o CLI nao tem permissao.
+- **Supabase Edge Functions:** precisam de deploy separado no Supabase; nao sobem automaticamente pelo Lovable.
 
 ---
 
@@ -147,6 +153,24 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 
 ---
 
+## Checklist Publicacao Supabase 2026-07-01
+
+- Rodar preflight local: `npm run check:governance-release` ou `npm.cmd run check:governance-release` no PowerShell com execution policy restritiva.
+- Para aplicar pelo SQL Editor: rodar `npm.cmd run sql:governance-release:file` e colar o conteudo de `generated/governance-release.sql` no Supabase SQL Editor. O comando `sql:governance-release` imprime no terminal, mas nao copie as linhas do npm nem o prompt do PowerShell.
+- Aplicar migrations novas de governanca: `20260630_*`, `20260701_member_status_governance.sql`, `20260701_invites_access_expiration.sql`, `20260701_member_access_telemetry.sql`, `20260701_process_access_governance_alerts.sql`.
+- Status em 2026-07-01: preflight local e build passaram; SQL de `generated/governance-release.sql` foi executado no Supabase SQL Editor pelo usuario; Lovable iniciou publicacao em `https://mooui-collab-hub.lovable.app`.
+- Observacao de publicacao em 2026-07-01: o Lovable publica a branch Git, nao o workspace local. As melhorias de frontend/boards so aparecem no app publicado depois de commit + push das alteracoes locais.
+- Edge Functions publicadas pelo Lovable/Supabase: `admin-set-member-status`, `admin-resend-invite`, `admin-renew-member-access`, `record-member-access`, `process-board-reminders`, `process-access-governance-alerts`.
+- Crons ativos: `process-board-reminders` a cada 15 min; `process-access-governance-alerts` diariamente 08:00 UTC.
+- Secrets configurados nesta rodada: `BOARD_REMINDERS_CRON_SECRET`, `ACCESS_GOVERNANCE_CRON_SECRET`.
+- Secrets ignorados/controlados nesta rodada: `RESEND_API_KEY`, `EMAIL_FROM`, `ALLOWED_ORIGIN`. Sem Resend, reenvio por e-mail externo fica pendente; `ALLOWED_ORIGIN` aberto via fallback `*`, restringir depois para `https://mooui-collab-hub.lovable.app`.
+- Smoke pos-publicacao pendente: entrar no app publicado, suspender/reativar usuario, renovar validade de acesso, validar filtros de Usuarios, aplicar preset de liberacao e validar simulador de acesso.
+- Impacto das pendencias: smoke manual nao bloqueia o uso, mas deve ser feito antes de liberar para toda a equipe; `ALLOWED_ORIGIN` aberto nao quebra funcionamento, mas deve ser restringido em rodada curta de hardening.
+- Historico local antes do deploy via Lovable: `supabase functions list` retornou `Cannot find project ref`; tentativa de `supabase link --project-ref rckglywohrywurknephc` em 2026-07-01 chegou ao Supabase, mas foi barrada por permissao da conta (`Your account does not have the necessary privileges`).
+- Tentativa local pos-SQL em 2026-07-01: `supabase functions deploy admin-set-member-status` falhou por projeto nao linkado; novo `supabase link --project-ref rckglywohrywurknephc` falhou por falta de privilegio da conta. Deploy remoto foi concluido depois pelo Lovable.
+
+---
+
 ## Historico de Evolucao
 
 | Data | Marco |
@@ -239,6 +263,63 @@ LinkedItems ←── Todos os modulos operacionais (cross-links)
 | 2026-06-30 | Indicador de comentarios estilo Monday (balao azul com contagem) nos elementos da tabela via `useTaskCommentCounts` |
 | 2026-06-30 | Recarga completa dos 21 boards Modulo: script `internalize-sunday-module-boards.mjs` ganhou flag `--force` para deletar e reclonar todos os boards independente de quantidade de tasks |
 | 2026-06-30 | Todos os 16 membros da organizacao adicionados como membros de todos os 25 boards Modulo (318 memberships criadas) |
+| 2026-06-30 | SundayBoard: menu de grupo ganhou expandir/recolher este/todos os grupos, expandir/recolher subelementos deste/todos os grupos e resumo visual quando o grupo esta comprimido |
+| 2026-06-30 | SundayBoard: subelementos ganharam checkbox inline; marcar/desmarcar atualiza o status entre `done` e `todo`, alimentando o progresso dos resumos |
+| 2026-06-30 | SundayBoard: linha final de cada grupo passou a exibir agregacoes para colunas dinamicas de numeros, checkbox e rating |
+| 2026-06-30 | SundayBoard: coluna Data Acao passou a renderizar barra de progresso real com tooltip de periodo, dias totais/restantes/atraso e percentual de subelementos concluidos |
+| 2026-06-30 | SundayBoard: elementos ganharam acao de fixar/desafixar no menu da linha, com fixados ordenados no topo do grupo por projeto |
+| 2026-06-30 | SundayBoard: linhas ganharam atalho inline e opcao de menu para adicionar subelemento com expansao automatica do elemento |
+| 2026-06-30 | SundayBoard: celula de Data Acao sem data agora mostra "Definir datas" e abre o calendario no clique |
+| 2026-06-30 | SundayBoard: cabecalhos de colunas fixas ganharam menu com ordenar, ocultar e configuracao inicial de lembretes para Data Acao |
+| 2026-06-30 | SundayBoard: menu de grupo ganhou selecionar todos os elementos, duplicar grupo e exportar grupo em CSV compativel com Excel |
+| 2026-06-30 | SundayBoard: colunas dinamicas agora podem ser ocultadas pelo menu da coluna e reexibidas pelo controle Ocultar da toolbar |
+| 2026-06-30 | SundayBoard: menu de grupo ganhou adicionar grupo visual, mover grupo para cima/baixo, alterar cor do grupo e entrada Apps/automacoes |
+| 2026-06-30 | SundayBoard: preferencias de board ganharam migration `board_preferences` e hook `useBoardPreferences`; fixados, colunas ocultas, grupos visuais, ordem de colunas e dias de lembrete sincronizam no Supabase com fallback local |
+| 2026-06-30 | SundayBoard: menu de colunas dinamicas ganhou duplicar coluna com valores, alterar tipo, filtrar por valor, agrupar por coluna customizada e alternar automacao no config da coluna |
+| 2026-06-30 | SundayBoard: Data Acao ganhou fila persistente de lembretes em `board_task_reminders`; configurar dias antes do prazo cria lembretes pendentes para tarefas com data |
+| 2026-06-30 | SundayBoard: menu da linha ganhou acao "Adicionar atualizacao", abrindo o painel lateral do item para comentarios/arquivos/historico |
+| 2026-06-30 | SundayBoard: lembretes de Data Acao ganharam RPC `process_board_task_reminders` e Edge Function `process-board-reminders` para gerar notificacoes via cron/scheduler |
+| 2026-06-30 | Estrutura do app: sidebar passou a filtrar itens por `module_access` e rotas internas ganharam guard `ModuleRoute` para bloquear acesso direto a modulos ocultos |
+| 2026-06-30 | SundayBoard: grupos customizados ganharam persistencia real com `tasks.group_key`; elementos podem ser criados dentro de grupos visuais e movidos entre grupos pelo menu da linha |
+| 2026-06-30 | SundayBoard: colunas fixas ganharam renomeacao persistente por board, permitindo trocar "Status" para "Fotos/Acao" sem alterar schema |
+| 2026-06-30 | Governanca: aba Liberacoes foi alinhada com todos os modulos vivos, Speaks padronizado em `speaks` nas rotas/sidebar/liberacoes e regras de acesso agora podem ser aplicadas a usuarios individuais |
+| 2026-06-30 | Governanca: Command Palette passou a filtrar atalhos e queries por `module_access`, evitando expor modulos ocultos via busca global |
+| 2026-06-30 | Governanca: auditoria de permissoes/liberacoes criada com `permission_audit_log`, historico recente na aba Liberacoes e logs para regras de modulo, usuarios, papeis, camadas de setor, Suporte TI, reset de senha e exclusao/remocao de usuario |
+| 2026-06-30 | Governanca: ciclo de vida de usuarios ganhou `organization_members.status` (`active`, `invited`, `suspended`), RLS/funcoes consideram apenas membros ativos e Configuracoes permite suspender/reativar usuario com auditoria |
+| 2026-06-30 | Governanca: painel de auditoria em Liberacoes ganhou busca, filtros por tipo/acao, exportacao CSV e matriz de acoes criticas por area com nivel esperado/protecao atual |
+| 2026-07-01 | Governanca: usuarios ganharam convite real por e-mail, suspensao com motivo obrigatorio e opcao de bloqueio/desbloqueio global de login via `admin-set-member-status` |
+| 2026-07-01 | Governanca: convites ganharam reenvio, rastreio de expiracao e acesso temporario com renovacao/limpeza pela UI; RLS considera `access_expires_at` nas funcoes de membro/admin |
+| 2026-07-01 | Governanca: aceite de convite e primeiro acesso passaram a ser registrados por `record-member-access`; Usuarios ganhou ultimo acesso, reenvio em lote de convites e alertas de acessos vencendo |
+| 2026-07-01 | Governanca: aba Liberacoes ganhou presets de permissao com auditoria e simulador de acesso efetivo por usuario, considerando regras de usuario, setor, papel e padrao |
+| 2026-07-01 | Governanca: criada rotina `process-access-governance-alerts` para notificar admins sobre convites vencidos, acessos expirados e acessos proximos do vencimento |
+| 2026-07-01 | Governanca: pacote de publicacao Supabase ganhou `npm run check:governance-release`; check local confirmou 10 migrations e 6 Edge Functions da rodada |
+| 2026-07-01 | Governanca: SQL de `generated/governance-release.sql` executado no Supabase SQL Editor pelo usuario; proximo passo eh publicar Edge Functions, secrets/crons e smoke remoto |
+| 2026-07-01 | Governanca: tentativa de deploy da primeira Edge Function pelo CLI confirmou bloqueio de permissao no Supabase; functions ainda precisam ser publicadas por conta com acesso ao projeto |
+| 2026-07-01 | Publicacao: confirmado fluxo Lovable para frontend e Supabase separado para SQL/Edge Functions |
+| 2026-07-01 | Governanca: aba Liberacoes ganhou export/import JSON de regras e diagnostico de riscos em regras, modulos sensiveis, editores operacionais, setores e usuarios sem camada |
+| 2026-07-01 | Governanca: aba Usuarios ganhou checklist de riscos por pessoa com acoes rapidas para reenviar convite e ajustar validade de acesso |
+| 2026-07-01 | Governanca: aba Usuarios ganhou busca, filtros por risco/status/papel/setor, ordenacao operacional e exibicao do papel de permissao na tabela |
+| 2026-07-01 | Publicacao: criado `LOVABLE_GOVERNANCE_DEPLOY_PROMPT.md` com prompt pronto para Lovable publicar frontend e tentar Edge Functions sem rerodar SQL |
+| 2026-07-01 | Publicacao: prompt do Lovable ganhou exemplos de formato para `RESEND_API_KEY`, `EMAIL_FROM` e `ALLOWED_ORIGIN` |
+| 2026-07-01 | Publicacao: criado `LOVABLE_GOVERNANCE_DEPLOY_PROMPT_SEM_RESEND.md` para publicar frontend/functions sem configurar Resend nesta rodada |
+| 2026-07-01 | Publicacao: Lovable iniciou publicacao em `https://mooui-collab-hub.lovable.app`, publicou 6 Edge Functions e ativou crons de lembretes/governanca; Resend e CORS restrito ficam para rodada posterior |
+| 2026-07-01 | Segurança: Lovable reportou 4 vulnerabilidades criticas corrigidas na publicacao (user_roles, ticket_attachments INSERT e storage buckets privados); 8 warnings/info remanescentes nao bloqueiam publish |
+| 2026-07-01 | Publicacao: confirmado que smoke manual e `ALLOWED_ORIGIN` restrito nao bloqueiam uso imediato; ficam como checklist antes da liberacao ampla/hardening |
+| 2026-07-01 | Publicacao: diagnosticado que o app publicado nao refletia as melhorias de frontend porque a branch Git ainda nao recebeu commit/push das alteracoes locais |
+| 2026-07-01 | SundayBoard: rolagem horizontal de grupos reforcada com barra sincronizada/fixa no rodape visivel do grupo enquanto ele cruza o viewport |
+
+### Validacao 2026-07-01
+
+- `npm.cmd run build`: OK apos filtros/ordenacao operacional da aba Usuarios. Avisos persistentes: Browserslist/caniuse-lite antigo e chunk de `TableViewPage.tsx` importado dinamica e estaticamente.
+- `npm.cmd run build`: OK apos reforco da rolagem fixa/sincronizada por grupo no SundayBoard.
+- Smoke remoto pendente no app publicado: `https://mooui-collab-hub.lovable.app`.
+
+### Checklist Uso Inicial
+
+- Pode usar o app publicado para validacao operacional.
+- Para ver as melhorias de frontend/boards no Lovable, fazer commit + push da branch usada pelo Lovable e aguardar o novo build.
+- Antes de liberar para toda a equipe, testar login, Configuracoes > Usuarios, suspender/reativar usuario, renovar validade de acesso, filtros de Usuarios, Liberacoes/presets/simulador e visualizacao dos boards principais.
+- Hardening posterior recomendado: configurar `ALLOWED_ORIGIN=https://mooui-collab-hub.lovable.app`, configurar Resend/Email se quiser envio automatico e revisar os 8 warnings/info de seguranca restantes.
 
 ### Validacao 2026-06-05
 

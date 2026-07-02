@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -18,18 +18,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const recordedSessionRef = useRef<string | null>(null);
+
+  const recordMemberAccess = (nextSession: Session | null) => {
+    if (!nextSession?.user?.id || !nextSession.access_token) return;
+    const key = `${nextSession.user.id}:${nextSession.access_token.slice(0, 24)}`;
+    if (recordedSessionRef.current === key) return;
+    recordedSessionRef.current = key;
+    void supabase.functions.invoke('record-member-access').catch((error) => {
+      console.warn('Member access telemetry failed', error);
+    });
+  };
+
+  const applySession = (nextSession: Session | null) => {
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+    setLoading(false);
+    recordMemberAccess(nextSession);
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      applySession(session);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      applySession(session);
     });
 
     return () => subscription.unsubscribe();

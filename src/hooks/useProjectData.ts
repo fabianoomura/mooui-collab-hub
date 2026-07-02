@@ -105,9 +105,9 @@ export function useProjectTasks(projectId: string | undefined) {
   });
 
   const addTask = useMutation({
-    mutationFn: async (task: { title: string; status: TaskStatus; priority: TaskPriority; parent_task_id?: string }) => {
+    mutationFn: async (task: { title: string; status: TaskStatus; priority: TaskPriority; parent_task_id?: string; group_key?: string | null }) => {
       if (!projectId || !user) throw new Error('Missing project or user');
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('tasks')
         .insert({
           project_id: projectId,
@@ -116,8 +116,12 @@ export function useProjectTasks(projectId: string | undefined) {
           priority: task.priority,
           created_by: user.id,
           parent_task_id: task.parent_task_id || null,
-        });
+          group_key: task.group_key || null,
+        } as any)
+        .select()
+        .single();
       if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
